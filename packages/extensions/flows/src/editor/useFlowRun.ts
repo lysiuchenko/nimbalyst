@@ -65,6 +65,11 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
         write: (path, content) => services.filesystem.writeFile(path, content),
       };
 
+      // Gates and failures are the two moments a run needs the user back, and
+      // the canvas may not be the visible tab — so they go through the host's
+      // own notifications rather than only rendering in the editor.
+      const notify = services.ui;
+
       try {
         const record = await runFlow(
           flow,
@@ -75,6 +80,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
             gate: {
               requestApproval: (request) =>
                 new Promise<GateDecision>((resolve) => {
+                  notify.showWarning(`Flow paused: ${request.message}`);
                   setPendingGate({
                     nodeId: request.nodeId,
                     message: request.message,
@@ -103,10 +109,16 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
         setRunState({ ...record, outputs: record.outputs } as RunState);
         if (record.status === 'failed') {
           const failed = Object.values(record.nodes).find((node) => node.status === 'failed');
-          setRunError(failed ? `${failed.nodeId}: ${failed.error}` : 'the run failed');
+          const reason = failed ? `${failed.nodeId}: ${failed.error}` : 'the run failed';
+          setRunError(reason);
+          notify.showError(`Flow "${record.flowName}" failed — ${reason}`);
+        } else if (record.status === 'done') {
+          notify.showInfo(`Flow "${record.flowName}" finished.`);
         }
       } catch (error) {
-        setRunError(error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        setRunError(message);
+        notify.showError(`Flow could not run — ${message}`);
       } finally {
         setIsRunning(false);
         abortRef.current = null;

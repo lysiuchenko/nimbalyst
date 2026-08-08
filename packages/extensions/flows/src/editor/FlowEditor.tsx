@@ -230,6 +230,57 @@ function FlowCanvas({ host }: { host: EditorHost }) {
         </div>
       )}
 
+      {run.runState && (
+        <div className="flow-run-panel" data-testid="flow-run-panel">
+          <table className="flow-run-table">
+            <thead>
+              <tr>
+                <th>Node</th>
+                <th>Status</th>
+                <th className="flow-run-number">Tokens</th>
+                <th className="flow-run-number">Cost</th>
+                <th>Session</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.values(run.runState.nodes).map((node) => (
+                <tr key={node.nodeId} data-run-node={node.nodeId}>
+                  <td>{node.nodeId}</td>
+                  <td>
+                    <span className={`flow-node-badge flow-node-badge-${node.status}`}>
+                      {node.status}
+                    </span>
+                  </td>
+                  <td className="flow-run-number">
+                    {node.usage ? node.usage.inputTokens + node.usage.outputTokens : '—'}
+                  </td>
+                  <td className="flow-run-number">
+                    {node.usage?.costUsd !== undefined ? `$${node.usage.costUsd.toFixed(4)}` : '—'}
+                  </td>
+                  {/* Selectable rather than a link: no host API can open a
+                      session from an extension (see docs/editorhost-notes.md). */}
+                  <td className="flow-run-session">{node.sessionId ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2}>Run total</td>
+                <td className="flow-run-number">
+                  {run.runState.usage.inputTokens + run.runState.usage.outputTokens}
+                </td>
+                <td className="flow-run-number">
+                  {run.runState.usage.costUsd !== undefined
+                    ? `$${run.runState.usage.costUsd.toFixed(4)}`
+                    : '—'}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
       {saveErrors && (
         <div className="flow-editor-invalid" role="alert" data-testid="flow-save-error">
           {saveErrors}
