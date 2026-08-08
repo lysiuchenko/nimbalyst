@@ -25,6 +25,7 @@ import {
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
 import { formatDuration, previewOf } from './nodes/entryFilter';
 import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
+import { FLOW_THEMES, nextTheme, readTheme, THEME_STORAGE_KEY, type FlowThemeId } from './theme';
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
@@ -82,6 +83,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // xyflow store so it updates the moment a template or node is added.
   const [isEmpty, setIsEmpty] = useState(false);
   const [showVariables, setShowVariables] = useState(false);
+  const [theme, setTheme] = useState<FlowThemeId>(() => readTheme(host.storage));
   // Mirrors baseRef.current.variables for rendering; the ref stays the source
   // of truth so editing a variable never re-renders the canvas.
   const [variables, setVariables] = useState<Record<string, string>>({});
@@ -403,7 +405,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   }
 
   return (
-    <div className="flow-editor" data-testid="flow-editor">
+    <div className="flow-editor" data-testid="flow-editor" data-flow-theme={theme}>
       <div className="flow-toolbar">
         {NODE_TYPES.map((type) => (
           <button
@@ -417,6 +419,21 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             {NODE_TYPE_LABELS[type]}
           </button>
         ))}
+        <button
+          type="button"
+          className="flow-toolbar-button"
+          data-testid="flow-theme"
+          data-flow-theme-current={theme}
+          title={FLOW_THEMES.find((entry) => entry.id === theme)?.description}
+          onClick={() => {
+            const next = nextTheme(theme);
+            setTheme(next);
+            host.storage.set(THEME_STORAGE_KEY, next);
+          }}
+        >
+          <span className="material-symbols-outlined">palette</span>
+          {FLOW_THEMES.find((entry) => entry.id === theme)?.label}
+        </button>
         <button
           type="button"
           className="flow-toolbar-button"

@@ -51,6 +51,27 @@ Two discovery sources are merged, project first:
 Every picker keeps a **custom** toggle: a flow may be authored before the skill
 it targets exists, or shared across machines.
 
+## Theming
+
+The canvas paints from a `--flow-*` token layer whose defaults are the host's
+own `--nim-*` tokens, so out of the box it follows Nimbalyst's light, dark and
+Crystal themes exactly as any other editor does.
+
+The toolbar's palette button cycles the canvas theme, remembered per workspace:
+
+| Theme | What it does |
+| --- | --- |
+| **App theme** | Inherits every host token. The default. |
+| **GlobalLogic** | GlobalLogic brand palette — purple accent, lighter surfaces, tighter 4px corners — with a dark variant for dark app themes. |
+
+A brand theme overrides that one layer and nothing else, which is what keeps it
+scoped to the canvas and reversible. Adding another brand is one block in
+`src/styles.css` plus an entry in `FLOW_THEMES`.
+
+The GlobalLogic hex values are a close visual match rather than values taken
+from a brand-guideline document — they sit in a single clearly-marked block so
+correcting them against the official palette is a one-place edit.
+
 ## Working on the canvas
 
 - **Duplicate** a node from its header. The copy keeps the prompt and settings

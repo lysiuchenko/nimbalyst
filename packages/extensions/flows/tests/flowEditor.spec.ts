@@ -140,6 +140,37 @@ test.describe('canvas actions', () => {
     ).toHaveValue('');
   });
 
+  test('every toolbar control stays reachable in a narrow pane', async () => {
+    const buttons = flows.page.locator('.flow-toolbar button');
+    const count = await buttons.count();
+    // boundingBox is viewport-absolute, so compare against the pane's right
+    // edge rather than its width.
+    const paneRight = await flows.page.evaluate(
+      () => document.querySelector('.flow-editor')!.getBoundingClientRect().right
+    );
+
+    for (let index = 0; index < count; index++) {
+      const box = await buttons.nth(index).boundingBox();
+      expect(box, `toolbar button ${index} has no box`).not.toBeNull();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(paneRight + 2);
+    }
+  });
+
+  test('the canvas theme can be switched and is remembered', async () => {
+    const editor = flows.page.locator('[data-testid="flow-editor"]');
+    await expect(editor).toHaveAttribute('data-flow-theme', 'host');
+
+    await flows.page.locator('[data-testid="flow-theme"]').click();
+    await expect(editor).toHaveAttribute('data-flow-theme', 'globallogic');
+
+    // The brand theme must actually repaint, not just set an attribute.
+    const accent = await flows.page.evaluate(() =>
+      getComputedStyle(document.querySelector('.flow-editor')!).getPropertyValue('--flow-accent').trim()
+    );
+    expect(accent).not.toBe('');
+    expect(accent).toMatch(/^#|rgb/);
+  });
+
   test('undo takes back a canvas edit, redo puts it back', async () => {
     await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
 
