@@ -115,6 +115,45 @@ test.describe('starting from empty', () => {
   });
 });
 
+test.describe('canvas actions', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'actions.flow.json': pipeline }));
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('duplicating a node copies its work but not its identity', async () => {
+    await openFlow(flows.page, 'actions.flow.json');
+    await flows.page.locator('[data-duplicate="plan"]').click();
+
+    await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
+    // The copy keeps the prompt but drops the output port, which cannot be shared.
+    await expect(
+      flows.page.locator('.flow-node[data-node-id="plan-2"]').getByLabel('Prompt')
+    ).toHaveValue('Plan it');
+    await expect(
+      flows.page.locator('.flow-node[data-node-id="plan-2"]').getByLabel('Output port')
+    ).toHaveValue('');
+  });
+
+  test('variables are editable without dropping into source mode', async () => {
+    await flows.page.locator('[data-testid="flow-variables-toggle"]').click();
+    await expect(flows.page.locator('[data-testid="flow-variables"]')).toBeVisible();
+
+    await flows.page.locator('[data-testid="flow-add-variable"]').click();
+    await flows.page.locator('[data-variable="input"] input').nth(1).fill('src/');
+    await flows.save();
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Saved', { timeout: 30_000 });
+
+    const saved = flows.readFlow('actions.flow.json') as { variables: Record<string, string> };
+    expect(saved.variables).toMatchObject({ input: 'src/' });
+  });
+});
+
 test.describe('running a flow', () => {
   let flows: FlowsApp;
 

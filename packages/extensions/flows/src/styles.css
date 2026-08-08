@@ -527,3 +527,30 @@
 }
 
 .flow-canvas { position: relative; }
+
+.flow-node-duplicate {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--nim-text-faint);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.flow-node-duplicate:hover { color: var(--nim-primary); }
+.flow-node-duplicate .material-symbols-outlined { font-size: 14px; }
+
+.flow-variables {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--nim-border);
+  background: var(--nim-bg-secondary);
+}
+
+.flow-variables .flow-node-input { font-size: 11px; }
+.flow-variables code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--nim-bg-tertiary);
+}

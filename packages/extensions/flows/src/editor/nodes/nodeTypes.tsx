@@ -67,9 +67,10 @@ const CHROME: Record<NodeType, NodeChrome> = {
 interface FlowNodeCardProps extends NodeProps<FlowCanvasNode> {
   chrome: NodeChrome;
   onEdited: () => void;
+  onDuplicate: (id: string) => void;
 }
 
-function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProps) {
+function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: FlowNodeCardProps) {
   const { updateNodeData } = useReactFlow<FlowCanvasNode>();
   const node = data.node;
   const status = useNodeStatus(id);
@@ -114,6 +115,16 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProp
         ) : (
           <span className="flow-node-type">{node.type}</span>
         )}
+        <button
+          type="button"
+          className="flow-node-duplicate"
+          data-duplicate={id}
+          title="Duplicate this node"
+          aria-label={`Duplicate ${node.label ?? id}`}
+          onClick={() => onDuplicate(id)}
+        >
+          <span className="material-symbols-outlined">content_copy</span>
+        </button>
       </header>
 
       {chrome.input === 'pick' ? (
@@ -221,11 +232,14 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProp
  * One component per node type, as the host's node registry expects. They share
  * a card body and differ in icon, primary field, and editing affordance.
  */
-export function createNodeTypes(onEdited: () => void): NodeTypes {
+export function createNodeTypes(
+  onEdited: () => void,
+  onDuplicate: (id: string) => void
+): NodeTypes {
   const entries = (Object.keys(CHROME) as NodeType[]).map((type) => {
     const chrome = CHROME[type];
     const Component = (props: NodeProps<FlowCanvasNode>) => (
-      <FlowNodeCard {...props} chrome={chrome} onEdited={onEdited} />
+      <FlowNodeCard {...props} chrome={chrome} onEdited={onEdited} onDuplicate={onDuplicate} />
     );
     Component.displayName = `${type}Node`;
     return [type, Component];

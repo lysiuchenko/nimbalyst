@@ -8,6 +8,7 @@ import {
   useReactFlow,
   type Connection,
   type EdgeChange,
+  type FinalConnectionState,
   type NodeChange,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,6 +25,7 @@ import {
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
 import { formatDuration, previewOf } from './nodes/entryFilter';
 import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
+import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
@@ -51,7 +53,7 @@ export function FlowEditor({ host }: EditorHostProps) {
 }
 
 function FlowCanvas({ host }: { host: EditorHost }) {
-  const { getNodes, getEdges, addNodes, setNodes, setEdges, fitView, screenToFlowPosition } = useReactFlow<
+  const { getNodes, getEdges, addNodes, addEdges, setNodes, setEdges, fitView, screenToFlowPosition } = useReactFlow<
     FlowCanvasNode,
     FlowCanvasEdge
   >();
@@ -76,6 +78,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // Drives the starter gallery. Tracked in state rather than read from the
   // xyflow store so it updates the moment a template or node is added.
   const [isEmpty, setIsEmpty] = useState(false);
+  const [showVariables, setShowVariables] = useState(false);
+  // Mirrors baseRef.current.variables for rendering; the ref stays the source
+  // of truth so editing a variable never re-renders the canvas.
+  const [variables, setVariables] = useState<Record<string, string>>({});
 
   const readGraph = useCallback(
     () => ({ nodes: getNodes(), edges: getEdges() }),
@@ -86,6 +92,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     const candidate = graphToFlow(baseRef.current, readGraph());
     setAnalysis({ references: referencesByNode(candidate), issues: issuesByNode(candidate) });
     setIsEmpty(candidate.nodes.length === 0);
+    setVariables(candidate.variables);
   }, [readGraph]);
 
   const applyContent = useCallback((flow: Flow) => {
@@ -193,7 +200,80 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     };
   }, [host]);
 
-  const nodeTypes = useMemo(() => createNodeTypes(markDirty), [markDirty]);
+  const setVariable = useCallback(
+    (name: string, value: string) => {
+      baseRef.current = {
+        ...baseRef.current,
+        variables: { ...baseRef.current.variables, [name]: value },
+      };
+      markDirty();
+      refreshAnalysis();
+    },
+    [markDirty, refreshAnalysis]
+  );
+
+  const removeVariable = useCallback(
+    (name: string) => {
+      const { [name]: _removed, ...rest } = baseRef.current.variables;
+      baseRef.current = { ...baseRef.current, variables: rest };
+      markDirty();
+      refreshAnalysis();
+    },
+    [markDirty, refreshAnalysis]
+  );
+
+  // Renaming rewrites every {{…}} that used the old name; without that the
+  // rename would silently break prompts and only fail at run time.
+  const renameVariableAndRefs = useCallback(
+    (from: string, to: string) => {
+      if (from === to || validVariableName(to) || to in baseRef.current.variables) return;
+
+      const current = graphToFlow(baseRef.current, readGraph());
+      const next = renameVariable(current, from, to);
+      baseRef.current = { ...baseRef.current, variables: next.variables };
+      const graph = flowToGraph(next);
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
+      markDirty();
+      refreshAnalysis();
+    },
+    [markDirty, readGraph, refreshAnalysis, setEdges, setNodes]
+  );
+
+  const onDuplicate = useCallback(
+    (nodeId: string) => {
+      const nodes = getNodes();
+      const original = nodes.find((node) => node.id === nodeId);
+      if (!original) return;
+      addNodes(duplicateNode(original, nodes));
+      markDirty();
+      refreshAnalysis();
+    },
+    [addNodes, getNodes, markDirty, refreshAnalysis]
+  );
+
+  // Dropping a connection on empty canvas creates the next node already wired,
+  // which is the fastest way to extend a flow.
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+      if (state.isValid || !state.fromNode) return;
+
+      const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+      const position = screenToFlowPosition({ x: point.clientX, y: point.clientY });
+      const id = uniqueNodeId('agent', new Set(getNodes().map((node) => node.id)));
+
+      addNodes({ id, type: 'agent', position, data: { node: createNode('agent', id) } });
+      addEdges({ id: `${state.fromNode.id}->${id}`, source: state.fromNode.id, target: id });
+      markDirty();
+      refreshAnalysis();
+    },
+    [addEdges, addNodes, getNodes, markDirty, refreshAnalysis, screenToFlowPosition]
+  );
+
+  const nodeTypes = useMemo(
+    () => createNodeTypes(markDirty, onDuplicate),
+    [markDirty, onDuplicate]
+  );
   const run = useFlowRun(host);
 
   const useTemplate = useCallback(
@@ -251,6 +331,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             {NODE_TYPE_LABELS[type]}
           </button>
         ))}
+        <button
+          type="button"
+          className="flow-toolbar-button"
+          data-testid="flow-variables-toggle"
+          onClick={() => setShowVariables((previous) => !previous)}
+        >
+          <span className="material-symbols-outlined">data_object</span>
+          Variables ({Object.keys(variables).length})
+        </button>
         <span className="flow-toolbar-spacer" />
         {run.runState?.usage && (
           <span className="flow-toolbar-cost" data-testid="flow-run-cost">
@@ -273,6 +362,70 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           {run.isRunning ? 'Cancel' : 'Run'}
         </button>
       </div>
+
+      {showVariables && (
+        <div className="flow-variables" data-testid="flow-variables">
+          <table className="flow-run-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Default value</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(variables).map(([name, value]) => (
+                <tr key={name} data-variable={name}>
+                  <td>
+                    <input
+                      className="flow-node-input"
+                      aria-label={`Name of ${name}`}
+                      defaultValue={name}
+                      onBlur={(event) => renameVariableAndRefs(name, event.target.value.trim())}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="flow-node-input"
+                      aria-label={`Value of ${name}`}
+                      value={value}
+                      onChange={(event) => setVariable(name, event.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="flow-node-field-toggle"
+                      data-remove-variable={name}
+                      onClick={() => removeVariable(name)}
+                    >
+                      remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-add-variable"
+            onClick={() =>
+              setVariable(
+                uniqueNodeId('input', new Set(Object.keys(baseRef.current.variables))),
+                ''
+              )
+            }
+          >
+            <span className="material-symbols-outlined">add</span>
+            Add variable
+          </button>
+          <p className="flow-node-hint">
+            Use a variable anywhere with <code>{'{{name}}'}</code>. Renaming one rewrites every
+            reference to it.
+          </p>
+        </div>
+      )}
 
       {run.pendingGate && (
         <div className="flow-gate" role="alertdialog" data-testid="flow-gate">
@@ -394,6 +547,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectEnd={onConnectEnd}
             deleteKeyCode={['Backspace', 'Delete']}
             proOptions={{ hideAttribution: false }}
             fitView

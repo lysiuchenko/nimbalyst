@@ -51,6 +51,17 @@ Two discovery sources are merged, project first:
 Every picker keeps a **custom** toggle: a flow may be authored before the skill
 it targets exists, or shared across machines.
 
+## Working on the canvas
+
+- **Duplicate** a node from its header. The copy keeps the prompt and settings
+  but gets a new id and drops the output port — two nodes publishing the same
+  port name would be ambiguous.
+- **Drag from a handle onto empty canvas** to create the next node already
+  connected.
+- **Variables** are edited from the toolbar, not source mode. Renaming one
+  rewrites every `{{…}}` that used it; renaming without that would break prompts
+  silently and only fail at run time.
+
 ## Schema reference
 
 ```jsonc
