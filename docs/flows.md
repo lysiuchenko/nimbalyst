@@ -19,6 +19,26 @@ to connect, Backspace deletes, and every node's fields are editable in place.
 **Run** executes what is on the canvas; gates pause for approval; the panel
 underneath reports each node's status, tokens, cost and session.
 
+## Choosing, not typing
+
+Skill and slash-command nodes pick from what your workspace actually has. The
+list is searchable — matching on name *and* description, so a half-remembered
+skill is still findable — and each option shows where it came from
+(`project` / `user` / `plugin`). Agent nodes pick a model from the ones you have
+enabled and toggle tools rather than typing an array; no tools selected means
+*host default*, which is not the same as "no tools".
+
+Two discovery sources are merged, project first:
+
+- the host's own scan (`slash-command:list`), which covers user and plugin entries;
+- a direct scan of this workspace's `.claude/skills`, `.agents/skills` and
+  `.claude/commands`. The host only scans those when
+  `workspaceClaudeCompatibilityEnabled` is on and it defaults to off, so without
+  this a repo's own skills would be missing from the picker.
+
+Every picker keeps a **custom** toggle: a flow may be authored before the skill
+it targets exists, or shared across machines.
+
 ## Schema reference
 
 ```jsonc

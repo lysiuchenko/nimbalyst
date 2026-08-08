@@ -52,6 +52,17 @@ interface ModelLister {
   listModels(): Promise<{ id: string; name: string }[]>;
 }
 
+/** Optional workspace scan, merged ahead of whatever the host reports. */
+export interface WorkspaceScanner {
+  (): Promise<{ skills: CatalogEntry[]; commands: CatalogEntry[] }>;
+}
+
+/** Project entries win: a skill in this repo is the one the author means. */
+function mergeEntries(project: CatalogEntry[], host: CatalogEntry[]): CatalogEntry[] {
+  const seen = new Set(project.map((entry) => entry.value));
+  return [...project, ...host.filter((entry) => !seen.has(entry.value))];
+}
+
 interface HostSlashCommand {
   name: string;
   description?: string;
@@ -71,18 +82,29 @@ interface HostSlashCommand {
 export async function loadCatalog(
   ipc: HostIpc,
   ai: ModelLister,
-  workspacePath: string
+  workspacePath: string,
+  scanWorkspace?: WorkspaceScanner
 ): Promise<Catalog> {
-  const [entries, models] = await Promise.all([
+  const [entries, models, project] = await Promise.all([
     safely(async () => (await ipc.invoke('slash-command:list', { workspacePath })) as HostSlashCommand[], []),
     safely(() => ai.listModels(), []),
+    safely(
+      async () => (scanWorkspace ? await scanWorkspace() : { skills: [], commands: [] }),
+      { skills: [] as CatalogEntry[], commands: [] as CatalogEntry[] }
+    ),
   ]);
 
   const invocable = entries.filter((entry) => entry.userInvocable !== false);
 
   return {
-    skills: invocable.filter((entry) => entry.kind === 'skill').map((entry) => toEntry(entry, false)),
-    commands: invocable.filter((entry) => entry.kind !== 'skill').map((entry) => toEntry(entry, true)),
+    skills: mergeEntries(
+      project.skills,
+      invocable.filter((entry) => entry.kind === 'skill').map((entry) => toEntry(entry, false))
+    ),
+    commands: mergeEntries(
+      project.commands,
+      invocable.filter((entry) => entry.kind !== 'skill').map((entry) => toEntry(entry, true))
+    ),
     models: models.map((model) => ({ value: model.id, label: model.name || model.id })),
     tools: TOOL_CHOICES,
   };

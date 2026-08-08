@@ -22,9 +22,11 @@ import {
   type FlowGraph,
 } from './flowGraph';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
+import { formatDuration, previewOf } from './nodes/entryFilter';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
+import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
 import { RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
@@ -176,7 +178,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     if (!ipc || !services.ai) return;
 
     let cancelled = false;
-    void loadCatalog(ipc, services.ai, host.workspaceId ?? workspace).then((next) => {
+    void loadCatalog(ipc, services.ai, host.workspaceId ?? workspace, () =>
+      scanWorkspaceCatalog(services.filesystem)
+    ).then((next) => {
       if (!cancelled) setCatalog(next);
     });
     return () => {
@@ -288,6 +292,8 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               <tr>
                 <th>Node</th>
                 <th>Status</th>
+                <th className="flow-run-number">Took</th>
+                <th>Result</th>
                 <th className="flow-run-number">Tokens</th>
                 <th className="flow-run-number">Cost</th>
                 <th>Session</th>
@@ -303,6 +309,20 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                     </span>
                   </td>
                   <td className="flow-run-number">
+                    {formatDuration(
+                      node.startedAt !== undefined && node.finishedAt !== undefined
+                        ? node.finishedAt - node.startedAt
+                        : undefined
+                    )}
+                  </td>
+                  <td className="flow-run-result" title={node.error ?? node.output ?? ''}>
+                    {node.error ? (
+                      <span className="flow-run-failed">{previewOf(node.error)}</span>
+                    ) : (
+                      previewOf(node.output)
+                    )}
+                  </td>
+                  <td className="flow-run-number">
                     {node.usage ? node.usage.inputTokens + node.usage.outputTokens : '—'}
                   </td>
                   <td className="flow-run-number">
@@ -316,7 +336,8 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={2}>Run total</td>
+                <td colSpan={3}>Run total</td>
+                <td />
                 <td className="flow-run-number">
                   {run.runState.usage.inputTokens + run.runState.usage.outputTokens}
                 </td>

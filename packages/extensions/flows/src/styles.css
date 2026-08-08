@@ -370,3 +370,81 @@
   font-size: 10px;
   line-height: 1.4;
 }
+
+.flow-picker-chosen {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--nim-border);
+  border-radius: 4px;
+  background: var(--nim-bg);
+}
+
+.flow-picker-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.flow-picker-list {
+  max-height: 168px;
+  margin: 2px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--nim-border);
+  border-radius: 4px;
+  background: var(--nim-bg);
+}
+
+.flow-picker-option {
+  display: block;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-bottom: 1px solid var(--nim-border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flow-picker-option:hover {
+  background: var(--nim-bg-hover);
+}
+
+.flow-picker-option-name {
+  display: block;
+  color: var(--nim-text);
+  font-size: 11px;
+}
+
+.flow-picker-option-source {
+  float: right;
+  color: var(--nim-text-faint);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.flow-picker-option-desc {
+  display: block;
+  color: var(--nim-text-faint);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.flow-run-result {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--nim-text-muted);
+  font-family: var(--nim-font-mono, monospace);
+}
+
+.flow-run-failed {
+  color: var(--nim-error);
+}

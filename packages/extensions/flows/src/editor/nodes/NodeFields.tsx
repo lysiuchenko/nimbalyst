@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CatalogEntry } from '../../host/catalog';
+import { filterEntries } from './entryFilter';
 
 /**
  * A picker over a discovered catalog, with a free-text escape hatch.
@@ -54,20 +55,7 @@ export function CatalogPicker({
           {entries.length === 0 && <span className="flow-node-hint">{emptyHint}</span>}
         </>
       ) : (
-        <select
-          className="flow-node-input"
-          aria-label={label}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">— choose —</option>
-          {entries.map((entry) => (
-            <option key={entry.value} value={entry.value}>
-              {entry.name}
-              {entry.source ? ` · ${entry.source}` : ''}
-            </option>
-          ))}
-        </select>
+        <SearchablePicker label={label} value={value} entries={entries} onChange={onChange} />
       )}
 
       {selected?.description && <span className="flow-node-hint">{selected.description}</span>}
@@ -75,6 +63,92 @@ export function CatalogPicker({
         <span className="flow-node-hint">takes: {selected.argumentHint}</span>
       )}
     </label>
+  );
+}
+
+/** How many matches to show before asking the user to keep typing. */
+const VISIBLE_MATCHES = 8;
+
+/**
+ * Type-to-search over the catalog.
+ *
+ * A workspace with plugins installed offers well over a hundred skills, and a
+ * native `<select>` of that length is a scroll rather than a choice. Typing
+ * narrows by name *and* description, so a half-remembered skill is still
+ * findable.
+ */
+function SearchablePicker({
+  label,
+  value,
+  entries,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  entries: CatalogEntry[];
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = entries.find((entry) => entry.value === value);
+  const matches = filterEntries(entries, query);
+
+  if (value && !open) {
+    return (
+      <div className="flow-picker-chosen">
+        <span className="flow-picker-value" title={selected?.name ?? value}>
+          {selected?.name ?? value}
+        </span>
+        <button
+          type="button"
+          className="flow-node-field-toggle"
+          aria-label={`Change ${label}`}
+          onClick={() => {
+            setQuery('');
+            setOpen(true);
+          }}
+        >
+          change
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flow-picker">
+      <input
+        className="flow-node-input"
+        aria-label={label}
+        value={query}
+        autoFocus={open}
+        placeholder={`Search ${entries.length} available…`}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <ul className="flow-picker-list">
+        {matches.slice(0, VISIBLE_MATCHES).map((entry) => (
+          <li key={entry.value}>
+            <button
+              type="button"
+              className="flow-picker-option"
+              onClick={() => {
+                onChange(entry.value);
+                setOpen(false);
+              }}
+            >
+              <span className="flow-picker-option-name">{entry.name}</span>
+              {entry.source && <span className="flow-picker-option-source">{entry.source}</span>}
+              {entry.description && (
+                <span className="flow-picker-option-desc">{entry.description}</span>
+              )}
+            </button>
+          </li>
+        ))}
+        {matches.length === 0 && <li className="flow-node-hint">No match. Use “custom” to type a name.</li>}
+        {matches.length > VISIBLE_MATCHES && (
+          <li className="flow-node-hint">+{matches.length - VISIBLE_MATCHES} more — keep typing</li>
+        )}
+      </ul>
+    </div>
   );
 }
 

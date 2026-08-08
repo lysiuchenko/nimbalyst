@@ -105,3 +105,39 @@ describe('loadCatalog', () => {
     expect(catalog.tools).toContain('Bash');
   });
 });
+
+describe('loadCatalog — project entries the host does not report', () => {
+  it('merges skills found in the workspace ahead of plugin ones', async () => {
+    const host = ipc(entries);
+
+    const catalog = await loadCatalog(host, host, '/repo', async () => ({
+      skills: [{ value: 'release-notes', name: 'release-notes', source: 'project' }],
+      commands: [],
+    }));
+
+    expect(catalog.skills[0].value).toBe('release-notes');
+    expect(catalog.skills.map((s) => s.value)).toContain('brainstorming');
+  });
+
+  it('does not list the same entry twice when host and workspace both report it', async () => {
+    const host = ipc(entries);
+
+    const catalog = await loadCatalog(host, host, '/repo', async () => ({
+      skills: [{ value: 'brainstorming', name: 'brainstorming', source: 'project' }],
+      commands: [],
+    }));
+
+    expect(catalog.skills.filter((s) => s.value === 'brainstorming')).toHaveLength(1);
+    expect(catalog.skills[0].source).toBe('project');
+  });
+
+  it('still loads when the workspace scan fails', async () => {
+    const host = ipc(entries);
+
+    const catalog = await loadCatalog(host, host, '/repo', async () => {
+      throw new Error('no filesystem');
+    });
+
+    expect(catalog.skills.length).toBeGreaterThan(0);
+  });
+});
