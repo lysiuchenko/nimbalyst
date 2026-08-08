@@ -103,6 +103,19 @@ describe('flows.runShell', () => {
     expect(result.stdout.trim()).toBe('two words and more');
   });
 
+  it('refuses a cwd that reaches outside via a symlink, not just via ..', async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'flows-outside-'));
+    const link = path.join(workspace, 'escape');
+    fs.rmSync(link, { force: true });
+    fs.symlinkSync(outside, link, 'dir');
+
+    await expect(
+      (await methods()).runShell({ nodeId: 'n', command: 'pwd', cwd: 'escape', allowlist: ['pwd'] })
+    ).rejects.toThrow('cwd must stay inside the workspace');
+
+    fs.rmSync(outside, { recursive: true, force: true });
+  });
+
   it('does not run the command through a shell, so metacharacters are inert', async () => {
     const result = await (await methods()).runShell({
       nodeId: 'n',

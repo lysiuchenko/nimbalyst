@@ -115,3 +115,37 @@ export function graphToFlow(base: Flow, graph: FlowGraph): Flow {
 
   return { version: 1, name: base.name, nodes, edges, variables: base.variables };
 }
+
+/** Roughly a node's footprint, used to decide whether a spot is free. */
+const NODE_WIDTH = 260;
+const NODE_HEIGHT = 200;
+
+/**
+ * Find free space for a node the user just added.
+ *
+ * Dropping every new node at a fixed offset buries them in a pile the user then
+ * has to drag apart, which is exactly the friction the canvas is meant to
+ * remove. Search right first, then wrap to the next row.
+ */
+export function placeNewNode(
+  existing: { position: NodePosition }[],
+  preferred: NodePosition
+): NodePosition {
+  const occupied = (spot: NodePosition) =>
+    existing.some(
+      (node) =>
+        Math.abs(node.position.x - spot.x) < NODE_WIDTH &&
+        Math.abs(node.position.y - spot.y) < NODE_HEIGHT
+    );
+
+  for (let row = 0; row < 50; row++) {
+    for (let column = 0; column < 10; column++) {
+      const spot = {
+        x: preferred.x + column * NODE_WIDTH,
+        y: preferred.y + row * NODE_HEIGHT,
+      };
+      if (!occupied(spot)) return spot;
+    }
+  }
+  return preferred;
+}

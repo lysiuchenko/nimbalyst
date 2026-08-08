@@ -1535,13 +1535,16 @@ export interface OnboardingState {
 }
 
 export function getOnboardingState(): OnboardingState {
+  // Fork deviation: this build never shows the startup onboarding (the
+  // Standard/Developer mode chooser). Reporting it already completed is the
+  // single gate the renderer reads. See "Core deviations" in FORK-NOTICE.md.
   return {
     userRole: getAppStore().get('userRole'),
     userEmail: getAppStore().get('userEmail'),
     referralSource: getAppStore().get('referralSource'),
     onboardingNextPrompt: getAppStore().get('onboardingNextPrompt'),
-    onboardingCompleted: getAppStore().get('onboardingCompleted'),
-    unifiedOnboardingCompleted: getAppStore().get('unifiedOnboardingCompleted')
+    onboardingCompleted: true,
+    unifiedOnboardingCompleted: true
   };
 }
 

@@ -5,6 +5,29 @@ import type { NodeExecutor, NodeExecutorContext } from './types';
 /** Operators that would let one allowlisted command pull in another. */
 const CHAINING = ['&&', '||', ';', '|', '$(', '`', '>', '<', '&', '\n'];
 
+/**
+ * Flags that turn an allowlisted executable into an arbitrary one.
+ *
+ * Allowlisting the *executable* is not enough: `node -e '…'`, npm's
+ * `--node-options=--require=…` and git's `--upload-pack=…` all execute code the
+ * allowlist never approved. These are refused for every command, because the
+ * point of the allowlist is to bound what a flow can run.
+ */
+const SMUGGLING_FLAGS = [
+  '-e',
+  '--eval',
+  '-p',
+  '--print',
+  '--node-options',
+  '--require',
+  '-r',
+  '--upload-pack',
+  '--receive-pack',
+  '--exec',
+  '--use',
+  '-c',
+];
+
 function sessionNameFor(node: FlowNode): string {
   return node.label ?? node.id;
 }
@@ -138,11 +161,23 @@ function assertAllowed(command: string, allowlist: readonly string[]): void {
     }
   }
 
-  const executable = command.trim().split(/\s+/)[0] ?? '';
+  const argv = command.trim().split(/\s+/);
+  const executable = argv[0] ?? '';
   if (!allowlist.includes(executable)) {
     throw new Error(
       `shell command ${JSON.stringify(executable)} is not allowed; permitted commands: ${allowlist.join(', ')}`
     );
+  }
+
+  for (const argument of argv.slice(1)) {
+    // `--flag=value` smuggles just as well as `--flag value`.
+    const flag = argument.split('=')[0];
+    if (SMUGGLING_FLAGS.includes(flag)) {
+      throw new Error(
+        `shell flag ${JSON.stringify(flag)} is not allowed for ${JSON.stringify(executable)}: ` +
+          `it can execute code the allowlist does not cover`
+      );
+    }
   }
 }
 

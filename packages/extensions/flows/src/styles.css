@@ -292,3 +292,81 @@
   color: var(--nim-text-muted);
   user-select: text;
 }
+
+.flow-node { width: 260px; }
+
+.flow-node-field-toggle {
+  float: right;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--nim-text-link);
+  font-size: 9px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.flow-node-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--nim-text-faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.flow-tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.flow-tool-chip {
+  padding: 1px 6px;
+  border: 1px solid var(--nim-border);
+  border-radius: 999px;
+  background: var(--nim-bg);
+  color: var(--nim-text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.flow-tool-chip-on {
+  border-color: var(--nim-primary);
+  background: var(--nim-primary);
+  color: #fff;
+}
+
+.flow-ref-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.flow-ref-chip {
+  padding: 1px 6px;
+  border: 1px dashed var(--nim-border);
+  border-radius: 4px;
+  background: var(--nim-bg);
+  color: var(--nim-text-muted);
+  font-family: var(--nim-font-mono, monospace);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.flow-ref-chip:hover {
+  border-style: solid;
+  border-color: var(--nim-primary);
+  color: var(--nim-text);
+}
+
+.flow-node-invalid {
+  border-color: var(--nim-error);
+}
+
+.flow-node-issues {
+  margin: 6px 0 0;
+  padding-left: 14px;
+  color: var(--nim-error);
+  font-size: 10px;
+  line-height: 1.4;
+}

@@ -12,6 +12,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const SPAWN_TIMEOUT_MS = 10 * 60 * 1000;
@@ -132,16 +133,32 @@ function tokenize(command: string): string[] {
   return argv;
 }
 
-/** Keep a node's working directory inside the workspace, symlinks included. */
+/**
+ * Keep a node's working directory inside the workspace.
+ *
+ * The containment check runs on the REAL path: `path.resolve` is lexical, so a
+ * symlink inside the workspace pointing outside it would pass a purely textual
+ * check and then run somewhere else entirely.
+ */
 function resolveCwd(workspacePath: string, requested?: string): string {
-  if (!requested) return workspacePath;
+  const workspaceReal = realPath(workspacePath);
+  if (!requested) return workspaceReal;
 
-  const resolved = path.resolve(workspacePath, requested);
-  const relative = path.relative(workspacePath, resolved);
+  const resolved = realPath(path.resolve(workspaceReal, requested));
+  const relative = path.relative(workspaceReal, resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error(`cwd must stay inside the workspace, got ${JSON.stringify(requested)}`);
   }
   return resolved;
+}
+
+/** Resolve symlinks where the path exists; a missing path cannot be escaped through. */
+function realPath(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return path.resolve(target);
+  }
 }
 
 function spawnCapture(executable: string, args: string[], cwd: string): Promise<RunShellResult> {

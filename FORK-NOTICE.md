@@ -119,6 +119,7 @@ a core change, it is made and recorded here, so every
 | File | Change | Why |
 | --- | --- | --- |
 | `packages/electron/src/main/utils/store.ts` | `shouldShowCommunityPopup()` returns `false` unconditionally | This build never shows the community / Discord popup. Chosen as the single gate both surfaces flow through (`shouldShowDiscordInvitation` delegates to it), so the diff is one line. Requested 2026-08-08. |
+| `packages/electron/src/main/utils/store.ts` | `getOnboardingState()` reports `onboardingCompleted` / `unifiedOnboardingCompleted` as always true | This build never shows the startup Standard/Developer mode chooser. That state object is the single gate the renderer reads. Requested 2026-08-08. |
 
 ### The one sanctioned edit to a core file
 

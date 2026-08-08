@@ -10,17 +10,22 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES, type Flow, type NodeType } from '../schema/types';
 import { parseFlowFile } from '../schema/validate';
 import {
   flowToGraph,
   graphToFlow,
+  placeNewNode,
   type FlowCanvasEdge,
   type FlowCanvasNode,
   type FlowGraph,
 } from './flowGraph';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
+import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
+import { issuesByNode, referencesByNode } from './references';
+import { loadCatalog, type Catalog } from '../host/catalog';
+import { getHostServices } from '../host/hostServices';
 import { RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
@@ -43,7 +48,7 @@ export function FlowEditor({ host }: EditorHostProps) {
 }
 
 function FlowCanvas({ host }: { host: EditorHost }) {
-  const { getNodes, getEdges, addNodes, fitView } = useReactFlow<
+  const { getNodes, getEdges, addNodes, fitView, screenToFlowPosition } = useReactFlow<
     FlowCanvasNode,
     FlowCanvasEdge
   >();
@@ -58,11 +63,23 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // replaced only when the file changes underneath us; every edit in between
   // lives in the xyflow store, not here.
   const [loaded, setLoaded] = useState<{ graph: FlowGraph; revision: number } | null>(null);
+  const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
+  // Recomputed when the canvas changes so a node shows its own problems and its
+  // available inputs while it is being edited, not only at save time.
+  const [analysis, setAnalysis] = useState<{
+    references: Record<string, string[]>;
+    issues: Record<string, string[]>;
+  }>({ references: {}, issues: {} });
 
   const readGraph = useCallback(
     () => ({ nodes: getNodes(), edges: getEdges() }),
     [getEdges, getNodes]
   );
+
+  const refreshAnalysis = useCallback(() => {
+    const candidate = graphToFlow(baseRef.current, readGraph());
+    setAnalysis({ references: referencesByNode(candidate), issues: issuesByNode(candidate) });
+  }, [readGraph]);
 
   const applyContent = useCallback((flow: Flow) => {
     baseRef.current = flow;
@@ -96,42 +113,76 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     applyContent,
     getCurrentContent: () => graphToFlow(baseRef.current, readGraph()),
     onSave,
-    onLoaded: () => fitView({ padding: 0.2, maxZoom: 1 }),
+    onLoaded: () => {
+      fitView({ padding: 0.2, maxZoom: 1 });
+      refreshAnalysis();
+    },
   });
 
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowCanvasNode>[]) => {
       if (changes.some(isUserChange)) markDirty();
+      refreshAnalysis();
     },
-    [markDirty]
+    [markDirty, refreshAnalysis]
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange<FlowCanvasEdge>[]) => {
       if (changes.some(isUserChange)) markDirty();
+      refreshAnalysis();
     },
-    [markDirty]
+    [markDirty, refreshAnalysis]
   );
 
   // The canvas is uncontrolled, so xyflow adds the edge to its own store; this
   // only records that the document changed. Adding it here as well would write
   // the connection to the file twice.
-  const onConnect = useCallback((_connection: Connection) => markDirty(), [markDirty]);
+  const onConnect = useCallback(
+    (_connection: Connection) => {
+      markDirty();
+      refreshAnalysis();
+    },
+    [markDirty, refreshAnalysis]
+  );
 
   const addNodeOfType = useCallback(
     (type: NodeType) => {
       const existing = getNodes();
       const id = nextNodeId(type, new Set(existing.map((node) => node.id)));
+      // Start from what the user is actually looking at, then find free space
+      // so a new node never lands buried under an existing one.
+      const viewportCentre = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
       addNodes({
         id,
         type,
-        position: { x: 60 + existing.length * 40, y: 60 + existing.length * 30 },
+        position: placeNewNode(existing, viewportCentre),
         data: { node: createNode(type, id) },
       });
       markDirty();
+      refreshAnalysis();
     },
-    [addNodes, getNodes, markDirty]
+    [addNodes, getNodes, markDirty, refreshAnalysis, screenToFlowPosition]
   );
+
+  useEffect(() => {
+    const services = getHostServices();
+    const workspace = host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
+    const ipc = (window as unknown as { electronAPI?: { invoke(channel: string, ...args: unknown[]): Promise<unknown> } })
+      .electronAPI;
+    if (!ipc || !services.ai) return;
+
+    let cancelled = false;
+    void loadCatalog(ipc, services.ai, host.workspaceId ?? workspace).then((next) => {
+      if (!cancelled) setCatalog(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [host]);
 
   const nodeTypes = useMemo(() => createNodeTypes(markDirty), [markDirty]);
   const run = useFlowRun(host);
@@ -289,6 +340,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
       <div className="flow-canvas">
         {!isLoading && loaded && (
+          <CatalogContext.Provider value={catalog}>
+          <ReferencesContext.Provider value={analysis.references}>
+          <NodeIssuesContext.Provider value={analysis.issues}>
           <RunStatusContext.Provider value={run.statuses}>
           <ReactFlow
             key={loaded.revision}
@@ -307,6 +361,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <MiniMap pannable zoomable />
           </ReactFlow>
           </RunStatusContext.Provider>
+          </NodeIssuesContext.Provider>
+          </ReferencesContext.Provider>
+          </CatalogContext.Provider>
         )}
       </div>
     </div>

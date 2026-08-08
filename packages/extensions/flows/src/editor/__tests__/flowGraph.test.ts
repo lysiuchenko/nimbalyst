@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Flow } from '../../schema/types';
 import { validateFlow } from '../../schema/validate';
-import { flowToGraph, graphToFlow } from '../flowGraph';
+import { flowToGraph, graphToFlow, placeNewNode } from '../flowGraph';
 
 const pipeline: Flow = {
   version: 1,
@@ -172,5 +172,31 @@ describe('graphToFlow', () => {
     const back = graphToFlow(pipeline, flowToGraph(pipeline));
 
     expect(validateFlow(back).valid).toBe(true);
+  });
+});
+
+describe('placeNewNode', () => {
+  const at = (x: number, y: number) => ({ id: `${x}-${y}`, position: { x, y } });
+
+  it('drops the first node where the user is looking', () => {
+    expect(placeNewNode([], { x: 100, y: 50 })).toEqual({ x: 100, y: 50 });
+  });
+
+  it('does not stack a new node on top of an existing one', () => {
+    const spot = placeNewNode([at(100, 50)], { x: 100, y: 50 });
+
+    expect(spot).not.toEqual({ x: 100, y: 50 });
+  });
+
+  it('keeps looking until it finds free space', () => {
+    const taken = [at(0, 0), at(300, 0), at(600, 0)];
+
+    const spot = placeNewNode(taken, { x: 0, y: 0 });
+
+    expect(taken.every((node) => node.position.x !== spot.x || node.position.y !== spot.y)).toBe(true);
+  });
+
+  it('is deterministic, so adding the same node twice lands in the same two places', () => {
+    expect(placeNewNode([at(0, 0)], { x: 0, y: 0 })).toEqual(placeNewNode([at(0, 0)], { x: 0, y: 0 }));
   });
 });
