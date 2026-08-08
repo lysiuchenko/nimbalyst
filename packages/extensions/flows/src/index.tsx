@@ -1,11 +1,14 @@
 import type { ExtensionContext } from '@nimbalyst/extension-sdk';
 import { FlowEditor } from './editor/FlowEditor';
+import { rememberHostServices } from './host/hostServices';
 import './styles.css';
 
-export async function activate(_context: ExtensionContext): Promise<void> {
-  // The flow editor is contributed declaratively through manifest.json; there is
-  // nothing to register imperatively. Flows are local-only files, so this
-  // extension deliberately registers no collaboration codec.
+export async function activate(context: ExtensionContext): Promise<void> {
+  // The editor is contributed declaratively through manifest.json, but running a
+  // flow needs `services.ai` and `services.filesystem`, and EditorHost exposes
+  // neither — so keep the activation context for the canvas to use.
+  // Flows are local-only files: no collaboration codec is registered.
+  rememberHostServices(context);
 }
 
 export async function deactivate(): Promise<void> {

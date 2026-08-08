@@ -21,7 +21,9 @@ import {
   type FlowGraph,
 } from './flowGraph';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
+import { RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
+import { useFlowRun } from './useFlowRun';
 
 const EMPTY_FLOW: Flow = { version: 1, name: 'untitled', nodes: [], edges: [], variables: {} };
 
@@ -132,6 +134,19 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   );
 
   const nodeTypes = useMemo(() => createNodeTypes(markDirty), [markDirty]);
+  const run = useFlowRun(host);
+
+  // Run what is on the canvas, not what is on disk, but refuse to run something
+  // that would not survive a save.
+  const startRun = useCallback(() => {
+    const prepared = prepareSave(baseRef.current, readGraph());
+    if (!prepared.ok) {
+      setSaveErrors(prepared.summary.replace('was not saved', 'cannot be run'));
+      return;
+    }
+    setSaveErrors(null);
+    void run.start(prepared.flow);
+  }, [readGraph, run]);
 
   if (error) {
     return (
@@ -161,10 +176,59 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           </button>
         ))}
         <span className="flow-toolbar-spacer" />
+        {run.runState?.usage && (
+          <span className="flow-toolbar-cost" data-testid="flow-run-cost">
+            {run.runState.usage.inputTokens + run.runState.usage.outputTokens} tokens
+            {run.runState.usage.costUsd !== undefined
+              ? ` · $${run.runState.usage.costUsd.toFixed(4)}`
+              : ''}
+          </span>
+        )}
         <span className="flow-toolbar-status" data-dirty={isDirty}>
           {isDirty ? 'Unsaved changes' : 'Saved'}
         </span>
+        <button
+          type="button"
+          className="flow-toolbar-run"
+          data-testid="flow-run"
+          onClick={run.isRunning ? run.cancel : startRun}
+        >
+          <span className="material-symbols-outlined">{run.isRunning ? 'stop' : 'play_arrow'}</span>
+          {run.isRunning ? 'Cancel' : 'Run'}
+        </button>
       </div>
+
+      {run.pendingGate && (
+        <div className="flow-gate" role="alertdialog" data-testid="flow-gate">
+          <span className="material-symbols-outlined">front_hand</span>
+          <div className="flow-gate-body">
+            <strong>{run.pendingGate.nodeId}</strong>
+            <p>{run.pendingGate.message}</p>
+          </div>
+          <button
+            type="button"
+            className="flow-gate-approve"
+            data-testid="flow-gate-approve"
+            onClick={() => run.pendingGate?.decide('approved')}
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            className="flow-gate-reject"
+            data-testid="flow-gate-reject"
+            onClick={() => run.pendingGate?.decide('rejected')}
+          >
+            Reject
+          </button>
+        </div>
+      )}
+
+      {run.runError && (
+        <div className="flow-editor-invalid" role="alert" data-testid="flow-run-error">
+          {run.runError}
+        </div>
+      )}
 
       {saveErrors && (
         <div className="flow-editor-invalid" role="alert" data-testid="flow-save-error">
@@ -174,6 +238,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
       <div className="flow-canvas">
         {!isLoading && loaded && (
+          <RunStatusContext.Provider value={run.statuses}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -190,6 +255,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <Controls />
             <MiniMap pannable zoomable />
           </ReactFlow>
+          </RunStatusContext.Provider>
         )}
       </div>
     </div>

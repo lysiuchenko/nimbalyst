@@ -7,18 +7,20 @@ import { activate } from '../index';
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'flows-backend-'));
 
-function methods() {
-  return activate({
+async function methods() {
+  const api = await activate({
     services: {
       workspacePath: workspace,
       log: () => {},
+      registerMcpTools: async () => undefined,
     },
-  }).methods;
+  });
+  return api.methods;
 }
 
 describe('flows.runShell', () => {
   it('runs a real command and returns its output and exit code', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'echo hello-from-flows',
       allowlist: ['echo'],
@@ -29,7 +31,7 @@ describe('flows.runShell', () => {
   });
 
   it('reports the real exit code of a failing command', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'sh -c "exit 3"',
       allowlist: ['sh'],
@@ -39,7 +41,7 @@ describe('flows.runShell', () => {
   });
 
   it('captures stderr separately from stdout', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'sh -c "echo oops 1>&2"',
       allowlist: ['sh'],
@@ -50,7 +52,7 @@ describe('flows.runShell', () => {
   });
 
   it('runs in the workspace by default', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'pwd',
       allowlist: ['pwd'],
@@ -62,7 +64,7 @@ describe('flows.runShell', () => {
   it('runs in a subdirectory when the node asks for one', async () => {
     fs.mkdirSync(path.join(workspace, 'sub'), { recursive: true });
 
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'pwd',
       cwd: 'sub',
@@ -76,13 +78,13 @@ describe('flows.runShell', () => {
 
   it('re-checks the allowlist in the backend, not only in the renderer', async () => {
     await expect(
-      methods()['flows.runShell']({ nodeId: 'n', command: 'echo hi', allowlist: ['npm'] })
+      (await methods()).runShell({ nodeId: 'n', command: 'echo hi', allowlist: ['npm'] })
     ).rejects.toThrow('shell command "echo" is not allowed');
   });
 
   it('refuses a cwd that escapes the workspace', async () => {
     await expect(
-      methods()['flows.runShell']({
+      (await methods()).runShell({
         nodeId: 'n',
         command: 'pwd',
         cwd: '../..',
@@ -92,7 +94,7 @@ describe('flows.runShell', () => {
   });
 
   it('keeps a quoted argument together instead of splitting it on spaces', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'echo "two words" \'and more\'',
       allowlist: ['echo'],
@@ -102,7 +104,7 @@ describe('flows.runShell', () => {
   });
 
   it('does not run the command through a shell, so metacharacters are inert', async () => {
-    const result = await methods()['flows.runShell']({
+    const result = await (await methods()).runShell({
       nodeId: 'n',
       command: 'echo a && echo b',
       allowlist: ['echo'],

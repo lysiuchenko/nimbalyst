@@ -154,3 +154,95 @@
   background: var(--nim-primary);
   border: none;
 }
+
+.flow-toolbar-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--nim-primary);
+  border-radius: 6px;
+  background: var(--nim-primary);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.flow-toolbar-cost {
+  margin-right: 10px;
+  color: var(--nim-text-muted);
+  font-size: 12px;
+}
+
+.flow-gate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--nim-border);
+  background: var(--nim-bg-secondary);
+}
+
+.flow-gate-body {
+  flex: 1;
+  font-size: 12px;
+}
+
+.flow-gate-body p {
+  margin: 2px 0 0;
+  color: var(--nim-text-muted);
+}
+
+.flow-gate-approve,
+.flow-gate-reject {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--nim-border);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.flow-gate-approve {
+  border-color: var(--nim-success);
+  background: var(--nim-success);
+  color: #fff;
+}
+
+.flow-gate-reject {
+  border-color: var(--nim-error);
+  color: var(--nim-error);
+  background: transparent;
+}
+
+.flow-node-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  text-transform: capitalize;
+  background: var(--nim-bg-tertiary);
+  color: var(--nim-text-faint);
+}
+
+.flow-node-badge-running {
+  background: var(--nim-primary);
+  color: #fff;
+}
+
+.flow-node-badge-done {
+  background: var(--nim-success);
+  color: #fff;
+}
+
+.flow-node-badge-failed {
+  background: var(--nim-error);
+  color: #fff;
+}
+
+.flow-node[data-node-status='running'] {
+  border-color: var(--nim-primary);
+}
+
+.flow-node[data-node-status='failed'] {
+  border-color: var(--nim-error);
+}

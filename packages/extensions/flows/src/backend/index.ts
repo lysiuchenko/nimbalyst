@@ -20,6 +20,20 @@ interface ActivateContext {
   services: {
     workspacePath: string;
     log: (level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: unknown) => void;
+    /**
+     * Advertises this module's methods to the host. Until a method is
+     * registered, `callBackendTool` reports it as "not available to this
+     * extension" — the host namespaces the name as `<extension>.<method>`,
+     * so `runShell` is reached from the renderer as `flows.runShell`.
+     */
+    registerMcpTools?: (
+      tools: {
+        name: string;
+        description?: string;
+        inputSchema?: unknown;
+        scope?: 'global' | 'workspace';
+      }[]
+    ) => Promise<unknown>;
   };
 }
 
@@ -36,12 +50,30 @@ export interface RunShellResult {
   exitCode: number;
 }
 
-export function activate(ctx: ActivateContext) {
-  const { workspacePath, log } = ctx.services;
+export async function activate(ctx: ActivateContext) {
+  const { workspacePath, log, registerMcpTools } = ctx.services;
+
+  await registerMcpTools?.([
+    {
+      name: 'runShell',
+      description: "Run one allowlisted shell command for a flow's shell node.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          nodeId: { type: 'string' },
+          command: { type: 'string' },
+          cwd: { type: 'string' },
+          allowlist: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['nodeId', 'command', 'allowlist'],
+      },
+      scope: 'workspace',
+    },
+  ]);
 
   return {
     methods: {
-      'flows.runShell': async (params: RunShellParams): Promise<RunShellResult> => {
+      runShell: async (params: RunShellParams): Promise<RunShellResult> => {
         const argv = tokenize(params.command);
         const executable = argv[0] ?? '';
 

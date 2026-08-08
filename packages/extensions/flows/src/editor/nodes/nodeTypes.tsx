@@ -2,6 +2,7 @@ import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '
 import { useCallback } from 'react';
 import type { FlowNode, NodeType } from '../../schema/types';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
+import { useNodeStatus } from '../runContext';
 
 /** What each node type shows and lets the user edit on the canvas. */
 interface NodeChrome {
@@ -60,6 +61,7 @@ interface FlowNodeCardProps extends NodeProps<FlowCanvasNode> {
 function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProps) {
   const { updateNodeData } = useReactFlow<FlowCanvasNode>();
   const node = data.node;
+  const status = useNodeStatus(id);
 
   const patch = useCallback(
     (changes: Partial<Record<string, unknown>>) => {
@@ -76,6 +78,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProp
       className={`flow-node flow-node-${node.type}${selected ? ' flow-node-selected' : ''}`}
       data-node-id={id}
       data-node-type={node.type}
+      data-node-status={status ?? ''}
     >
       <Handle type="target" position={Position.Left} className="flow-node-handle" />
 
@@ -88,7 +91,11 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited }: FlowNodeCardProp
           placeholder={id}
           onChange={(event) => patch({ label: event.target.value || undefined })}
         />
-        <span className="flow-node-type">{node.type}</span>
+        {status ? (
+          <span className={`flow-node-badge flow-node-badge-${status}`}>{status}</span>
+        ) : (
+          <span className="flow-node-type">{node.type}</span>
+        )}
       </header>
 
       <label className="flow-node-field">
