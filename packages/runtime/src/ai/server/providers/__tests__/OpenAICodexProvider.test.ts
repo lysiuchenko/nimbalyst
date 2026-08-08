@@ -340,7 +340,11 @@ describe('OpenAICodexProvider', () => {
       }),
     ]));
     expect(models).toHaveLength(6);
-  });
+    // Fork deviation: this one test is load-sensitive and times out at the
+    // suite-wide 20s when the full 9k-test run saturates the machine, while
+    // passing in isolation. Given a longer budget rather than being skipped, so
+    // it still catches a real regression. See FORK-NOTICE.md "Core deviations".
+  }, 60000);
 
   it('preserves CLI auth when initialized without an API key', async () => {
     const originalApiKey = process.env.OPENAI_API_KEY;
