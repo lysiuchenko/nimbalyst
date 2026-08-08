@@ -254,14 +254,36 @@ running app**, so this is measured rather than inferred:
 `NimbalystSessionHost` (`src/host/nimbalystSessionHost.ts`) implements steps
 1, 2, 4 and 5.
 
-Step 3 is the only part left, and it is the same answer as shell nodes: run the
-work inside the extension's own backend module, where there is a Node runtime.
-That is also what makes **per-node `tools` allowlists** possible — the Agent SDK
-takes an allowed-tools option, whereas `sendPrompt` has no such parameter.
+### Step 3 is deliberately not built — and why
 
-Trade-off worth stating: nodes then run through the SDK rather than through the
-host's provider, so the transcript is written by us (step 4) instead of being
-streamed live into the session view.
+Step 3 could be done by running the Claude Agent SDK inside the flows backend
+module, which would also deliver per-node `tools` allowlists. **We decided not
+to**, and the reason is worth keeping:
+
+- `sdkOptionsBuilder.ts:355-370` strips `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`
+  from `process.env`, the shell environment, and `~/.claude/settings.json`,
+  because a user's unrelated `.env` was once picked up and billed their personal
+  Anthropic account $100+. It also deliberately does **not** set the key to `''`,
+  because the Claude binary treats its mere presence as an API-key auth signal
+  that shadows a valid OAuth login.
+- Binary resolution is its own module (`cliPathResolver.ts` →
+  `resolveClaudeCodeExecutablePath({ allowSystemFallback })`).
+
+Running our own agent means owning both. That is safety-critical, incident-driven
+logic, and a copy inside this extension would not inherit the host's future fixes
+— for the sole gain of passing a `cwd`. Not worth it.
+
+**What we do instead:** `AgentClient` declares `capabilities`, and
+`createAgentExecutor` fails any node whose `worktree` or `tools` the client
+cannot honor. `NimbalystAgentClient` declares both `false`. Silently running a
+node that asked for isolation is the genuinely dangerous option — the author is
+told it succeeded and has neither the worktree nor the tool restriction.
+
+**The minimal core change that would unlock it safely:** have
+`extensions:ai-send-prompt` (`AIService.ts:3955`) accept an optional `cwd` or
+`worktreeId` and forward it to `buildSdkOptions`, which already takes a `cwd`.
+The host keeps owning credentials; the extension gains isolation. That is one
+parameter, versus several hundred lines of duplicated credential handling.
 
 ## 5c. Shell nodes — solved by the flows backend module
 

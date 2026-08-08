@@ -37,8 +37,9 @@ describe('agent executor', () => {
     expect(result.output).toBe('the answer');
   });
 
-  it('passes the node model, tools and worktree flag through to the client', async () => {
+  it('passes the node model, tools and worktree flag through to a capable client', async () => {
     const client = agentClient();
+    const capable = { ...client, capabilities: { worktree: true, tools: true } };
     const node = {
       id: 'plan',
       type: 'agent',
@@ -48,7 +49,7 @@ describe('agent executor', () => {
       worktree: true,
     } as FlowNode;
 
-    await createAgentExecutor(client)(contextFor(node, { prompt: 'p' }));
+    await createAgentExecutor(capable)(contextFor(node, { prompt: 'p' }));
 
     expect(client.calls[0]).toMatchObject({
       model: 'claude-code:opus',
@@ -77,6 +78,47 @@ describe('agent executor', () => {
     await createAgentExecutor(client)(contextFor(node, { prompt: 'p' }));
 
     expect(client.calls[0]).toMatchObject({ sessionName: 'Draft plan' });
+  });
+});
+
+describe('agent executor — capabilities it cannot honor', () => {
+  it('refuses a node that asks for a worktree when the client cannot isolate it', async () => {
+    const client = agentClient();
+    const node = { id: 'plan', type: 'agent', prompt: 'p', worktree: true } as FlowNode;
+
+    await expect(createAgentExecutor(client)(contextFor(node, { prompt: 'p' }))).rejects.toThrow(
+      'node "plan" asks for worktree isolation, which this host cannot provide; ' +
+        'it would otherwise run in the main working tree'
+    );
+    expect(client.calls).toEqual([]);
+  });
+
+  it('refuses a node that restricts tools when the client cannot enforce the list', async () => {
+    const client = agentClient();
+    const node = { id: 'plan', type: 'agent', prompt: 'p', tools: ['Read'] } as FlowNode;
+
+    await expect(createAgentExecutor(client)(contextFor(node, { prompt: 'p' }))).rejects.toThrow(
+      'node "plan" restricts tools to Read, which this host cannot enforce; ' +
+        'it would otherwise run with every tool available'
+    );
+    expect(client.calls).toEqual([]);
+  });
+
+  it('runs the node when the client declares it can isolate and restrict', async () => {
+    const client = agentClient();
+    const capable: AgentClient = { ...client, capabilities: { worktree: true, tools: true } };
+    const node = { id: 'plan', type: 'agent', prompt: 'p', worktree: true, tools: ['Read'] } as FlowNode;
+
+    const result = await createAgentExecutor(capable)(contextFor(node, { prompt: 'p' }));
+
+    expect(result.output).toBe('the answer');
+  });
+
+  it('leaves a node alone when it asks for nothing the host cannot do', async () => {
+    const client = agentClient();
+    const node = { id: 'plan', type: 'agent', prompt: 'p', tools: [] } as FlowNode;
+
+    await expect(createAgentExecutor(client)(contextFor(node, { prompt: 'p' }))).resolves.toBeDefined();
   });
 });
 

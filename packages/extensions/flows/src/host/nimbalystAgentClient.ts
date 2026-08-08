@@ -22,6 +22,17 @@ export interface SessionUsageReader {
 }
 
 export class NimbalystAgentClient implements AgentClient {
+  /**
+   * Neither is available through `sendPrompt`, and this client deliberately does
+   * not try to provide them by running its own agent: the host strips API keys
+   * from three env sources and resolves the CLI binary through its own fallback
+   * policy, all of it written after a real billing incident. Re-implementing
+   * that here to gain a `cwd` would put credential handling in an extension
+   * that will not inherit the host's future fixes. Declaring the limit instead
+   * makes the executor fail such nodes loudly.
+   */
+  readonly capabilities = { worktree: false, tools: false };
+
   constructor(
     private readonly ai: ExtensionAIService,
     private readonly sessions?: SessionUsageReader

@@ -28,7 +28,23 @@ export interface AgentRunResult {
   usage?: TokenUsage;
 }
 
+/**
+ * What an agent client can actually honor.
+ *
+ * Both of these are safety properties a flow author is entitled to rely on, so
+ * a client that cannot deliver one must say so rather than let the executor
+ * quietly run the node without it.
+ */
+export interface AgentCapabilities {
+  /** Can run the node in its own git worktree. */
+  worktree?: boolean;
+  /** Can enforce the node's `tools` allowlist. */
+  tools?: boolean;
+}
+
 export interface AgentClient {
+  /** Absent means "neither" — the safe default for a client that says nothing. */
+  readonly capabilities?: AgentCapabilities;
   run(request: AgentRunRequest, signal: AbortSignal): Promise<AgentRunResult>;
 }
 

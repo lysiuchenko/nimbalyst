@@ -9,10 +9,35 @@ function sessionNameFor(node: FlowNode): string {
   return node.label ?? node.id;
 }
 
+/**
+ * Fail a node whose isolation or tool restrictions the client cannot honor.
+ *
+ * Running it anyway is the dangerous option: the author asked for a worktree or
+ * a tool allowlist, would be told the node succeeded, and would have neither.
+ * Two parallel branches editing the same tree, or an agent reaching a tool the
+ * flow tried to withhold, are both worse than a clear failure.
+ */
+function assertCapableFor(node: AgentNode, client: AgentClient): void {
+  if (node.worktree === true && !client.capabilities?.worktree) {
+    throw new Error(
+      `node ${JSON.stringify(node.id)} asks for worktree isolation, which this host cannot provide; ` +
+        `it would otherwise run in the main working tree`
+    );
+  }
+  if (node.tools !== undefined && node.tools.length > 0 && !client.capabilities?.tools) {
+    throw new Error(
+      `node ${JSON.stringify(node.id)} restricts tools to ${node.tools.join(', ')}, which this host cannot enforce; ` +
+        `it would otherwise run with every tool available`
+    );
+  }
+}
+
 /** `agent` nodes: the resolved prompt goes to the agent as written. */
 export function createAgentExecutor(client: AgentClient): NodeExecutor {
   return async (context: NodeExecutorContext) => {
     const node = context.node as AgentNode;
+    assertCapableFor(node, client);
+
     const result = await client.run(
       {
         kind: 'agent',
