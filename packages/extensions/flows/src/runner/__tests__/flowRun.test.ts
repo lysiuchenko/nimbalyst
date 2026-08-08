@@ -157,3 +157,49 @@ describe('runFlow', () => {
     expect(record.nodes.danger.error).toContain('is not allowed');
   });
 });
+
+describe('runFlow — fan-out', () => {
+  const fanFlow: Flow = {
+    version: 1,
+    name: 'fan',
+    nodes: [
+      { id: 'list', type: 'agent', prompt: 'list files', output: 'files' },
+      { id: 'review', type: 'fan-out', prompt: 'Review {{item}}', over: '{{list.files}}' },
+    ],
+    edges: [{ from: 'list', to: 'review', port: 'files' }],
+    variables: {},
+  };
+
+  it('spawns one sub-agent per item produced upstream', async () => {
+    const prompts: string[] = [];
+    const { deps: d } = deps({
+      agent: {
+        run: async (request) => {
+          prompts.push(request.prompt);
+          return { sessionId: `s-${prompts.length}`, response: 'a.ts\nb.ts' };
+        },
+      },
+    });
+
+    const record = await runFlow(fanFlow, '/repo/fan.flow.json', d, { runId: 'run-fan' });
+
+    expect(record.status).toBe('done');
+    expect(prompts).toEqual(['list files', 'Review a.ts', 'Review b.ts']);
+  });
+
+  it('records the sub-agents in the run record, so a finished run shows them', async () => {
+    const { deps: d } = deps({
+      agent: {
+        run: async (request) => ({
+          sessionId: `s-${request.nodeId}`,
+          response: request.nodeId === 'list' ? 'x\ny\nz' : 'reviewed',
+        }),
+      },
+    });
+
+    const record = await runFlow(fanFlow, '/repo/fan.flow.json', d, { runId: 'run-fan' });
+
+    expect(record.nodes.review.children?.map((child) => child.label)).toEqual(['x', 'y', 'z']);
+    expect(record.nodes.review.children?.every((child) => child.status === 'done')).toBe(true);
+  });
+});

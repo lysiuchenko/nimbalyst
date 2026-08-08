@@ -18,6 +18,15 @@ export interface NodeExecutorResult {
   sessionId?: string;
 }
 
+/** One sub-agent inside a fan-out node, as the canvas shows it. */
+export interface ChildProgress {
+  /** The item this sub-agent was given. */
+  label: string;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  sessionId?: string;
+  error?: string;
+}
+
 export interface NodeExecutorContext {
   node: FlowNode;
   /** The node's own text fields with every `{{…}}` reference resolved. */
@@ -25,6 +34,12 @@ export interface NodeExecutorContext {
   variables: Record<string, string>;
   /** Aborted when the caller cancels the run. */
   signal: AbortSignal;
+  /**
+   * Publish sub-agent progress. A fan-out node decides how many sub-agents it
+   * needs at run time, so the canvas cannot know them ahead of time — this is
+   * how they become visible while they run.
+   */
+  reportChildren?: (children: ChildProgress[]) => void;
 }
 
 export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecutorResult>;
@@ -32,6 +47,8 @@ export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecuto
 export interface NodeExecution {
   nodeId: string;
   status: NodeStatus;
+  /** Sub-agents spawned by this node, when it fans out. */
+  children?: ChildProgress[];
   output?: string;
   error?: string;
   sessionId?: string;

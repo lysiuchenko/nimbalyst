@@ -1,7 +1,8 @@
 import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
 import { useCallback } from 'react';
-import type { AgentNode, FlowNode, NodeType } from '../../schema/types';
+import type { AgentNode, FanOutNode, FlowNode, NodeType } from '../../schema/types';
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
+import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useNodeStatus } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
@@ -27,6 +28,14 @@ const CHROME: Record<NodeType, NodeChrome> = {
     placeholder: 'What should the agent do?',
     input: 'textarea',
     hint: 'Runs as its own session.',
+  },
+  'fan-out': {
+    icon: 'hub',
+    field: 'prompt',
+    fieldLabel: 'Prompt for each item',
+    placeholder: 'Review {{item}}',
+    input: 'textarea',
+    hint: 'One sub-agent per item, running at the same time.',
   },
   'slash-command': {
     icon: 'terminal',
@@ -89,6 +98,8 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const fields = node as unknown as Record<string, unknown>;
   const fieldValue = String(fields[chrome.field] ?? '');
   const agent = node.type === 'agent' ? (node as AgentNode) : undefined;
+  const fanOut = node.type === 'fan-out' ? (node as FanOutNode) : undefined;
+  const children = useNodeChildren(id);
 
   return (
     <div
@@ -160,6 +171,61 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </label>
       )}
 
+      {fanOut && (
+        <>
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">
+              Fan out over
+              <span className="flow-node-hint-inline">one item per line</span>
+            </span>
+            {/* A textarea, not an input: the list is one item per line and an
+                input silently strips the newlines that separate them. */}
+            <textarea
+              className="flow-node-input"
+              aria-label="Fan out over"
+              rows={2}
+              value={fanOut.over ?? ''}
+              placeholder="{{list.files}}"
+              onChange={(event) => patch({ over: event.target.value })}
+            />
+          </label>
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">At once</span>
+            <input
+              className="flow-node-input"
+              type="number"
+              min={1}
+              aria-label="At once"
+              value={fanOut.concurrency ?? ''}
+              placeholder="4"
+              onChange={(event) =>
+                patch({ concurrency: event.target.value ? Number(event.target.value) : undefined })
+              }
+            />
+          </label>
+          {children.length > 0 && (
+            <div className="flow-node-field" data-testid={`flow-children-${id}`}>
+              <span className="flow-node-field-label">
+                Sub-agents ({children.filter((c) => c.status === 'done').length}/{children.length})
+              </span>
+              <div className="flow-children">
+                {children.map((child) => (
+                  <span
+                    key={child.label}
+                    className={`flow-child flow-child-${child.status}`}
+                    data-child-status={child.status}
+                    title={child.error ?? child.label}
+                  >
+                    <span className="flow-child-dot" />
+                    {child.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {node.type === 'slash-command' && (
         <label className="flow-node-field">
           <span className="flow-node-field-label">Arguments</span>
@@ -173,14 +239,14 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </label>
       )}
 
-      {agent && (
+      {(agent || fanOut) && (
         <>
           <label className="flow-node-field">
             <span className="flow-node-field-label">Model</span>
             <select
               className="flow-node-input"
               aria-label="Model"
-              value={agent.model ?? ''}
+              value={(agent ?? fanOut)?.model ?? ''}
               onChange={(event) => patch({ model: event.target.value || null })}
             >
               <option value="">Host default</option>
@@ -192,7 +258,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             </select>
           </label>
           <ToolPicker
-            value={agent.tools}
+            value={(agent ?? fanOut)?.tools}
             choices={catalog.tools}
             onChange={(tools) => patch({ tools })}
           />
@@ -257,6 +323,7 @@ export function createNode(type: NodeType, id: string): FlowNodeData['node'] {
 
 export const NODE_TYPE_LABELS: Record<NodeType, string> = {
   agent: 'Agent',
+  'fan-out': 'Fan out',
   'slash-command': 'Slash command',
   skill: 'Skill',
   shell: 'Shell',

@@ -6,7 +6,14 @@
  * optionally one named output — from an upstream node to a downstream one.
  */
 
-export const NODE_TYPES = ['agent', 'slash-command', 'skill', 'shell', 'human-gate'] as const;
+export const NODE_TYPES = [
+  'agent',
+  'fan-out',
+  'slash-command',
+  'skill',
+  'shell',
+  'human-gate',
+] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
 
@@ -35,6 +42,24 @@ export interface AgentNode extends FlowNodeCommon {
   worktree?: boolean;
 }
 
+/**
+ * Runs the same prompt once per item, as concurrent sub-agents.
+ *
+ * `over` resolves to a list — one line per item — so the number of sub-agents
+ * is decided at run time by upstream output rather than fixed when the flow is
+ * authored. Each sub-agent sees its item as `{{item}}`.
+ */
+export interface FanOutNode extends FlowNodeCommon {
+  type: 'fan-out';
+  prompt: string;
+  /** A `{{reference}}` or literal list; one item per line. */
+  over: string;
+  /** How many sub-agents run at once. Defaults to the runner's limit. */
+  concurrency?: number;
+  model?: string | null;
+  tools?: string[];
+}
+
 export interface SlashCommandNode extends FlowNodeCommon {
   type: 'slash-command';
   /** Must start with `/`, e.g. `/review`. */
@@ -60,7 +85,13 @@ export interface HumanGateNode extends FlowNodeCommon {
   message: string;
 }
 
-export type FlowNode = AgentNode | SlashCommandNode | SkillNode | ShellNode | HumanGateNode;
+export type FlowNode =
+  | AgentNode
+  | FanOutNode
+  | SlashCommandNode
+  | SkillNode
+  | ShellNode
+  | HumanGateNode;
 
 export interface FlowEdge {
   from: string;

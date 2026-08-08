@@ -97,6 +97,7 @@ Every node carries:
 | `slash-command` | `command` (must start with `/`) | `args` | Sends `/command args` to the agent. |
 | `skill` | `skill` | `input` | Asks the agent to use a named skill. |
 | `shell` | `run` | `cwd` | Runs one allowlisted command. Named `run`, not `command`, so `command` always means a slash command. |
+| `fan-out` | `prompt`, `over` | `concurrency`, `model`, `tools` | Runs the prompt once per item as concurrent sub-agents. Each sub-agent sees its item as `{{item}}`. |
 | `human-gate` | `message` | — | Holds the branch until a person approves. Rejecting fails the node. |
 
 ### Edges and ports
@@ -123,6 +124,31 @@ that closes them, e.g. `a -> b -> c -> a`); and credential-shaped strings
 
 Errors accumulate — you get every problem at once, not one per save. The editor
 refuses to save or run a flow that would not reopen.
+
+## Fanning out over a list
+
+A `fan-out` node spreads one prompt across many sub-agents:
+
+```jsonc
+{
+  "id": "review", "type": "fan-out",
+  "prompt": "Review {{item}} for bugs",
+  "over": "{{files.list}}",   // one item per line, usually an upstream output
+  "concurrency": 4,           // sub-agents in flight at once
+  "output": "reviews"         // every result, joined under a heading per item
+}
+```
+
+How many sub-agents run is decided **at run time** by whatever `over` resolves
+to, so a flow can fan out over files, tickets or packages it could not have
+known about when it was written. `{{item}}` is a real input inside a fan-out and
+nowhere else.
+
+While it runs the node lists every sub-agent by name with its own state —
+queued, running, done, failed — so five sub-agents at a concurrency of three
+visibly show three in flight and two waiting. A failure names only the
+sub-agents that failed and how many of how many, and the node fails so
+downstream work is skipped.
 
 ## How a run behaves
 

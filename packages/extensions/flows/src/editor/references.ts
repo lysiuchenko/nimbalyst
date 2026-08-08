@@ -5,6 +5,7 @@ import { validateFlow } from '../schema/validate';
 /** Text fields per node type — mirrors the executor's TEXT_FIELDS. */
 const TEXT_FIELDS: Record<NodeType, readonly string[]> = {
   agent: ['prompt'],
+  'fan-out': ['prompt', 'over'],
   'slash-command': ['command', 'args'],
   skill: ['skill', 'input'],
   'human-gate': ['message'],
@@ -44,7 +45,10 @@ export function referencesByNode(flow: Flow): Record<string, string[]> {
       const upstream = [...ancestorsOf(flow, node.id)]
         .filter((id) => outputOf.has(id))
         .map((id) => `${id}.${outputOf.get(id)}`);
-      return [node.id, [...upstream, ...variables]];
+      // A fan-out's prompt is written for one sub-agent, so `item` is a real
+      // input there even though it exists nowhere else in the flow.
+      const own = node.type === 'fan-out' ? ['item'] : [];
+      return [node.id, [...own, ...upstream, ...variables]];
     })
   );
 }

@@ -2,6 +2,7 @@ import type { Flow } from '../schema/types';
 import { DagFlowRunner } from './dagExecutor';
 import {
   createAgentExecutor,
+  createFanOutExecutor,
   createHumanGateExecutor,
   createShellExecutor,
   createSkillExecutor,
@@ -45,6 +46,7 @@ export async function runFlow(
   const runner = new DagFlowRunner({
     executors: {
       agent: createAgentExecutor(dependencies.agent),
+      'fan-out': createFanOutExecutor(dependencies.agent),
       'slash-command': createSlashCommandExecutor(dependencies.agent),
       skill: createSkillExecutor(dependencies.agent),
       shell: createShellExecutor(dependencies.shell ?? NO_SHELL, {

@@ -1,6 +1,6 @@
-import type { AgentNode, FlowNode, ShellNode } from '../schema/types';
+import type { AgentNode, FanOutNode, FlowNode, ShellNode } from '../schema/types';
 import type { AgentClient, GateController, ShellClient } from './ports';
-import type { NodeExecutor, NodeExecutorContext } from './types';
+import type { ChildProgress, NodeExecutor, NodeExecutorContext, TokenUsage } from './types';
 
 /** Operators that would let one allowlisted command pull in another. */
 const CHAINING = ['&&', '||', ';', '|', '$(', '`', '>', '<', '&', '\n'];
@@ -113,6 +113,100 @@ export function createSkillExecutor(client: AgentClient): NodeExecutor {
 
     return { output: result.response, sessionId: result.sessionId, usage: result.usage };
   };
+}
+
+/** How many sub-agents a fan-out node runs at once when it does not say. */
+const DEFAULT_FAN_OUT_CONCURRENCY = 4;
+
+/**
+ * `fan-out` nodes: one sub-agent per item, running concurrently.
+ *
+ * The item list is resolved at run time, so a flow can fan out over whatever an
+ * upstream node produced — a list of files, tickets, packages — rather than a
+ * shape fixed when the flow was authored. Progress is published per sub-agent
+ * so the canvas can show them arriving and finishing.
+ */
+export function createFanOutExecutor(client: AgentClient): NodeExecutor {
+  return async (context: NodeExecutorContext) => {
+    const node = context.node as FanOutNode;
+    assertCapableFor(node as unknown as AgentNode, client);
+
+    const items = (context.resolved.over ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '');
+
+    if (items.length === 0) {
+      throw new Error(
+        `node ${JSON.stringify(node.id)} has nothing to fan out over — ${JSON.stringify(node.over)} resolved to an empty list`
+      );
+    }
+
+    const children: ChildProgress[] = items.map((label) => ({ label, status: 'queued' }));
+    const publish = () => context.reportChildren?.(children.map((child) => ({ ...child })));
+    publish();
+
+    const results: (string | undefined)[] = new Array(items.length);
+    const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
+    const failures: string[] = [];
+    const limit = Math.max(1, node.concurrency ?? DEFAULT_FAN_OUT_CONCURRENCY);
+
+    let next = 0;
+    const worker = async (): Promise<void> => {
+      while (next < items.length) {
+        const index = next++;
+        const item = items[index];
+        children[index].status = 'running';
+        publish();
+
+        try {
+          const result = await client.run(
+            {
+              kind: 'agent',
+              nodeId: `${node.id}[${index}]`,
+              sessionName: `${node.label ?? node.id} · ${item}`,
+              // `{{item}}` is resolved here rather than upstream: it only has a
+              // value once the list has been split.
+              prompt: (context.resolved.prompt ?? '').split('{{item}}').join(item),
+              model: node.model,
+              tools: node.tools,
+            },
+            context.signal
+          );
+          results[index] = result.response;
+          children[index] = { label: item, status: 'done', sessionId: result.sessionId };
+          addUsage(usage, result.usage);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          children[index] = { label: item, status: 'failed', error: message };
+          failures.push(`${item}: ${message}`);
+        }
+        publish();
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+
+    if (failures.length > 0) {
+      throw new Error(
+        `${failures.length} of ${items.length} sub-agents failed — ${failures.join('; ')}`
+      );
+    }
+
+    return {
+      output: items.map((item, index) => `## ${item}\n\n${results[index] ?? ''}`).join('\n\n'),
+      usage,
+    };
+  };
+}
+
+function addUsage(total: TokenUsage, usage?: TokenUsage): void {
+  if (!usage) return;
+  total.inputTokens += usage.inputTokens;
+  total.outputTokens += usage.outputTokens;
+  if (usage.costUsd !== undefined) {
+    total.costUsd = Number(((total.costUsd ?? 0) + usage.costUsd).toFixed(10));
+  }
 }
 
 export interface ShellExecutorOptions {

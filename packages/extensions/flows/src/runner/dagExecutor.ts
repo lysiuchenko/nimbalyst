@@ -16,6 +16,7 @@ import type {
 /** Fields carrying user text, and therefore `{{…}}` references, per node type. */
 const TEXT_FIELDS: Record<NodeType, readonly string[]> = {
   agent: ['prompt'],
+  'fan-out': ['prompt', 'over'],
   'slash-command': ['command', 'args'],
   skill: ['skill', 'input'],
   shell: ['run', 'cwd'],
@@ -116,6 +117,12 @@ export class DagFlowRunner implements FlowRunner {
           resolved,
           variables,
           signal: signal ?? new AbortController().signal,
+          // Sub-agents appear while the node runs, so each report is pushed
+          // straight through as a state change rather than waiting for the node.
+          reportChildren: (children) => {
+            execution.children = children;
+            notifyState();
+          },
         });
 
         const finishedAt = now();
@@ -187,10 +194,27 @@ function resolveStatus(aborted: boolean, failed: boolean): RunStatus {
   return failed ? 'failed' : 'done';
 }
 
-function resolveFields(
+/**
+ * `{{item}}` belongs to a fan-out's sub-agents, not to the node.
+ *
+ * It has no value until the list is split, so it resolves to itself here and
+ * the fan-out executor substitutes the real item per sub-agent. Without this,
+ * preflight would reject a perfectly good fan-out prompt.
+ */
+function scopeFor(
   node: FlowNode,
   scope: { variables: Record<string, string>; outputs: Record<string, Record<string, string>> }
+) {
+  return node.type === 'fan-out'
+    ? { ...scope, variables: { ...scope.variables, item: '{{item}}' } }
+    : scope;
+}
+
+function resolveFields(
+  node: FlowNode,
+  outerScope: { variables: Record<string, string>; outputs: Record<string, Record<string, string>> }
 ): Record<string, string> {
+  const scope = scopeFor(node, outerScope);
   const resolved: Record<string, string> = {};
   for (const field of TEXT_FIELDS[node.type]) {
     const value = (node as unknown as Record<string, unknown>)[field];
@@ -225,9 +249,10 @@ function preflight(flow: Flow, variables: Record<string, string>): void {
       const value = (node as unknown as Record<string, unknown>)[field];
       if (typeof value !== 'string') continue;
 
+      const scope = scopeFor(node, { variables, outputs: outputsByNode });
       for (const reference of listReferences(value)) {
         try {
-          interpolate(`{{${reference}}}`, { variables, outputs: outputsByNode });
+          interpolate(`{{${reference}}}`, scope);
         } catch (error) {
           if (error instanceof UnresolvedReferenceError) {
             const reason = error.message.slice(error.message.indexOf(': ') + 2);

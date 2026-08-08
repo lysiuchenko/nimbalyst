@@ -80,6 +80,11 @@ function instructionFor(node: FlowNode): string {
       return `Use the ${node.skill} skill.${node.input ? `\n\n${node.input}` : ''}`;
     case 'shell':
       return `Run this command${node.cwd ? ` in \`${node.cwd}\`` : ''} and check it succeeds:\n\n\`\`\`sh\n${node.run}\n\`\`\``;
+    case 'fan-out':
+      return (
+        `Repeat the following once for every line of ${node.over}, running them in parallel where you can. ` +
+        `Substitute each line for {{item}}:\n\n${node.prompt}`
+      );
     case 'human-gate':
       // Outside the app there is no gate card, so the only safe translation of
       // "wait for a human" is to stop and ask.

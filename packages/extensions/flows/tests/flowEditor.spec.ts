@@ -164,6 +164,66 @@ test.describe('canvas actions', () => {
   });
 });
 
+test.describe('fan-out sub-agents', () => {
+  let flows: FlowsApp;
+
+  /** Gate feeds a fixed list; the fan-out spawns one sub-agent per line. */
+  const fanFlow = {
+    version: 1,
+    name: 'fan',
+    nodes: [
+      {
+        id: 'gate',
+        type: 'human-gate',
+        label: 'Start',
+        message: 'Fan out?',
+        output: 'items',
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: 'review',
+        type: 'fan-out',
+        label: 'Review each',
+        prompt: 'Look at {{item}}',
+        over: 'alpha\nbeta\ngamma',
+        position: { x: 320, y: 0 },
+      },
+    ],
+    edges: [{ from: 'gate', to: 'review' }],
+    variables: {},
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'fan.flow.json': fanFlow }));
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('a fan-out node shows the list it will spread over', async () => {
+    await openFlow(flows.page, 'fan.flow.json');
+
+    const card = flows.page.locator('.flow-node[data-node-type="fan-out"]');
+    await expect(card).toBeVisible();
+    await expect(card.getByLabel('Fan out over')).toHaveValue('alpha\nbeta\ngamma');
+    // Nothing is wrong with it: {{item}} is a real input inside a fan-out.
+    await expect(flows.page.locator('.flow-node-invalid')).toHaveCount(0);
+  });
+
+  test('the canvas shows one sub-agent per item once it runs', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await flows.page.locator('[data-testid="flow-gate-approve"]').click();
+
+    // Agent nodes need a live provider, so the sub-agents will fail here — what
+    // matters is that all three appear individually and are tracked separately.
+    const chips = flows.page.locator('[data-testid="flow-children-review"] .flow-child');
+    await expect(chips).toHaveCount(3, { timeout: 60_000 });
+    await expect(chips.first()).toContainText('alpha');
+    await expect(chips.nth(2)).toContainText('gamma');
+  });
+});
+
 test.describe('running a flow', () => {
   let flows: FlowsApp;
 

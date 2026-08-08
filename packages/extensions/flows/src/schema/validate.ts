@@ -11,6 +11,7 @@ import {
 /** The field each node type cannot do without, and the fields it may also carry. */
 const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly string[] }> = {
   agent: { required: 'prompt', optional: ['model', 'tools', 'worktree'] },
+  'fan-out': { required: 'prompt', optional: ['over', 'concurrency', 'model', 'tools'] },
   'slash-command': { required: 'command', optional: ['args'] },
   skill: { required: 'skill', optional: ['input'] },
   shell: { required: 'run', optional: ['cwd'] },
@@ -168,8 +169,21 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
   if (entry.position !== undefined && !isPosition(entry.position)) {
     fail(`${path}.position`, 'position must be { x: number, y: number }');
   }
-  if (type === 'agent' && entry.tools !== undefined && !isStringArray(entry.tools)) {
+  if ((type === 'agent' || type === 'fan-out') && entry.tools !== undefined && !isStringArray(entry.tools)) {
     fail(`${path}.tools`, 'tools must be an array of strings');
+  }
+  if (type === 'fan-out') {
+    if (!isNonEmptyString(entry.over)) {
+      fail(`${path}.over`, 'fan-out node needs something to fan out over, e.g. {{node.port}}');
+    }
+    if (
+      entry.concurrency !== undefined &&
+      (typeof entry.concurrency !== 'number' ||
+        !Number.isInteger(entry.concurrency) ||
+        entry.concurrency < 1)
+    ) {
+      fail(`${path}.concurrency`, 'concurrency must be a whole number of at least 1');
+    }
   }
 
   const node: Json = { id: entry.id, type };
