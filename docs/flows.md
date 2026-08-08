@@ -1,0 +1,127 @@
+# Flows
+
+A flow is a DAG of steps you build on a canvas and run — each step is one unit of
+work handed to an agent, the shell, or a person. Flows live in `*.flow.json`,
+open in the Flow Editor, and can also run headlessly.
+
+- Schema and validator: `packages/extensions/flows/src/schema/`
+- Security model: [flows-security.md](./flows-security.md)
+- Host integration notes: [editorhost-notes.md](./editorhost-notes.md)
+
+## Getting started
+
+Create a flow from **New → Flow**, or write a `*.flow.json` by hand. The editor
+claims that suffix — Monaco keeps every other `.json`, because the host matches
+the longest registered suffix.
+
+On the canvas: the toolbar adds a node per type, drag between the round handles
+to connect, Backspace deletes, and every node's fields are editable in place.
+**Run** executes what is on the canvas; gates pause for approval; the panel
+underneath reports each node's status, tokens, cost and session.
+
+## Schema reference
+
+```jsonc
+{
+  "version": 1,                       // always 1
+  "name": "review-pipeline",
+  "nodes": [ /* see below */ ],
+  "edges": [{ "from": "plan", "to": "implement", "port": "plan_md" }],
+  "variables": { "target": "the login endpoint" }
+}
+```
+
+Every node carries:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `id` | yes | Unique. Referenced by edges and by `{{id.port}}`. |
+| `type` | yes | One of the five below. |
+| `label` | no | Display name; falls back to `id`. |
+| `output` | no | Names this node's result so downstream nodes can read it. |
+| `position` | no | Canvas coordinates. Absent in hand-authored files; the editor lays those out and writes them back. |
+
+### Node types
+
+| Type | Required field | Also accepts | Does |
+| --- | --- | --- | --- |
+| `agent` | `prompt` | `model`, `tools`, `worktree` | Runs the prompt as a Nimbalyst session. |
+| `slash-command` | `command` (must start with `/`) | `args` | Sends `/command args` to the agent. |
+| `skill` | `skill` | `input` | Asks the agent to use a named skill. |
+| `shell` | `run` | `cwd` | Runs one allowlisted command. Named `run`, not `command`, so `command` always means a slash command. |
+| `human-gate` | `message` | — | Holds the branch until a person approves. Rejecting fails the node. |
+
+### Edges and ports
+
+An edge carries control from one node to another. Add `port` to also carry data:
+the `port` must equal the `output` the source node declares.
+
+```jsonc
+{ "id": "plan", "type": "agent", "prompt": "Plan it", "output": "plan_md" }
+{ "from": "plan", "to": "implement", "port": "plan_md" }
+```
+
+Downstream, `{{plan.plan_md}}` in any text field resolves to that output.
+`{{name}}` resolves from `variables`. An unresolvable reference fails the run
+**before any node executes**, so a typo cannot surface after tokens are spent.
+
+## What the validator rejects
+
+Wrong `version`; empty `name`; duplicate or empty node ids; unknown node types;
+a missing per-type required field; a slash command without `/`; dangling edges;
+self-edges; a `port` the source doesn't declare; cycles (reported as the path
+that closes them, e.g. `a -> b -> c -> a`); and credential-shaped strings
+(see [flows-security.md](./flows-security.md)).
+
+Errors accumulate — you get every problem at once, not one per save. The editor
+refuses to save or run a flow that would not reopen.
+
+## How a run behaves
+
+- A node starts as soon as **its own** dependencies finish, not in lockstep
+  levels, so a short branch never waits on a long one. Concurrency defaults to 4.
+- A failed node marks everything downstream `skipped`; unrelated branches run to
+  completion. The run ends `failed`.
+- Every run writes `.flow-runs/<run-id>.json` — status, per-node output, session
+  ids, timings, usage, and the run total — rewritten on every transition, so an
+  interrupted run still leaves a usable record.
+
+## Headless
+
+```bash
+nimbalyst-flows validate review.flow.json
+nimbalyst-flows run checks.flow.json --var target=src/ --approve-gates
+nimbalyst-flows compile review.flow.json          # -> .claude/commands/flow-review.md
+```
+
+Exit codes: `0` success, `1` the flow failed, `2` bad usage or an invalid flow.
+
+Two deliberate limits: gates fail unless `--approve-gates` is passed, and
+**agent nodes do not run headlessly** — use `compile`, which emits a slash
+command your own authenticated Claude Code CLI runs. Both are explained in
+[flows-security.md](./flows-security.md).
+
+## Adding a node type
+
+1. Add the variant to `NodeType` and the node union in `src/schema/types.ts`.
+2. Add its required/optional fields to `NODE_SHAPES` in `src/schema/validate.ts`,
+   and its text fields to `TEXT_FIELDS` in `src/runner/dagExecutor.ts` so `{{…}}`
+   references get resolved in them.
+3. Add its canvas chrome to `CHROME` in `src/editor/nodes/nodeTypes.tsx` — icon,
+   primary field, whether that field is multi-line.
+4. Write its executor in `src/runner/executors.ts` against a **port**, not a
+   concrete client, so it stays testable with a fake.
+5. Teach `instructionFor` in `src/headless/compileCommand.ts` how to phrase it.
+6. Tests for each: schema, executor, and a compiler case.
+
+## Known limits
+
+| Limit | Why |
+| --- | --- |
+| `worktree: true` fails instead of isolating | `sendPrompt` takes no worktree; flows refuse rather than silently run in the main tree. |
+| `tools: [...]` fails instead of restricting | Same call takes no tool allowlist. |
+| Clicking a node does not open its session | No SDK method, IPC channel, or deep-link route can open a session from an extension. The run panel shows session ids as selectable text instead. |
+| Agent nodes are app-only | The extension runs no agent of its own; see `editorhost-notes.md` §5b. |
+
+Each has a documented route to fix it in `editorhost-notes.md`; all of them need
+a small host change rather than an extension workaround.

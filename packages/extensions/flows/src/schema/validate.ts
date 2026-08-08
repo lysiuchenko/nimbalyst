@@ -17,6 +17,26 @@ const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly strin
   'human-gate': { required: 'message', optional: [] },
 };
 
+/**
+ * Credential shapes a `.flow.json` must never contain.
+ *
+ * Flow files are committed and shared, so a pasted key would be leaked by the
+ * act of saving. A flow names a credential with `${env:NAME}` and lets the host
+ * resolve it; it never carries the value.
+ */
+const CREDENTIAL_PATTERNS: { label: string; pattern: RegExp }[] = [
+  { label: 'an Anthropic API key', pattern: /\bsk-ant-[A-Za-z0-9-]{20,}/ },
+  { label: 'an OpenAI API key', pattern: /\bsk-(?:proj-)?[A-Za-z0-9]{32,}/ },
+  { label: 'a GitHub token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}/ },
+  { label: 'an AWS access key id', pattern: /\bAKIA[A-Z0-9]{12,}/ },
+  { label: 'a private key block', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
+];
+
+/** Reports the kind of credential found, never the value itself. */
+function credentialIn(value: string): string | undefined {
+  return CREDENTIAL_PATTERNS.find(({ pattern }) => pattern.test(value))?.label;
+}
+
 type Json = Record<string, unknown>;
 
 function isPlainObject(value: unknown): value is Json {
@@ -128,6 +148,17 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
     );
   }
 
+  for (const [key, value] of Object.entries(entry)) {
+    if (typeof value !== 'string') continue;
+    const credential = credentialIn(value);
+    if (credential) {
+      fail(
+        `${path}.${key}`,
+        `value looks like a credential (${credential}); reference it as \${env:NAME} instead of storing it in the flow`
+      );
+    }
+  }
+
   if (entry.label !== undefined && !isNonEmptyString(entry.label)) {
     fail(`${path}.label`, 'label must be a non-empty string when present');
   }
@@ -226,6 +257,14 @@ function validateVariables(raw: unknown, fail: Fail): Record<string, string> {
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value !== 'string') {
       fail(`variables.${key}`, 'variable values must be strings');
+      continue;
+    }
+    const credential = credentialIn(value);
+    if (credential) {
+      fail(
+        `variables.${key}`,
+        `value looks like a credential (${credential}); reference it as \${env:NAME} instead of storing it in the flow`
+      );
       continue;
     }
     variables[key] = value;
