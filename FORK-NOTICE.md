@@ -110,6 +110,15 @@ These are additions by this fork, not edits to upstream files:
 - `docs/editorhost-notes.md` (extension contract notes, Goal 1.2)
 - `docs/flows.md`, `docs/flows-security.md` (Goal 5)
 
+### The one sanctioned edit to a core file
+
+`package-lock.json` gains a workspace registration for
+`packages/extensions/flows` (two additive entries — a `link: true` node and the
+package's own devDependency block). This is the mechanical result of `npm install`
+picking up the new `packages/extensions/*` workspace and cannot be avoided while
+the extension lives in the monorepo. No dependency versions change and no
+`peer: true` flags are stripped; verify both on every rebase.
+
 ## Rebasing on upstream
 
 ```bash
