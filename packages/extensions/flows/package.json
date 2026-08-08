@@ -8,7 +8,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.backend.config.ts",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

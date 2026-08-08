@@ -14,7 +14,9 @@
   "contributions": {
     "customEditors": [
       {
-        "filePatterns": ["*.flow.json"],
+        "filePatterns": [
+          "*.flow.json"
+        ],
         "displayName": "Flow Editor",
         "component": "FlowEditor",
         "supportsSourceMode": true,
@@ -30,6 +32,19 @@
         "displayName": "Flow",
         "icon": "account_tree",
         "defaultContent": "{\n  \"version\": 1,\n  \"name\": \"untitled\",\n  \"nodes\": [],\n  \"edges\": [],\n  \"variables\": {}\n}\n"
+      }
+    ],
+    "backendModules": [
+      {
+        "id": "flows-backend",
+        "entry": "dist/backend.js",
+        "runtime": "utility-process",
+        "permissions": [],
+        "enablement": {
+          "default": "disabled",
+          "promptOn": "firstUse",
+          "purpose": "Run the shell commands your flows declare, restricted to the commands you allowlist."
+        }
       }
     ]
   }

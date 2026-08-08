@@ -232,35 +232,60 @@ reachable through it:
 | Per-node tool allowlist (`node.tools`) | **Still missing.** The call takes no tool list. |
 | Per-node worktree isolation (`node.worktree`) | **Still missing.** See below. |
 
-### Why worktree isolation is genuinely blocked
+### Worktree isolation — solved without a core change
 
-`sessions:create` *does* accept a `worktreeId`
-(`packages/electron/src/main/ipc/SessionHandlers.ts:243`), so a flow could
-create a worktree with `worktree:create` and then create a session bound to it.
-The gap is the next step: **nothing lets an extension send a prompt into a
-session it already created.** `services.ai.sendPrompt` goes to
-`extensions:ai-send-prompt`, whose handler
-(`packages/electron/src/main/services/ai/AIService.ts:3955`) destructures only
-`{ prompt, sessionName, provider, model }` and always creates its own session.
-There is no `sessions:send-prompt` channel; the renderer's own chat drives the
-provider in-process rather than over IPC.
+`sendPrompt` is a dead end for this: it always creates its own session and takes
+no worktree (`packages/electron/src/main/services/ai/AIService.ts:3955`
+destructures only `{ prompt, sessionName, provider, model }`), and there is no
+channel that submits a prompt to an existing session.
 
-So per-node worktrees need one of: a `worktreeId` option on
-`extensions:ai-send-prompt`, or a channel that submits a prompt to an existing
-session id. Both are core changes — reported rather than worked around, per
-standing constraint 4.
+The way through is to stop using `sendPrompt` and assemble the same result from
+the pieces the host already exposes. All four steps were **probed against a
+running app**, so this is measured rather than inferred:
 
-## 5c. Shell nodes need a backend module
+| Step | Channel | Result |
+| --- | --- | --- |
+| 1. create the worktree | `worktree:create(workspacePath, { name })` | real git worktree — id `01KZ…BQRA`, path `…_worktrees/flow-node-plan`, branch `worktree/flow-node-plan` |
+| 2. create the node's session, bound to it | `sessions:create({ session: { …, worktreeId }, workspaceId })` | `{ success: true, id }` |
+| 3. run the node's work in that worktree | flows backend module (below), Agent SDK with `cwd` = worktree path | mechanism proven by `flows.runShell`; the SDK call itself is not yet built |
+| 4. write the transcript into the session | `session:save({ id, messages })` | session reads back with the worktree id attached |
+| 5. read the cost back | `sessions:get(id)` → `session.tokenUsage` | already implemented |
+
+`NimbalystSessionHost` (`src/host/nimbalystSessionHost.ts`) implements steps
+1, 2, 4 and 5.
+
+Step 3 is the only part left, and it is the same answer as shell nodes: run the
+work inside the extension's own backend module, where there is a Node runtime.
+That is also what makes **per-node `tools` allowlists** possible — the Agent SDK
+takes an allowed-tools option, whereas `sendPrompt` has no such parameter.
+
+Trade-off worth stating: nodes then run through the SDK rather than through the
+host's provider, so the transcript is written by us (step 4) instead of being
+streamed live into the session view.
+
+## 5c. Shell nodes — solved by the flows backend module
 
 Extension code runs in the renderer, which has no `child_process`. The
 `terminal:*` channels are a PTY: they stream output but expose no per-command
 exit code, so they cannot tell a passing command from a failing one.
 
-The sanctioned path is a backend module — `contributions.backendModules` with
+The answer is a backend module — `contributions.backendModules` with
 `runtime: 'utility-process'` and an `enablement` consent prompt, built by its own
-`vite.backend.config.ts` (see `packages/extensions/github-issues-importer`). That
-lives entirely inside the flows package, so it is not blocked; it is simply not
-built yet. `ShellClient` is the port it will implement.
+`vite.backend.config.ts`. It lives entirely inside the flows package. Built and
+verified: `src/backend/index.ts` exposes `flows.runShell`, and the *built*
+`dist/backend.js` runs real commands, reports real exit codes (`exit 7` → 7),
+and refuses non-allowlisted executables.
+
+Two properties worth keeping when this is extended:
+
+- **`spawn(..., { shell: false })`.** The command line never reaches a shell, so
+  `&&`, `;`, `$(…)` and backticks are inert argument text rather than operators.
+  A quote-aware tokenizer keeps `--grep "two words"` working without a shell.
+- **The allowlist is re-checked in the backend.** The renderer's check is a fast
+  failure; the process boundary is where it actually counts.
+
+This is the same runtime the agent path needs (§5b step 3), so one module covers
+shell nodes, per-node tool allowlists, and worktree-scoped agent runs.
 
 ## 6. Off-limits
 
