@@ -1,6 +1,7 @@
 import { useEditorLifecycle, type EditorHost, type EditorHostProps } from '@nimbalyst/extension-sdk';
 import {
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   ReactFlow,
@@ -129,10 +130,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   const applyContent = useCallback((flow: Flow) => {
     baseRef.current = flow;
-    setLoaded((previous) => ({
-      graph: flowToGraph(flow),
-      revision: (previous?.revision ?? 0) + 1,
-    }));
+    const graph = flowToGraph(flow);
+    setLoaded((previous) => ({ graph, revision: (previous?.revision ?? 0) + 1 }));
+    // Seed the undo baseline from the graph we just loaded, not from a read of
+    // the canvas store: that read can happen before the nodes have mounted, and
+    // an empty baseline makes the first undo wipe the whole flow.
+    previousGraph.current = { nodes: structuredClone(graph.nodes), edges: structuredClone(graph.edges) };
     setSaveErrors(null);
     // A reload replaces the document; the old canvas history no longer applies.
     history.current.reset();
@@ -166,7 +169,6 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     onLoaded: () => {
       fitView({ padding: 0.2, maxZoom: 1 });
       refreshAnalysis();
-      previousGraph.current = snapshot();
     },
   });
 
@@ -209,6 +211,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       const id = nextNodeId(type, new Set(existing.map((node) => node.id)));
       // Start from what the user is actually looking at, then find free space
       // so a new node never lands buried under an existing one.
+      remember();
       const viewportCentre = screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -326,6 +329,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       const nodes = getNodes();
       const original = nodes.find((node) => node.id === nodeId);
       if (!original) return;
+      remember();
       addNodes(duplicateNode(original, nodes));
       markDirty();
       refreshAnalysis();
@@ -343,6 +347,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       const position = screenToFlowPosition({ x: point.clientX, y: point.clientY });
       const id = uniqueNodeId('agent', new Set(getNodes().map((node) => node.id)));
 
+      remember();
       addNodes({ id, type: 'agent', position, data: { node: createNode('agent', id) } });
       addEdges({ id: `${state.fromNode.id}->${id}`, source: state.fromNode.id, target: id });
       markDirty();
@@ -366,6 +371,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   const useTemplate = useCallback(
     (template: FlowTemplate) => {
+      remember();
       const flow = template.build(baseRef.current.name);
       // Adopt the template's variables too, not just its nodes: its prompts
       // reference them, so without this the flow arrives already invalid.
@@ -407,16 +413,18 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   return (
     <div className="flow-editor" data-testid="flow-editor" data-flow-theme={theme}>
       <div className="flow-toolbar">
+        <span className="flow-toolbar-group-label">Add</span>
         {NODE_TYPES.map((type) => (
           <button
             key={type}
             type="button"
-            className="flow-toolbar-button"
+            className="flow-toolbar-button flow-toolbar-icon"
             data-add-node={type}
+            title={`Add a ${NODE_TYPE_LABELS[type].toLowerCase()} node`}
+            aria-label={`Add a ${NODE_TYPE_LABELS[type].toLowerCase()} node`}
             onClick={() => addNodeOfType(type)}
           >
             <span className="material-symbols-outlined">{NODE_TYPE_ICONS[type]}</span>
-            {NODE_TYPE_LABELS[type]}
           </button>
         ))}
         <button
@@ -736,7 +744,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             proOptions={{ hideAttribution: false }}
             fitView
           >
-            <Background />
+            {/* Explicit rather than default: the stock dot colour is a fixed
+                grey that all but disappears on a light brand surface. */}
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1.6} />
             <Controls />
             <MiniMap pannable zoomable />
           </ReactFlow>

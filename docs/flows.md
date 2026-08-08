@@ -62,15 +62,18 @@ The toolbar's palette button cycles the canvas theme, remembered per workspace:
 | Theme | What it does |
 | --- | --- |
 | **App theme** | Inherits every host token. The default. |
-| **GlobalLogic** | GlobalLogic brand palette — purple accent, lighter surfaces, tighter 4px corners — with a dark variant for dark app themes. |
+| **GlobalLogic** | Orange accent on neutral greys, tighter 4px corners, with a dark variant for dark app themes. |
 
 A brand theme overrides that one layer and nothing else, which is what keeps it
 scoped to the canvas and reversible. Adding another brand is one block in
 `src/styles.css` plus an entry in `FLOW_THEMES`.
 
-The GlobalLogic hex values are a close visual match rather than values taken
-from a brand-guideline document — they sit in a single clearly-marked block so
-correcting them against the official palette is a one-place edit.
+Only `#ff5f2d` is sourced: it appears in GlobalLogic's own stylesheet and is not
+one of the WordPress default palette values around it. The neutrals are ordinary
+greys chosen to sit under it, **not** brand values — the site's rendered CSS is
+behind bot protection, so they could not be read from source. Every value sits
+in one marked block in `src/styles.css`, so replacing them with the official
+palette is a one-place edit.
 
 ## Working on the canvas
 

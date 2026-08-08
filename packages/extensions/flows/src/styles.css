@@ -21,6 +21,9 @@
   --flow-accent: var(--nim-primary);
   --flow-accent-hover: var(--nim-primary-hover);
   --flow-accent-contrast: #fff;
+  /* Second brand colour, for emphasis that is not a call to action. */
+  --flow-accent-2: var(--nim-primary);
+  --flow-dot: var(--nim-border);
   --flow-success: var(--nim-success);
   --flow-warning: var(--nim-warning);
   --flow-danger: var(--nim-error);
@@ -37,18 +40,31 @@
  * this one block precisely so that correction is a one-place edit.
  */
 .flow-editor[data-flow-theme='globallogic'] {
+  /*
+   * Orange on near-neutral, matching globallogic.com's look: white page,
+   * near-black type, one warm accent. No second hue — the earlier violet was
+   * my invention, not their brand.
+   *
+   * #ff5f2d is taken from GlobalLogic's own stylesheet (it is not one of the
+   * WordPress default palette values that surround it there). The neutrals are
+   * ordinary greys chosen to sit under it. Correct any of them here — this
+   * block is the only place they are defined.
+   */
   --flow-bg: #ffffff;
-  --flow-surface: #f7f5fb;
-  --flow-surface-strong: #ece7f6;
-  --flow-surface-hover: #f0ebfa;
-  --flow-border: #d9d2ea;
-  --flow-border-focus: #6b2fb3;
-  --flow-text: #1b1033;
-  --flow-text-muted: #57496f;
-  --flow-text-faint: #8a7fa3;
-  --flow-accent: #6b2fb3;
-  --flow-accent-hover: #56258f;
+  --flow-surface: #f7f7f8;
+  --flow-surface-strong: #ebebee;
+  --flow-surface-hover: #f1f1f3;
+  --flow-border: #dedee2;
+  --flow-border-focus: #ff5f2d;
+  --flow-text: #16161a;
+  --flow-text-muted: #55555c;
+  --flow-text-faint: #8a8a92;
+  --flow-accent: #ff5f2d;
+  --flow-accent-hover: #e64a1a;
   --flow-accent-contrast: #ffffff;
+  /* Structure is neutral, not a second hue. */
+  --flow-accent-2: #16161a;
+  --flow-dot: #d3d3d8;
   --flow-success: #1f8a5b;
   --flow-warning: #b26a00;
   --flow-danger: #c62448;
@@ -58,17 +74,19 @@
 /* Dark app themes need a dark brand surface, not a white one. */
 [data-theme='dark'] .flow-editor[data-flow-theme='globallogic'],
 [data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] {
-  --flow-bg: #150e24;
-  --flow-surface: #1e1533;
-  --flow-surface-strong: #291d45;
-  --flow-surface-hover: #2f2150;
-  --flow-border: #3c2c63;
-  --flow-text: #f3eefc;
-  --flow-text-muted: #c3b6dd;
-  --flow-text-faint: #9083ad;
-  --flow-accent: #a366ff;
-  --flow-accent-hover: #b684ff;
-  --flow-accent-contrast: #14091f;
+  --flow-bg: #131316;
+  --flow-surface: #1b1b1f;
+  --flow-surface-strong: #26262b;
+  --flow-surface-hover: #2c2c32;
+  --flow-border: #34343b;
+  --flow-text: #f4f4f6;
+  --flow-text-muted: #b9b9c1;
+  --flow-text-faint: #85858e;
+  --flow-accent: #ff7a4d;
+  --flow-accent-hover: #ff9370;
+  --flow-accent-contrast: #131316;
+  --flow-accent-2: #f4f4f6;
+  --flow-dot: #3a3a42;
 }
 
 .flow-editor {
@@ -693,3 +711,68 @@
 }
 
 .flow-node-fan-out { border-left: 3px solid var(--flow-accent); }
+
+
+/*
+ * xyflow paints the grid, edges and controls from its own variables. Without
+ * wiring these, the dot grid keeps its stock grey — which on a light brand
+ * surface is close enough to the background to look like no grid at all.
+ */
+.flow-canvas .react-flow {
+  --xy-background-color: var(--flow-bg);
+  --xy-background-pattern-color: var(--flow-dot);
+  --xy-background-pattern-dots-color-default: var(--flow-dot);
+  --xy-edge-stroke: var(--flow-accent-2);
+  --xy-edge-stroke-selected: var(--flow-accent);
+  --xy-edge-stroke-width: 1.5;
+  --xy-connectionline-stroke: var(--flow-accent);
+  --xy-edge-label-background-color: var(--flow-surface);
+  --xy-edge-label-color: var(--flow-text-muted);
+  --xy-controls-button-background-color: var(--flow-surface);
+  --xy-controls-button-background-color-hover: var(--flow-surface-hover);
+  --xy-controls-button-color: var(--flow-text-muted);
+  --xy-controls-button-color-hover: var(--flow-accent);
+  --xy-controls-button-border-color: var(--flow-border);
+  --xy-minimap-background-color: var(--flow-surface);
+  --xy-attribution-background-color: transparent;
+  --xy-selection-background-color: color-mix(in srgb, var(--flow-accent) 12%, transparent);
+  --xy-selection-border: 1px dotted var(--flow-accent);
+}
+
+/* Purple carries structure: node type, ports, the fan-out spine. */
+.flow-node-type {
+  background: color-mix(in srgb, var(--flow-accent-2) 12%, transparent);
+  color: var(--flow-accent-2);
+}
+
+.flow-node-fan-out {
+  border-left: 3px solid var(--flow-accent-2);
+}
+
+.flow-node-handle {
+  background: var(--flow-accent-2);
+}
+
+.flow-node-selected {
+  border-color: var(--flow-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--flow-accent) 25%, transparent);
+}
+
+/* Node-type buttons are icon-only: six labelled buttons pushed the toolbar to
+   three rows in a narrow pane. Each keeps a title and aria-label. */
+.flow-toolbar-icon {
+  padding: 4px 6px;
+}
+
+.flow-toolbar-icon .material-symbols-outlined {
+  font-size: 17px;
+  display: block;
+}
+
+.flow-toolbar-group-label {
+  margin-right: 2px;
+  color: var(--flow-text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

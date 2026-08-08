@@ -164,11 +164,32 @@ test.describe('canvas actions', () => {
     await expect(editor).toHaveAttribute('data-flow-theme', 'globallogic');
 
     // The brand theme must actually repaint, not just set an attribute.
-    const accent = await flows.page.evaluate(() =>
-      getComputedStyle(document.querySelector('.flow-editor')!).getPropertyValue('--flow-accent').trim()
+    const painted = await flows.page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector('.flow-editor')!);
+      return {
+        accent: style.getPropertyValue('--flow-accent').trim(),
+        second: style.getPropertyValue('--flow-accent-2').trim(),
+        dot: style.getPropertyValue('--flow-dot').trim(),
+      };
+    });
+    expect(painted.accent).toMatch(/^#|rgb/);
+    // Orange leads, purple is the second colour — not two shades of one hue.
+    expect(painted.accent.toLowerCase()).not.toBe(painted.second.toLowerCase());
+    expect(painted.dot).toMatch(/^#|rgb/);
+  });
+
+  test('the canvas actually draws a dot grid', async () => {
+    // The pattern is an SVG circle per dot; a missing grid means no circles.
+    const dots = flows.page.locator('.react-flow__background pattern circle');
+    await expect(dots.first()).toBeAttached();
+
+    const fill = await dots.first().evaluate((circle) => getComputedStyle(circle).fill);
+    const canvasBg = await flows.page.evaluate(() =>
+      getComputedStyle(document.querySelector('.flow-editor')!).getPropertyValue('--flow-bg').trim()
     );
-    expect(accent).not.toBe('');
-    expect(accent).toMatch(/^#|rgb/);
+    expect(fill).not.toBe('none');
+    // A dot the same colour as the canvas is a dot nobody can see.
+    expect(fill.replace(/\s/g, '')).not.toBe(canvasBg.replace(/\s/g, ''));
   });
 
   test('undo takes back a canvas edit, redo puts it back', async () => {
