@@ -12,7 +12,8 @@
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test --config=playwright.config.ts"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

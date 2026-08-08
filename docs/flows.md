@@ -125,3 +125,15 @@ command your own authenticated Claude Code CLI runs. Both are explained in
 
 Each has a documented route to fix it in `editorhost-notes.md`; all of them need
 a small host change rather than an extension workaround.
+
+## Tests
+
+| Suite | Command | Covers |
+| --- | --- | --- |
+| Unit + integration | `npx vitest run packages/extensions/flows` | Schema, validator, credential scanning, DAG executor, interpolation, executors, run store, host adapters, backend module, headless CLI. Runs in the repo's root vitest projects too. |
+| E2E | `cd packages/extensions/flows && npm run test:e2e` | The built app: opening `*.flow.json` on the canvas, editing through to the file, refusing an invalid save, running a flow through its gates, and the run panel. |
+
+The E2E specs launch the built Electron app themselves, so they need
+`cd packages/electron && npm run build` first — but no dev server and no human,
+which is what lets them run unattended. They are serial by design: concurrent
+Electron instances fight over the single-instance lock and the database.
