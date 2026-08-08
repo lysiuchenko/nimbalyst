@@ -219,6 +219,40 @@ SDK or `electronAPI` directly.
 If a needed capability turns out to have no IPC channel at all, that is a
 stop-and-report per standing constraint 4 — not a core patch.
 
+## 5b. What `sendPrompt` cannot do (found while building Goal 3.2)
+
+`services.ai.sendPrompt` is the only session-creating API, but its options are
+`{ prompt, sessionName?, provider?, model? }` and its result is
+`{ sessionId, response }`. Three things Goals 3.2–3.3 ask for are therefore not
+reachable through it:
+
+| Needed | Status |
+| --- | --- |
+| Per-node token usage / cost | **Not returned.** `chatCompletion` returns `usage` but creates no session, so usage and "every node is a visible session" cannot both come from this API. |
+| Per-node tool allowlist (`node.tools`) | **No parameter.** The call takes no tool list. |
+| Per-node worktree isolation (`node.worktree`) | **No parameter.** `worktree:create` exists over IPC, but `sendPrompt` cannot be pointed at a worktree. |
+
+Candidate routes, none of them core edits, none yet built or verified:
+
+- read usage back from the session after it completes (`ai-session-state:*`, or
+  the session tables through the host's own query path);
+- create the worktree with `worktree:create` and find whether a session can be
+  attached to it through an existing IPC channel;
+- otherwise treat these as genuinely missing core APIs and report, per standing
+  constraint 4.
+
+## 5c. Shell nodes need a backend module
+
+Extension code runs in the renderer, which has no `child_process`. The
+`terminal:*` channels are a PTY: they stream output but expose no per-command
+exit code, so they cannot tell a passing command from a failing one.
+
+The sanctioned path is a backend module — `contributions.backendModules` with
+`runtime: 'utility-process'` and an `enablement` consent prompt, built by its own
+`vite.backend.config.ts` (see `packages/extensions/github-issues-importer`). That
+lives entirely inside the flows package, so it is not blocked; it is simply not
+built yet. `ShellClient` is the port it will implement.
+
 ## 6. Off-limits
 
 The flows extension does **not** opt into collaboration:
