@@ -1,0 +1,176 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import type { Flow } from '../../schema/types';
+import { validateFlow } from '../../schema/validate';
+import { flowToGraph, graphToFlow } from '../flowGraph';
+
+const pipeline: Flow = {
+  version: 1,
+  name: 'review-pipeline',
+  nodes: [
+    { id: 'plan', type: 'agent', label: 'Draft plan', prompt: 'plan it', output: 'plan_md' },
+    { id: 'impl', type: 'agent', prompt: 'build it' },
+    { id: 'gate', type: 'human-gate', message: 'Ship it?' },
+  ],
+  edges: [
+    { from: 'plan', to: 'impl', port: 'plan_md' },
+    { from: 'impl', to: 'gate' },
+  ],
+  variables: {},
+};
+
+describe('flowToGraph', () => {
+  it('maps every flow node to a canvas node carrying its type and data', () => {
+    const graph = flowToGraph(pipeline);
+
+    expect(graph.nodes.map((n) => [n.id, n.type])).toEqual([
+      ['plan', 'agent'],
+      ['impl', 'agent'],
+      ['gate', 'human-gate'],
+    ]);
+    expect(graph.nodes[0].data.node).toEqual(pipeline.nodes[0]);
+  });
+
+  it('maps every flow edge, keeping the port as the edge label', () => {
+    const graph = flowToGraph(pipeline);
+
+    expect(graph.edges).toEqual([
+      { id: 'plan->impl', source: 'plan', target: 'impl', label: 'plan_md' },
+      { id: 'impl->gate', source: 'impl', target: 'gate' },
+    ]);
+  });
+
+  it('keeps positions that the file already specifies', () => {
+    const flow: Flow = {
+      ...pipeline,
+      nodes: [{ id: 'a', type: 'agent', prompt: 'p', position: { x: 42, y: -7 } }],
+      edges: [],
+    };
+
+    expect(flowToGraph(flow).nodes[0].position).toEqual({ x: 42, y: -7 });
+  });
+
+  it('lays unpositioned nodes out by depth, so a chain reads left to right', () => {
+    const graph = flowToGraph(pipeline);
+    const x = graph.nodes.map((n) => n.position.x);
+
+    expect(x[0]).toBeLessThan(x[1]);
+    expect(x[1]).toBeLessThan(x[2]);
+  });
+
+  it('places independent roots on separate rows at the same depth', () => {
+    const flow: Flow = {
+      version: 1,
+      name: 'two-roots',
+      nodes: [
+        { id: 'a', type: 'agent', prompt: 'p' },
+        { id: 'b', type: 'agent', prompt: 'q' },
+      ],
+      edges: [],
+      variables: {},
+    };
+    const [a, b] = flowToGraph(flow).nodes;
+
+    expect(a.position.x).toBe(b.position.x);
+    expect(a.position.y).not.toBe(b.position.y);
+  });
+
+  it('is deterministic — the same flow lays out identically every time', () => {
+    expect(flowToGraph(pipeline)).toEqual(flowToGraph(pipeline));
+  });
+});
+
+describe('graphToFlow', () => {
+  it('round-trips a flow, filling in the positions the layout assigned', () => {
+    const graph = flowToGraph(pipeline);
+    const back = graphToFlow(pipeline, graph);
+
+    expect(back.name).toBe(pipeline.name);
+    expect(back.edges).toEqual(pipeline.edges);
+    expect(back.nodes.map(({ position: _p, ...rest }) => rest)).toEqual(pipeline.nodes);
+    expect(back.nodes.every((n) => n.position !== undefined)).toBe(true);
+  });
+
+  it('round-trips a flow that already has positions without changing them', () => {
+    const positioned: Flow = {
+      ...pipeline,
+      nodes: pipeline.nodes.map((node, i) => ({ ...node, position: { x: i * 10, y: i * 5 } })),
+    };
+
+    expect(graphToFlow(positioned, flowToGraph(positioned))).toEqual(positioned);
+  });
+
+  it('preserves type-specific fields through the canvas', () => {
+    const flow: Flow = {
+      version: 1,
+      name: 'rich',
+      nodes: [
+        {
+          id: 'a',
+          type: 'agent',
+          label: 'A',
+          prompt: 'p',
+          model: null,
+          tools: ['Read', 'Bash'],
+          worktree: true,
+          output: 'out',
+        },
+        { id: 'b', type: 'shell', run: 'npm test', cwd: 'packages/x' },
+      ],
+      edges: [{ from: 'a', to: 'b', port: 'out' }],
+      variables: { input: 'src/' },
+    };
+
+    const back = graphToFlow(flow, flowToGraph(flow));
+
+    expect(back.nodes[0]).toMatchObject({ model: null, tools: ['Read', 'Bash'], worktree: true });
+    expect(back.nodes[1]).toMatchObject({ run: 'npm test', cwd: 'packages/x' });
+    expect(back.variables).toEqual({ input: 'src/' });
+  });
+
+  it('captures nodes the user dragged to a new position', () => {
+    const graph = flowToGraph(pipeline);
+    const moved = {
+      ...graph,
+      nodes: graph.nodes.map((n) => (n.id === 'impl' ? { ...n, position: { x: 999, y: 111 } } : n)),
+    };
+
+    const back = graphToFlow(pipeline, moved);
+
+    expect(back.nodes.find((n) => n.id === 'impl')?.position).toEqual({ x: 999, y: 111 });
+  });
+
+  it('captures an edge the user drew on the canvas', () => {
+    const graph = flowToGraph(pipeline);
+    const connected = {
+      ...graph,
+      edges: [...graph.edges, { id: 'plan->gate', source: 'plan', target: 'gate' }],
+    };
+
+    const back = graphToFlow(pipeline, connected);
+
+    expect(back.edges).toContainEqual({ from: 'plan', to: 'gate' });
+  });
+
+  it('drops an edge the user deleted on the canvas', () => {
+    const graph = flowToGraph(pipeline);
+    const trimmed = { ...graph, edges: graph.edges.filter((e) => e.id !== 'impl->gate') };
+
+    expect(graphToFlow(pipeline, trimmed).edges).toEqual([
+      { from: 'plan', to: 'impl', port: 'plan_md' },
+    ]);
+  });
+
+  it('collapses duplicate connections between the same two nodes', () => {
+    const graph = flowToGraph(pipeline);
+    graph.edges.push({ id: 'xy-edge__plan-impl', source: 'plan', target: 'impl' });
+
+    expect(graphToFlow(pipeline, graph).edges).toEqual(pipeline.edges);
+  });
+
+  it('produces a flow that still validates', () => {
+    const back = graphToFlow(pipeline, flowToGraph(pipeline));
+
+    expect(validateFlow(back).valid).toBe(true);
+  });
+});

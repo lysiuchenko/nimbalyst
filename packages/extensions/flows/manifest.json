@@ -1,0 +1,36 @@
+{
+  "id": "com.nimbalyst.flows",
+  "name": "Flows",
+  "version": "0.1.0",
+  "description": "Visual pipeline builder for Claude Code CLI flows",
+  "author": "Nimbalyst Flows Fork",
+  "main": "dist/index.js",
+  "styles": "dist/index.css",
+  "apiVersion": "1.0.0",
+  "permissions": {
+    "filesystem": true,
+    "ai": true
+  },
+  "contributions": {
+    "customEditors": [
+      {
+        "filePatterns": ["*.flow.json"],
+        "displayName": "Flow Editor",
+        "component": "FlowEditor",
+        "supportsSourceMode": true,
+        "supportsDiffMode": false
+      }
+    ],
+    "fileIcons": {
+      "*.flow.json": "account_tree"
+    },
+    "newFileMenu": [
+      {
+        "extension": ".flow.json",
+        "displayName": "Flow",
+        "icon": "account_tree",
+        "defaultContent": "{\n  \"version\": 1,\n  \"name\": \"untitled\",\n  \"nodes\": [],\n  \"edges\": [],\n  \"variables\": {}\n}\n"
+      }
+    ]
+  }
+}
