@@ -183,6 +183,30 @@ test.describe('canvas actions', () => {
     expect(painted.dot).toMatch(/^#|rgb/);
   });
 
+  test('canvas chrome is themed, not left on xyflow defaults', async () => {
+    const painted = await flows.page.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('.flow-editor')!);
+      const edge = document.querySelector('.react-flow__edge-path');
+      const miniNode = document.querySelector('.react-flow__minimap-node');
+      const mask = document.querySelector('.react-flow__minimap-mask');
+      return {
+        text: cs.getPropertyValue('--flow-text').trim(),
+        edge: edge ? getComputedStyle(edge).stroke : 'none',
+        miniNode: miniNode ? getComputedStyle(miniNode).fill : 'none',
+        mask: mask ? getComputedStyle(mask).fill : 'none',
+      };
+    });
+
+    // Edges were painting near-white, which reads as glare on a dark canvas.
+    expect(painted.edge).not.toBe('none');
+    expect(painted.edge).not.toBe(painted.text);
+    // The minimap shipped with a light mask — a bright slab in the corner. What
+    // matters is that it is translucent and derived from the canvas colour;
+    // computed form varies (rgba(...) or color(srgb ... / a)).
+    expect(painted.miniNode).not.toBe('none');
+    expect(painted.mask).toMatch(/\/\s*0?\.\d|rgba\([^)]*,\s*0?\.\d\s*\)/);
+  });
+
   test('the canvas actually draws a dot grid', async () => {
     // The pattern is an SVG circle per dot; a missing grid means no circles.
     const dots = flows.page.locator('.react-flow__background pattern circle');

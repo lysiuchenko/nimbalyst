@@ -24,6 +24,7 @@
   /* Second brand colour, for emphasis that is not a call to action. */
   --flow-accent-2: var(--nim-primary);
   --flow-dot: var(--nim-border);
+  --flow-edge: var(--nim-text-faint);
   --flow-success: var(--nim-success);
   --flow-warning: var(--nim-warning);
   --flow-danger: var(--nim-error);
@@ -64,7 +65,8 @@
   --flow-accent-contrast: #ffffff;
   /* Structure is the wordmark's near-black, not a second hue. */
   --flow-accent-2: #181a24;
-  --flow-dot: #d9d9d9;
+  --flow-dot: #c4c4c8;
+  --flow-edge: #9a9aa2;
   --flow-success: #1f8a5b;
   --flow-warning: #e78903;
   --flow-danger: #cf3708;
@@ -89,7 +91,9 @@
   --flow-accent-hover: #ff7f55;
   --flow-accent-contrast: #12141c;
   --flow-accent-2: #f2f2f4;
-  --flow-dot: #333640;
+  /* Dots and edges need to clear the canvas, not merely differ from it. */
+  --flow-dot: #4d5266;
+  --flow-edge: #6f7488;
   --flow-warning: #e78903;
   --flow-danger: #ff6a4a;
 }
@@ -727,7 +731,7 @@
   --xy-background-color: var(--flow-bg);
   --xy-background-pattern-color: var(--flow-dot);
   --xy-background-pattern-dots-color-default: var(--flow-dot);
-  --xy-edge-stroke: var(--flow-accent-2);
+  --xy-edge-stroke: var(--flow-edge);
   --xy-edge-stroke-selected: var(--flow-accent);
   --xy-edge-stroke-width: 1.5;
   --xy-connectionline-stroke: var(--flow-accent);
@@ -792,4 +796,49 @@
 
 .flow-editor[data-flow-theme='globallogic'] .flow-toolbar-run:hover {
   filter: brightness(1.06);
+}
+
+
+/*
+ * The minimap ships with a light mask, which on a dark canvas is a bright slab
+ * in the corner. Styled here rather than through props so it follows the theme.
+ */
+.react-flow__minimap {
+  background: var(--flow-surface);
+  border: 1px solid var(--flow-border);
+  border-radius: var(--flow-radius);
+}
+
+.react-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--flow-bg) 70%, transparent);
+}
+
+.react-flow__minimap-node {
+  fill: var(--flow-accent);
+  stroke: none;
+}
+
+/* Cards have to read as cards: a surface lift plus a shadow, not just a hue. */
+.flow-node {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%), 0 4px 12px rgb(0 0 0 / 8%);
+}
+
+[data-theme='dark'] .flow-editor[data-flow-theme='globallogic'] .flow-node,
+[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] .flow-node {
+  background: #1e2130;
+  border-color: #3a3f52;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 6px 18px rgb(0 0 0 / 30%);
+}
+
+/* Edge labels sit on the canvas, so they need the canvas colour behind them. */
+.react-flow__edge-textbg {
+  fill: var(--flow-bg);
+}
+
+.react-flow__edge-text {
+  fill: var(--flow-text-muted);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
 }
