@@ -1408,6 +1408,11 @@ export function incrementCompletedSessionsWithTools(): number {
 }
 
 export function shouldShowCommunityPopup(): boolean {
+  // Fork deviation: this build never shows the community / Discord popup.
+  // Single gate for both surfaces (shouldShowDiscordInvitation delegates here),
+  // so this one line covers them. See "Core deviations" in FORK-NOTICE.md.
+  return false;
+
   if (process.env.PLAYWRIGHT === '1') return false;
   const dismissed = isCommunityPopupDismissed();
   if (dismissed) return false;

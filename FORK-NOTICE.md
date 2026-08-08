@@ -110,6 +110,16 @@ These are additions by this fork, not edits to upstream files:
 - `docs/editorhost-notes.md` (extension contract notes, Goal 1.2)
 - `docs/flows.md`, `docs/flows-security.md` (Goal 5)
 
+## Core deviations
+
+Core files are read-only **by default**. When the repo owner explicitly asks for
+a core change, it is made and recorded here, so every
+`git rebase upstream/main` has a checklist of what to re-apply or re-resolve.
+
+| File | Change | Why |
+| --- | --- | --- |
+| `packages/electron/src/main/utils/store.ts` | `shouldShowCommunityPopup()` returns `false` unconditionally | This build never shows the community / Discord popup. Chosen as the single gate both surfaces flow through (`shouldShowDiscordInvitation` delegates to it), so the diff is one line. Requested 2026-08-08. |
+
 ### The one sanctioned edit to a core file
 
 `package-lock.json` gains a workspace registration for
