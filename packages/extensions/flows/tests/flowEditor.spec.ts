@@ -172,7 +172,12 @@ test.describe('canvas actions', () => {
         dot: style.getPropertyValue('--flow-dot').trim(),
       };
     });
-    expect(painted.accent).toMatch(/^#|rgb/);
+    // The brand orange is sourced from GlobalLogic's own aiarrow/aiglyph SVGs
+    // and is the accent in both the light and dark variants.
+    expect(painted.accent.toLowerCase()).toBe('#ff5f2d');
+    // Structure is neutral, never a second hue: r, g and b stay close together.
+    const [r, g, b] = (painted.second.match(/\w\w/g) ?? []).map((h) => parseInt(h, 16));
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(24);
     // Orange leads, purple is the second colour — not two shades of one hue.
     expect(painted.accent.toLowerCase()).not.toBe(painted.second.toLowerCase());
     expect(painted.dot).toMatch(/^#|rgb/);

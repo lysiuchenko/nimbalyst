@@ -62,18 +62,29 @@ The toolbar's palette button cycles the canvas theme, remembered per workspace:
 | Theme | What it does |
 | --- | --- |
 | **App theme** | Inherits every host token. The default. |
-| **GlobalLogic** | Orange accent on neutral greys, tighter 4px corners, with a dark variant for dark app themes. |
+| **GlobalLogic** | GlobalLogic brand palette — `#ff5f2d` orange on the wordmark's `#181a24`, the glyph gradient on the Run button, tighter 4px corners, with a dark variant. |
 
 A brand theme overrides that one layer and nothing else, which is what keeps it
 scoped to the canvas and reversible. Adding another brand is one block in
 `src/styles.css` plus an entry in `FLOW_THEMES`.
 
-Only `#ff5f2d` is sourced: it appears in GlobalLogic's own stylesheet and is not
-one of the WordPress default palette values around it. The neutrals are ordinary
-greys chosen to sit under it, **not** brand values — the site's rendered CSS is
-behind bot protection, so they could not be read from source. Every value sits
-in one marked block in `src/styles.css`, so replacing them with the official
-palette is a one-place edit.
+Every brand value is read from GlobalLogic's own published assets rather than
+guessed — their site's rendered CSS is behind bot protection, but the assets are
+not:
+
+| Value | Where it came from |
+| --- | --- |
+| `#ff5f2d` | `aiarrow.svg` and `aiglyph.svg` — the brand orange, appearing in both |
+| `#cf3708` | `aiglyph.svg` gradient — used for hover |
+| `#e78903` | `aiglyph.svg` gradient — amber, used for warnings |
+| `#ffd600` | `aiglyph.svg` gradient |
+| `#181a24` | the wordmark logo, 93.6% of its opaque pixels — brand near-black |
+| `#d9d9d9` | their UI icon set — borders and the dot grid |
+
+The glyph's warm gradient is applied to the Run button, the single most
+important control, rather than sprayed across the chrome. Neutrals between the
+sourced values are tints of `#181a24`. All of it lives in one marked block in
+`src/styles.css`.
 
 ## Working on the canvas
 
