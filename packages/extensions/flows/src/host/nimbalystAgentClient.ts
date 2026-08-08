@@ -10,14 +10,22 @@ import type { AgentClient, AgentRunRequest, AgentRunResult } from '../runner/por
  * and creates a real session, so every flow node shows up in the session list
  * with the host's own worktree and permission handling.
  *
- * Known limits of the host API, both recorded in docs/editorhost-notes.md:
- *   - `sendPrompt` returns no token usage, so `usage` is left undefined here
- *     rather than invented. Per-node cost has to be read back from the session.
- *   - `sendPrompt` takes no per-call tool allowlist or worktree flag, so a
- *     node's `tools` and `worktree` cannot yet be honored per node.
+ * `sendPrompt` itself returns no usage, so token counts are read back off the
+ * session it created. It also takes no tool allowlist and no worktree, so a
+ * node's `tools` and `worktree` are still unhonored — see
+ * docs/editorhost-notes.md §5b.
  */
+export interface SessionUsageReader {
+  getTokenUsage(
+    sessionId: string
+  ): Promise<{ inputTokens: number; outputTokens: number } | undefined>;
+}
+
 export class NimbalystAgentClient implements AgentClient {
-  constructor(private readonly ai: ExtensionAIService) {}
+  constructor(
+    private readonly ai: ExtensionAIService,
+    private readonly sessions?: SessionUsageReader
+  ) {}
 
   async run(request: AgentRunRequest, signal: AbortSignal): Promise<AgentRunResult> {
     if (signal.aborted) {
@@ -31,6 +39,22 @@ export class NimbalystAgentClient implements AgentClient {
       ...(request.model ? { model: request.model } : {}),
     });
 
-    return { sessionId, response };
+    const usage = await this.readUsage(sessionId);
+    return usage ? { sessionId, response, usage } : { sessionId, response };
+  }
+
+  /**
+   * Usage is reporting, not result: a node that did its work must not be failed
+   * because the session lookup did.
+   */
+  private async readUsage(sessionId: string): Promise<AgentRunResult['usage']> {
+    if (!this.sessions) return undefined;
+    try {
+      const usage = await this.sessions.getTokenUsage(sessionId);
+      if (!usage) return undefined;
+      return { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens };
+    } catch {
+      return undefined;
+    }
   }
 }

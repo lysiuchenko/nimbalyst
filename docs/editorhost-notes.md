@@ -228,18 +228,27 @@ reachable through it:
 
 | Needed | Status |
 | --- | --- |
-| Per-node token usage / cost | **Not returned.** `chatCompletion` returns `usage` but creates no session, so usage and "every node is a visible session" cannot both come from this API. |
-| Per-node tool allowlist (`node.tools`) | **No parameter.** The call takes no tool list. |
-| Per-node worktree isolation (`node.worktree`) | **No parameter.** `worktree:create` exists over IPC, but `sendPrompt` cannot be pointed at a worktree. |
+| Per-node token usage / cost | **Solved by an adapter.** `sendPrompt` returns none, but `sessions:get` returns the session record and `AISession.tokenUsage` (`packages/runtime/src/ai/server/types.ts:383`) carries cumulative `inputTokens` / `outputTokens`. Since each node gets its own session, that is the node's usage. `NimbalystAgentClient` reads it back through a `SessionUsageReader`. |
+| Per-node tool allowlist (`node.tools`) | **Still missing.** The call takes no tool list. |
+| Per-node worktree isolation (`node.worktree`) | **Still missing.** See below. |
 
-Candidate routes, none of them core edits, none yet built or verified:
+### Why worktree isolation is genuinely blocked
 
-- read usage back from the session after it completes (`ai-session-state:*`, or
-  the session tables through the host's own query path);
-- create the worktree with `worktree:create` and find whether a session can be
-  attached to it through an existing IPC channel;
-- otherwise treat these as genuinely missing core APIs and report, per standing
-  constraint 4.
+`sessions:create` *does* accept a `worktreeId`
+(`packages/electron/src/main/ipc/SessionHandlers.ts:243`), so a flow could
+create a worktree with `worktree:create` and then create a session bound to it.
+The gap is the next step: **nothing lets an extension send a prompt into a
+session it already created.** `services.ai.sendPrompt` goes to
+`extensions:ai-send-prompt`, whose handler
+(`packages/electron/src/main/services/ai/AIService.ts:3955`) destructures only
+`{ prompt, sessionName, provider, model }` and always creates its own session.
+There is no `sessions:send-prompt` channel; the renderer's own chat drives the
+provider in-process rather than over IPC.
+
+So per-node worktrees need one of: a `worktreeId` option on
+`extensions:ai-send-prompt`, or a channel that submits a prompt to an existing
+session id. Both are core changes — reported rather than worked around, per
+standing constraint 4.
 
 ## 5c. Shell nodes need a backend module
 

@@ -65,6 +65,11 @@ export interface RunOptions {
   concurrency?: number;
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;
+  /**
+   * Called whenever a node changes state. Lets the run record be written as the
+   * run progresses, so an interrupted run still leaves a usable record.
+   */
+  onStateChange?: (state: RunState) => void;
   runId?: string;
   /** Injected clock, so timings are assertable without faking timers. */
   now?: () => number;

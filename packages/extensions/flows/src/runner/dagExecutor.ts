@@ -68,7 +68,10 @@ export class DagFlowRunner implements FlowRunner {
       usage: { inputTokens: 0, outputTokens: 0 },
     };
 
+    const notifyState = () => options.onStateChange?.(state);
+
     emit({ type: 'run-started', runId, flowName: resolvedFlow.name, at: startedAt });
+    notifyState();
 
     const byId = new Map(resolvedFlow.nodes.map((node) => [node.id, node]));
     const children = new Map<string, string[]>();
@@ -104,6 +107,7 @@ export class DagFlowRunner implements FlowRunner {
       execution.status = 'running';
       execution.startedAt = at;
       emit({ type: 'node-started', runId, nodeId, at });
+      notifyState();
 
       try {
         const resolved = resolveFields(node, { variables, outputs: state.outputs });
@@ -127,6 +131,7 @@ export class DagFlowRunner implements FlowRunner {
         }
 
         emit({ type: 'node-finished', runId, nodeId, at: finishedAt, output: result.output });
+        notifyState();
 
         for (const child of children.get(nodeId) ?? []) {
           pending.set(child, (pending.get(child) ?? 1) - 1);
@@ -141,6 +146,7 @@ export class DagFlowRunner implements FlowRunner {
         execution.error = message;
         emit({ type: 'node-failed', runId, nodeId, at: finishedAt, error: message });
         skipDescendants(nodeId);
+        notifyState();
       }
     };
 
@@ -166,6 +172,7 @@ export class DagFlowRunner implements FlowRunner {
     state.status = resolveStatus(signal?.aborted === true, failed);
     state.finishedAt = now();
     emit({ type: 'run-finished', runId, status: state.status, at: state.finishedAt });
+    notifyState();
 
     return state;
   }

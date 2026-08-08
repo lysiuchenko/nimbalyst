@@ -50,6 +50,42 @@ describe('NimbalystAgentClient', () => {
     expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).not.toHaveProperty('model');
   });
 
+  it('reads token usage back off the session the prompt created', async () => {
+    const ai = aiService();
+    const sessions = {
+      getTokenUsage: vi.fn(async () => ({ inputTokens: 900, outputTokens: 120, totalTokens: 1020 })),
+    };
+
+    const result = await new NimbalystAgentClient(ai, sessions).run(request, new AbortController().signal);
+
+    expect(sessions.getTokenUsage).toHaveBeenCalledWith('session-3');
+    expect(result.usage).toEqual({ inputTokens: 900, outputTokens: 120 });
+  });
+
+  it('still returns the node result when the session reports no usage', async () => {
+    const ai = aiService();
+    const sessions = { getTokenUsage: vi.fn(async () => undefined) };
+
+    const result = await new NimbalystAgentClient(ai, sessions).run(request, new AbortController().signal);
+
+    expect(result).toMatchObject({ sessionId: 'session-3', response: 'done' });
+    expect(result.usage).toBeUndefined();
+  });
+
+  it('does not fail a finished node just because usage could not be read', async () => {
+    const ai = aiService();
+    const sessions = {
+      getTokenUsage: vi.fn(async () => {
+        throw new Error('session lookup failed');
+      }),
+    };
+
+    const result = await new NimbalystAgentClient(ai, sessions).run(request, new AbortController().signal);
+
+    expect(result.usage).toBeUndefined();
+    expect(result.response).toBe('done');
+  });
+
   it('does not start a session for a run that was already cancelled', async () => {
     const ai = aiService();
     const controller = new AbortController();
