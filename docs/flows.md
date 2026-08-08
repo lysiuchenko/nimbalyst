@@ -58,6 +58,11 @@ it targets exists, or shared across machines.
   port name would be ambiguous.
 - **Drag from a handle onto empty canvas** to create the next node already
   connected.
+- **Undo / redo** with Cmd+Z and Cmd+Shift+Z, or the toolbar buttons. This is
+  canvas history — the host's document history covers what was saved, this
+  covers what is on screen, which is where a mis-drag or accidental delete hurts.
+- **Runs** in the toolbar lists this flow's past runs from `.flow-runs/` with
+  status, duration, tokens and cost.
 - **Variables** are edited from the toolbar, not source mode. Renaming one
   rewrites every `{{…}}` that used it; renaming without that would break prompts
   silently and only fail at run time.

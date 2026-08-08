@@ -140,6 +140,16 @@ test.describe('canvas actions', () => {
     ).toHaveValue('');
   });
 
+  test('undo takes back a canvas edit, redo puts it back', async () => {
+    await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
+
+    await flows.page.locator('[data-testid="flow-undo"]').click();
+    await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toHaveCount(0);
+
+    await flows.page.locator('[data-testid="flow-redo"]').click();
+    await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
+  });
+
   test('variables are editable without dropping into source mode', async () => {
     await flows.page.locator('[data-testid="flow-variables-toggle"]').click();
     await expect(flows.page.locator('[data-testid="flow-variables"]')).toBeVisible();
@@ -199,6 +209,15 @@ test.describe('running a flow', () => {
 
     const records = flows.runRecords();
     expect(records).toHaveLength(1);
+  });
+
+  test('a finished run shows up in this flow\'s history', async () => {
+    await flows.page.locator('[data-testid="flow-runs-toggle"]').click();
+
+    const history = flows.page.locator('[data-testid="flow-run-history"]');
+    await expect(history).toBeVisible();
+    await expect(history.locator('[data-past-run]')).toHaveCount(1);
+    await expect(history).toContainText('done');
   });
 
   test('reports the finished run without opening a session', async () => {

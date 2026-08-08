@@ -26,6 +26,9 @@ import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from '
 import { formatDuration, previewOf } from './nodes/entryFilter';
 import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
+import { createHistory } from './history';
+import { loadRunHistory } from './runHistory';
+import type { RunRecord } from '../runner/runStore';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
@@ -82,11 +85,38 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // Mirrors baseRef.current.variables for rendering; the ref stays the source
   // of truth so editing a variable never re-renders the canvas.
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [pastRuns, setPastRuns] = useState<RunRecord[]>([]);
+  const [showRuns, setShowRuns] = useState(false);
+  const history = useRef(createHistory<FlowGraph>());
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const readGraph = useCallback(
     () => ({ nodes: getNodes(), edges: getEdges() }),
     [getEdges, getNodes]
   );
+
+  const snapshot = useCallback((): FlowGraph => {
+    const graph = readGraph();
+    return { nodes: structuredClone(graph.nodes), edges: structuredClone(graph.edges) };
+  }, [readGraph]);
+
+  // The canvas store applies a change *before* telling us, so the state worth
+  // undoing to is the one from before this change — kept here and recorded when
+  // the next change lands. One mechanism for every edit, whether the user
+  // dragged it or a toolbar action made it, so nothing double-records.
+  const previousGraph = useRef<FlowGraph | null>(null);
+  // Applying an undo produces canvas changes of its own. Without this they
+  // would look like a fresh edit and wipe the redo trail.
+  const applyingHistory = useRef(false);
+
+  const remember = useCallback(() => {
+    if (applyingHistory.current) return;
+    if (previousGraph.current) {
+      history.current.record(previousGraph.current);
+      setHistoryState({ canUndo: history.current.canUndo(), canRedo: history.current.canRedo() });
+    }
+    previousGraph.current = snapshot();
+  }, [snapshot]);
 
   const refreshAnalysis = useCallback(() => {
     const candidate = graphToFlow(baseRef.current, readGraph());
@@ -102,6 +132,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       revision: (previous?.revision ?? 0) + 1,
     }));
     setSaveErrors(null);
+    // A reload replaces the document; the old canvas history no longer applies.
+    history.current.reset();
+    previousGraph.current = null;
+    setHistoryState({ canUndo: false, canRedo: false });
   }, []);
 
   const onSave = useCallback(async () => {
@@ -130,23 +164,30 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     onLoaded: () => {
       fitView({ padding: 0.2, maxZoom: 1 });
       refreshAnalysis();
+      previousGraph.current = snapshot();
     },
   });
 
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowCanvasNode>[]) => {
-      if (changes.some(isUserChange)) markDirty();
+      if (changes.some(isUserChange)) {
+        remember();
+        markDirty();
+      }
       refreshAnalysis();
     },
-    [markDirty, refreshAnalysis]
+    [markDirty, refreshAnalysis, remember]
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange<FlowCanvasEdge>[]) => {
-      if (changes.some(isUserChange)) markDirty();
+      if (changes.some(isUserChange)) {
+        remember();
+        markDirty();
+      }
       refreshAnalysis();
     },
-    [markDirty, refreshAnalysis]
+    [markDirty, refreshAnalysis, remember]
   );
 
   // The canvas is uncontrolled, so xyflow adds the edge to its own store; this
@@ -179,7 +220,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       markDirty();
       refreshAnalysis();
     },
-    [addNodes, getNodes, markDirty, refreshAnalysis, screenToFlowPosition]
+    [addNodes, getNodes, markDirty, refreshAnalysis, remember, screenToFlowPosition]
   );
 
   useEffect(() => {
@@ -240,6 +281,44 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [markDirty, readGraph, refreshAnalysis, setEdges, setNodes]
   );
 
+  const applyGraph = useCallback(
+    (graph: FlowGraph) => {
+      applyingHistory.current = true;
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
+      previousGraph.current = { nodes: structuredClone(graph.nodes), edges: structuredClone(graph.edges) };
+      markDirty();
+      refreshAnalysis();
+      setHistoryState({ canUndo: history.current.canUndo(), canRedo: history.current.canRedo() });
+      // Released after the store has emitted the changes this apply caused.
+      window.setTimeout(() => {
+        applyingHistory.current = false;
+      }, 0);
+    },
+    [markDirty, refreshAnalysis, setEdges, setNodes]
+  );
+
+  const undo = useCallback(() => {
+    const previous = history.current.undo(snapshot());
+    if (previous) applyGraph(previous);
+  }, [applyGraph, snapshot]);
+
+  const redo = useCallback(() => {
+    const next = history.current.redo(snapshot());
+    if (next) applyGraph(next);
+  }, [applyGraph, snapshot]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [redo, undo]);
+
   const onDuplicate = useCallback(
     (nodeId: string) => {
       const nodes = getNodes();
@@ -249,7 +328,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       markDirty();
       refreshAnalysis();
     },
-    [addNodes, getNodes, markDirty, refreshAnalysis]
+    [addNodes, getNodes, markDirty, refreshAnalysis, remember]
   );
 
   // Dropping a connection on empty canvas creates the next node already wired,
@@ -267,7 +346,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       markDirty();
       refreshAnalysis();
     },
-    [addEdges, addNodes, getNodes, markDirty, refreshAnalysis, screenToFlowPosition]
+    [addEdges, addNodes, getNodes, markDirty, refreshAnalysis, remember, screenToFlowPosition]
   );
 
   const nodeTypes = useMemo(
@@ -275,6 +354,13 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [markDirty, onDuplicate]
   );
   const run = useFlowRun(host);
+
+  // Reload past runs when the editor opens and after each run finishes.
+  useEffect(() => {
+    if (run.isRunning) return;
+    const root = host.workspaceId ?? host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
+    void loadRunHistory(getHostServices().filesystem, host.filePath, root).then(setPastRuns);
+  }, [host, run.isRunning]);
 
   const useTemplate = useCallback(
     (template: FlowTemplate) => {
@@ -289,7 +375,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       refreshAnalysis();
       window.setTimeout(() => fitView({ padding: 0.2, maxZoom: 1 }), 0);
     },
-    [fitView, markDirty, refreshAnalysis, setEdges, setNodes]
+    [fitView, markDirty, refreshAnalysis, remember, setEdges, setNodes]
   );
 
   // Run what is on the canvas, not what is on disk, but refuse to run something
@@ -334,6 +420,35 @@ function FlowCanvas({ host }: { host: EditorHost }) {
         <button
           type="button"
           className="flow-toolbar-button"
+          data-testid="flow-undo"
+          disabled={!historyState.canUndo}
+          title="Undo (Cmd+Z)"
+          onClick={undo}
+        >
+          <span className="material-symbols-outlined">undo</span>
+        </button>
+        <button
+          type="button"
+          className="flow-toolbar-button"
+          data-testid="flow-redo"
+          disabled={!historyState.canRedo}
+          title="Redo (Cmd+Shift+Z)"
+          onClick={redo}
+        >
+          <span className="material-symbols-outlined">redo</span>
+        </button>
+        <button
+          type="button"
+          className="flow-toolbar-button"
+          data-testid="flow-runs-toggle"
+          onClick={() => setShowRuns((previous) => !previous)}
+        >
+          <span className="material-symbols-outlined">history</span>
+          Runs ({pastRuns.length})
+        </button>
+        <button
+          type="button"
+          className="flow-toolbar-button"
           data-testid="flow-variables-toggle"
           onClick={() => setShowVariables((previous) => !previous)}
         >
@@ -362,6 +477,57 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           {run.isRunning ? 'Cancel' : 'Run'}
         </button>
       </div>
+
+      {showRuns && (
+        <div className="flow-variables" data-testid="flow-run-history">
+          {pastRuns.length === 0 ? (
+            <p className="flow-node-hint">
+              This flow has not run yet. Runs are recorded in <code>.flow-runs/</code>.
+            </p>
+          ) : (
+            <table className="flow-run-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Status</th>
+                  <th className="flow-run-number">Took</th>
+                  <th className="flow-run-number">Tokens</th>
+                  <th className="flow-run-number">Cost</th>
+                  <th>Run</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastRuns.map((record) => (
+                  <tr key={record.runId} data-past-run={record.runId}>
+                    <td>{new Date(record.startedAt).toLocaleString()}</td>
+                    <td>
+                      <span className={`flow-node-badge flow-node-badge-${record.status}`}>
+                        {record.status}
+                      </span>
+                    </td>
+                    <td className="flow-run-number">
+                      {formatDuration(
+                        record.finishedAt !== undefined
+                          ? record.finishedAt - record.startedAt
+                          : undefined
+                      )}
+                    </td>
+                    <td className="flow-run-number">
+                      {record.usage.inputTokens + record.usage.outputTokens}
+                    </td>
+                    <td className="flow-run-number">
+                      {record.usage.costUsd !== undefined
+                        ? `$${record.usage.costUsd.toFixed(4)}`
+                        : '—'}
+                    </td>
+                    <td className="flow-run-session">{record.runId}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {showVariables && (
         <div className="flow-variables" data-testid="flow-variables">

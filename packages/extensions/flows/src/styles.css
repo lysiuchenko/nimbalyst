@@ -554,3 +554,8 @@
   border-radius: 3px;
   background: var(--nim-bg-tertiary);
 }
+
+.flow-toolbar-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
