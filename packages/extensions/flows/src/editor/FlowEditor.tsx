@@ -23,6 +23,7 @@ import {
 } from './flowGraph';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
 import { formatDuration, previewOf } from './nodes/entryFilter';
+import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
@@ -50,7 +51,7 @@ export function FlowEditor({ host }: EditorHostProps) {
 }
 
 function FlowCanvas({ host }: { host: EditorHost }) {
-  const { getNodes, getEdges, addNodes, fitView, screenToFlowPosition } = useReactFlow<
+  const { getNodes, getEdges, addNodes, setNodes, setEdges, fitView, screenToFlowPosition } = useReactFlow<
     FlowCanvasNode,
     FlowCanvasEdge
   >();
@@ -72,6 +73,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     references: Record<string, string[]>;
     issues: Record<string, string[]>;
   }>({ references: {}, issues: {} });
+  // Drives the starter gallery. Tracked in state rather than read from the
+  // xyflow store so it updates the moment a template or node is added.
+  const [isEmpty, setIsEmpty] = useState(false);
 
   const readGraph = useCallback(
     () => ({ nodes: getNodes(), edges: getEdges() }),
@@ -81,6 +85,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   const refreshAnalysis = useCallback(() => {
     const candidate = graphToFlow(baseRef.current, readGraph());
     setAnalysis({ references: referencesByNode(candidate), issues: issuesByNode(candidate) });
+    setIsEmpty(candidate.nodes.length === 0);
   }, [readGraph]);
 
   const applyContent = useCallback((flow: Flow) => {
@@ -190,6 +195,22 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   const nodeTypes = useMemo(() => createNodeTypes(markDirty), [markDirty]);
   const run = useFlowRun(host);
+
+  const useTemplate = useCallback(
+    (template: FlowTemplate) => {
+      const flow = template.build(baseRef.current.name);
+      // Adopt the template's variables too, not just its nodes: its prompts
+      // reference them, so without this the flow arrives already invalid.
+      baseRef.current = { ...baseRef.current, variables: flow.variables };
+      const graph = applyTemplate(template, baseRef.current.name);
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
+      markDirty();
+      refreshAnalysis();
+      window.setTimeout(() => fitView({ padding: 0.2, maxZoom: 1 }), 0);
+    },
+    [fitView, markDirty, refreshAnalysis, setEdges, setNodes]
+  );
 
   // Run what is on the canvas, not what is on disk, but refuse to run something
   // that would not survive a save.
@@ -381,6 +402,34 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <Controls />
             <MiniMap pannable zoomable />
           </ReactFlow>
+          {isEmpty && (
+            <div className="flow-empty" data-testid="flow-empty">
+              <h2 className="flow-empty-title">Start from a shape that already works</h2>
+              <p className="flow-empty-subtitle">
+                Every template is wired and valid — edit it rather than starting from a blank grid.
+              </p>
+              <div className="flow-template-grid">
+                {FLOW_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="flow-template-card"
+                    data-template={template.id}
+                    onClick={() => useTemplate(template)}
+                  >
+                    <span className="material-symbols-outlined flow-template-icon">
+                      {template.icon}
+                    </span>
+                    <span className="flow-template-title">{template.title}</span>
+                    <span className="flow-template-desc">{template.description}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="flow-empty-footnote">
+                …or use the buttons above to place a node yourself.
+              </p>
+            </div>
+          )}
           </RunStatusContext.Provider>
           </NodeIssuesContext.Provider>
           </ReferencesContext.Provider>

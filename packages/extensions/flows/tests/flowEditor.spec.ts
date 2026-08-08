@@ -73,6 +73,48 @@ test.describe('flow editor', () => {
   });
 });
 
+test.describe('starting from empty', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'blank.flow.json': { version: 1, name: 'blank', nodes: [], edges: [], variables: {} },
+      })
+    );
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('an empty flow offers starter templates instead of a blank grid', async () => {
+    await openFlow(flows.page, 'blank.flow.json');
+
+    await expect(flows.page.locator('[data-testid="flow-empty"]')).toBeVisible();
+    await expect(flows.page.locator('.flow-template-card')).not.toHaveCount(0);
+  });
+
+  test('picking a template fills the canvas with a wired, valid flow', async () => {
+    await flows.page.locator('[data-template="plan-implement-review"]').click();
+
+    await expect(flows.page.locator('[data-testid="flow-empty"]')).toBeHidden();
+    await expect(flows.page.locator('.flow-node')).toHaveCount(5);
+    // Wired, not just placed: edges exist and nothing is flagged as broken.
+    await expect(flows.page.locator('.react-flow__edge')).toHaveCount(4);
+    await expect(flows.page.locator('.flow-node-invalid')).toHaveCount(0);
+  });
+
+  test('the templated flow saves without needing a single edit', async () => {
+    await flows.save();
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Saved', { timeout: 30_000 });
+
+    const saved = flows.readFlow('blank.flow.json') as { nodes: unknown[]; edges: unknown[] };
+    expect(saved.nodes).toHaveLength(5);
+    expect(saved.edges).toHaveLength(4);
+  });
+});
+
 test.describe('running a flow', () => {
   let flows: FlowsApp;
 

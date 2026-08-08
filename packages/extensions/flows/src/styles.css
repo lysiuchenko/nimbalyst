@@ -448,3 +448,82 @@
 .flow-run-failed {
   color: var(--nim-error);
 }
+
+.flow-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  background: color-mix(in srgb, var(--nim-bg) 88%, transparent);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.flow-empty-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nim-text);
+}
+
+.flow-empty-subtitle {
+  margin: 0 0 10px;
+  max-width: 460px;
+  font-size: 12px;
+  color: var(--nim-text-muted);
+}
+
+.flow-template-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.flow-template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 210px;
+  padding: 10px;
+  border: 1px solid var(--nim-border);
+  border-radius: 8px;
+  background: var(--nim-bg-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.flow-template-card:hover {
+  border-color: var(--nim-primary);
+}
+
+.flow-template-icon {
+  font-size: 18px;
+  color: var(--nim-primary);
+}
+
+.flow-template-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nim-text);
+}
+
+.flow-template-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--nim-text-muted);
+}
+
+.flow-empty-footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--nim-text-faint);
+}
+
+.flow-canvas { position: relative; }

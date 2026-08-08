@@ -19,6 +19,18 @@ to connect, Backspace deletes, and every node's fields are editable in place.
 **Run** executes what is on the canvas; gates pause for approval; the panel
 underneath reports each node's status, tokens, cost and session.
 
+## Starting a flow
+
+An empty `*.flow.json` opens on a gallery of starter templates rather than a
+blank grid — plan → implement → review, investigate → fix → verify, two reviews
+in parallel, release notes from the git log, or a single agent to grow from.
+
+Every template is wired and valid on arrival: it only references inputs that are
+genuinely upstream, it carries its own variables, every node is positioned, and
+any template that runs a command puts a human gate before it. Those are enforced
+by tests, not convention — a template can never be the reason a command ran
+unreviewed.
+
 ## Choosing, not typing
 
 Skill and slash-command nodes pick from what your workspace actually has. The
