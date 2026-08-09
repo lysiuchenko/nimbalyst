@@ -1,7 +1,7 @@
 # Scheduled flow runs and the flow analytics dashboard
 
 **Date:** 2026-08-09
-**Status:** design, awaiting review
+**Status:** implemented — see the amendments marked in §4.3 and §8
 **Scope:** `packages/extensions/flows` only, plus one prerequisite core fix (§8)
 
 ## 1. What we are building
@@ -27,7 +27,7 @@ Measured before designing, not assumed:
 | An extension can contribute a full-screen panel with its own gutter button | `packages/extension-sdk/src/types/panel.ts:39` |
 | Headless mode **refuses** agent nodes | `packages/extensions/flows/src/headless/runHeadless.ts:29` |
 | Run records already carry per-node `startedAt` / `finishedAt`, `status`, `children[]`, `sessionId` | `packages/extensions/flows/src/runner/types.ts:47` |
-| Run records carry a `usage` field that is **always zero** because the host leaves `tokenUsage` null on the extension prompt path | verified 2026-08-09; see §8 |
+| Run records carry a `usage` field that is **always zero** because the host leaves `tokenUsage` null — on *every* session path, not just the extension's | verified 2026-08-09; see §8 |
 
 ## 3. Scope decision: when can a schedule fire?
 
@@ -58,8 +58,9 @@ Split, deliberately:
 
 - **Definition → the `.flow.json` file.** Declarative, reviewable in a diff,
   travels with the flow to another machine.
-- **State → `.flow-runs/schedule-state.json`.** Local, machine-specific, never
-  shared.
+- **State → `.flow-runs/<flow>.schedule.json`.** Local, machine-specific, never
+  shared. (One file per flow, so two scheduled flows cannot overwrite each
+  other's clock.)
 
 This mirrors a rule the extension already holds: run state must not enter the
 document. Sub-agent cards are rendered outside the xyflow store for exactly this
@@ -92,9 +93,12 @@ the audience for no gain at this scale.
 The sharpest question in the feature: a flow scheduled nightly that contains a
 `human-gate` has nobody there to approve it.
 
-- `onGate: "pause"` (default) — the run pauses and the host raises a
-  notification. The run is visible in the dashboard as *waiting for a person*,
-  and its human-wait time is measured from that moment.
+- `onGate: "pause"` (default) — **amended during implementation.** The design
+  said the run would pause and notify. Built that way it would hang: a
+  scheduled run has no editor open, so the gate would wait forever while
+  holding the flow's in-flight lock, blocking every later scheduled run of the
+  same flow. The scheduler therefore *declines* the run and says why, naming
+  the gates and how to proceed. Implemented at `src/schedule/gatePolicy.ts`.
 - `onGate: "skip"` — the gate auto-approves. **Only** legal when the flow
   contains no `shell` node, because auto-approving a gate in front of a command
   is exactly the thing gates exist to prevent. The validator enforces this.
@@ -197,12 +201,13 @@ positional string (`SessionHandlers.ts:472`) and it passes one. The session
 returns with the right title and provider, but `tokenUsage` is **null** for
 sessions created through `extensions:ai-send-prompt`.
 
-The token half of the dashboard is blocked on this. Two candidate fixes, to be
-settled in its own spec:
-
-1. Read usage after the turn settles (if it is a write-timing race).
-2. Populate `tokenUsage` on the extension prompt path in core — a core change,
-   requiring a FORK-NOTICE entry.
+**Settled during implementation: this is app-wide, not a flows gap.** Both
+candidate fixes are moot. Measured by running the app's own
+`ai:createSession` + `ai:sendMessage` alongside `extensions:ai-send-prompt` in
+one session: both replied, both recorded `tokenUsage: null`. Nothing in the
+extension can fix that, so the dashboard reports `—` rather than `0`, and the
+ROI figure comes from an author-supplied `manualBaselineMinutes` instead
+(§5.2), which shipped.
 
 Also outstanding: a run records only top-level `sessionIds`; fan-out sub-agent
 sessions are missing, so the dashboard cannot link to them.
