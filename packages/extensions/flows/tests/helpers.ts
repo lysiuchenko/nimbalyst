@@ -38,8 +38,12 @@ export function createWorkspace(files: Record<string, unknown | string>): string
   git('config', 'user.name', 'e2e');
 
   for (const [name, content] of Object.entries(files)) {
+    const target = path.join(workspace, name);
+    // Nested names let a fixture seed `.flow-runs/…`, which is how the history
+    // and dashboard tests get deterministic data without running an agent.
+    fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(
-      path.join(workspace, name),
+      target,
       typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`
     );
   }

@@ -1,0 +1,344 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
+import { createWorkspace, launchFlowsApp, openFlow, type FlowsApp } from './helpers';
+
+/**
+ * History and dashboard behaviour, driven by seeded run records.
+ *
+ * Records are fixtures rather than the product of a live run: an agent turn
+ * costs money, takes minutes and produces different numbers every time, none of
+ * which makes for a test that can assert an exact figure.
+ */
+
+const flow = {
+  version: 1,
+  name: 'seeded',
+  nodes: [
+    { id: 'plan', type: 'agent', prompt: 'Plan it', output: 'plan_md' },
+    { id: 'approve', type: 'human-gate', message: 'Approve?' },
+    { id: 'review', type: 'fan-out', prompt: 'Review {{item}}', over: 'a\nb' },
+  ],
+  edges: [
+    { from: 'plan', to: 'approve', port: 'plan_md' },
+    { from: 'approve', to: 'review' },
+  ],
+  variables: {},
+};
+
+const HOUR = 3_600_000;
+const base = Date.now() - 2 * HOUR;
+
+/** flowPath is absolute in a record, so it is filled in once the workspace exists. */
+const record = (over: Record<string, unknown>) => ({
+  runId: 'run-seed',
+  flowName: 'seeded',
+  status: 'done',
+  startedAt: base,
+  finishedAt: base + 60_000,
+  updatedAt: base + 60_000,
+  nodes: {},
+  outputs: {},
+  usage: { inputTokens: 0, outputTokens: 0 },
+  sessionIds: [],
+  ...over,
+});
+
+const finished = record({
+  runId: 'run-finished',
+  status: 'done',
+  nodes: {
+    plan: { nodeId: 'plan', type: 'agent', status: 'done', startedAt: base, finishedAt: base + 120_000 },
+    approve: {
+      nodeId: 'approve',
+      type: 'human-gate',
+      status: 'done',
+      startedAt: base + 120_000,
+      finishedAt: base + 420_000,
+    },
+    review: {
+      nodeId: 'review',
+      type: 'fan-out',
+      status: 'done',
+      startedAt: base + 420_000,
+      finishedAt: base + 480_000,
+      childSessionIds: ['child-a', 'child-b'],
+    },
+  },
+  usage: { inputTokens: 1_000, outputTokens: 200 },
+  sessionIds: ['session-main', 'child-a', 'child-b'],
+});
+
+const failed = record({
+  runId: 'run-failed',
+  status: 'failed',
+  startedAt: base + HOUR,
+  finishedAt: base + HOUR + 5_000,
+  updatedAt: base + HOUR + 5_000,
+  nodes: {
+    plan: { nodeId: 'plan', type: 'agent', status: 'done', startedAt: base + HOUR, finishedAt: base + HOUR + 1_000 },
+    approve: {
+      nodeId: 'approve',
+      type: 'human-gate',
+      status: 'failed',
+      error: 'rejected by the reviewer',
+      startedAt: base + HOUR + 1_000,
+      finishedAt: base + HOUR + 5_000,
+    },
+    review: { nodeId: 'review', type: 'fan-out', status: 'skipped' },
+  },
+});
+
+/** Left mid-run by an app that went away — the record still claims to be running. */
+const stranded = record({
+  runId: 'run-stranded',
+  status: 'running',
+  startedAt: base,
+  finishedAt: undefined,
+  updatedAt: base,
+  nodes: {
+    plan: { nodeId: 'plan', type: 'agent', status: 'done', startedAt: base, finishedAt: base + 1_000 },
+    approve: { nodeId: 'approve', type: 'human-gate', status: 'running', startedAt: base + 1_000 },
+    review: { nodeId: 'review', type: 'fan-out', status: 'queued' },
+  },
+});
+
+/** A node that finished but published nothing into its declared port. */
+const warned = record({
+  runId: 'run-warned',
+  status: 'done',
+  startedAt: base - HOUR,
+  finishedAt: base - HOUR + 2_000,
+  updatedAt: base - HOUR + 2_000,
+  nodes: {
+    plan: {
+      nodeId: 'plan',
+      type: 'agent',
+      status: 'done',
+      startedAt: base - HOUR,
+      finishedAt: base - HOUR + 2_000,
+      warning: 'published an empty plan_md — downstream nodes will read "" from {{plan.plan_md}}',
+    },
+  },
+});
+
+function workspaceWithRuns(): string {
+  const workspace = createWorkspace({
+    'seeded.flow.json': flow,
+    '.flow-runs/run-finished.json': finished,
+    '.flow-runs/run-failed.json': failed,
+    '.flow-runs/run-stranded.json': stranded,
+    '.flow-runs/run-warned.json': warned,
+  });
+
+  // A record points back at its flow by absolute path; fill that in now that
+  // the temporary workspace has one.
+  const flowPath = path.join(workspace, 'seeded.flow.json');
+  for (const name of fs.readdirSync(path.join(workspace, '.flow-runs'))) {
+    const file = path.join(workspace, '.flow-runs', name);
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, JSON.stringify({ ...parsed, flowPath }, null, 2));
+  }
+  return workspace;
+}
+
+test.describe.configure({ mode: 'serial' });
+
+test.describe('run history, from seeded records', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(workspaceWithRuns());
+    await openFlow(flows.page, 'seeded.flow.json');
+    await flows.page.locator('[data-testid="flow-runs-toggle"]').click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('summarises the runs before the reader scans them', async () => {
+    const summary = flows.page.locator('[data-testid="flow-run-history-summary"]');
+
+    await expect(summary).toHaveText('4 runs · 1 failed · 1 interrupted');
+  });
+
+  test('a run left behind by a dead app reads as interrupted, not running', async () => {
+    const row = flows.page.locator('[data-past-run="run-stranded"]');
+
+    await expect(row).toHaveAttribute('data-run-status', 'interrupted');
+    await expect(row.locator('.flow-run-outcome')).toHaveText('1 of 3 steps · stopped at approve');
+  });
+
+  test('and is settled on disk, so the next reader is not misled either', async () => {
+    const file = path.join(flows.workspace, '.flow-runs', 'run-stranded.json');
+
+    await expect
+      .poll(() => JSON.parse(fs.readFileSync(file, 'utf8')).status, { timeout: 15_000 })
+      .toBe('interrupted');
+  });
+
+  test('a failed run names the step that failed', async () => {
+    const row = flows.page.locator('[data-past-run="run-failed"]');
+
+    await expect(row).toHaveAttribute('data-run-status', 'failed');
+    await expect(row.locator('.flow-run-outcome')).toHaveText('1 of 3 steps · failed at approve');
+  });
+
+  test('unrecorded token usage reads as a dash, not as free', async () => {
+    const cells = flows.page.locator('[data-past-run="run-failed"] td');
+
+    await expect(cells.nth(4)).toHaveText('—');
+  });
+
+  test('recorded token usage is shown as a number', async () => {
+    const cells = flows.page.locator('[data-past-run="run-finished"] td');
+
+    await expect(cells.nth(4)).toHaveText('1,200');
+  });
+
+  test('opening a run shows each step and the error behind a failure', async () => {
+    await flows.page.locator('[data-past-run="run-failed"]').click();
+    const detail = flows.page.locator('[data-run-detail="run-failed"]');
+
+    await expect(detail.locator('[data-detail-node="approve"]')).toContainText(
+      'rejected by the reviewer'
+    );
+    await expect(detail.locator('[data-detail-node="review"]')).toContainText('skipped');
+    await flows.page.locator('[data-past-run="run-failed"]').click();
+  });
+
+  test('a step that published nothing says so, rather than passing "" on quietly', async () => {
+    await flows.page.locator('[data-past-run="run-warned"]').click();
+    const detail = flows.page.locator('[data-run-detail="run-warned"]');
+
+    await expect(detail.locator('[data-detail-node="plan"]')).toContainText('published an empty');
+    await flows.page.locator('[data-past-run="run-warned"]').click();
+  });
+
+  test("a run's sessions are reachable, sub-agents included", async () => {
+    await flows.page.locator('[data-past-run="run-finished"]').click();
+    const detail = flows.page.locator('[data-run-detail="run-finished"]');
+
+    // One button per session: the node's own plus both fan-out sub-agents.
+    await expect(detail.locator('[data-open-session]')).toHaveCount(3);
+    await expect(detail.locator('[data-open-session="child-b"]')).toBeVisible();
+    await flows.page.locator('[data-past-run="run-finished"]').click();
+  });
+});
+
+test.describe('the dashboard, from seeded records', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(workspaceWithRuns());
+    await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('adds up agent time across every run', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+    await expect(dash).toBeVisible({ timeout: 30_000 });
+
+    // 120s + 60s (finished) + 1s (failed) + 2s (warned) = 183s.
+    await expect(dash.locator('[data-metric="agent-time"] .flows-dashboard-value')).toHaveText('3m');
+  });
+
+  test('counts gate waits separately, because that is a person', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+
+    // 300s at the approved gate + 4s at the rejected one.
+    await expect(dash.locator('[data-metric="human-time"] .flows-dashboard-value')).toHaveText('5m');
+  });
+
+  test('counts the sub-agents a fan-out spawned', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+
+    await expect(dash.locator('[data-metric="sub-agents"] .flows-dashboard-value')).toHaveText('2');
+  });
+
+  test('reports the token spend it does know about', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+
+    await expect(dash.locator('[data-metric="tokens"] .flows-dashboard-value')).toHaveText('1,200');
+  });
+
+  test('breaks the numbers down per flow', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="seeded"]');
+
+    await expect(row).toBeVisible();
+    await expect(row.locator('td').nth(1)).toHaveText('4');
+    await expect(row.locator('td').nth(2)).toHaveText('1');
+  });
+});
+
+test.describe('guards that only fire in the editor', () => {
+  let flows: FlowsApp;
+
+  /** A gate in front of a command is exactly what must not be auto-approved. */
+  const risky = {
+    version: 1,
+    name: 'risky',
+    nodes: [
+      { id: 'ok', type: 'human-gate', message: 'Deploy?' },
+      { id: 'ship', type: 'shell', run: 'npm test' },
+    ],
+    edges: [{ from: 'ok', to: 'ship' }],
+    variables: {},
+    schedule: { type: 'daily', time: '02:00', enabled: true, onGate: 'skip' },
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'risky.flow.json': risky }));
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('refuses to open a flow that would auto-approve a gate before a command', async () => {
+    await flows.page.getByText('risky.flow.json', { exact: false }).first().click();
+
+    // The validator rejects it, so the editor reports it rather than showing a
+    // canvas that could be run.
+    const error = flows.page.locator('[data-testid="flow-editor-error"], .flow-editor-error');
+    await expect(error).toBeVisible({ timeout: 30_000 });
+    await expect(error).toContainText('onGate');
+  });
+});
+
+test.describe('nodes link in both directions', () => {
+  let flows: FlowsApp;
+
+  const stacked = {
+    version: 1,
+    name: 'stacked',
+    nodes: [
+      { id: 'a', type: 'shell', run: 'ls', position: { x: 0, y: 0 } },
+      { id: 'b', type: 'shell', run: 'pwd', position: { x: 0, y: 260 } },
+    ],
+    edges: [{ from: 'a', to: 'b' }],
+    variables: {},
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'stacked.flow.json': stacked }));
+    await openFlow(flows.page, 'stacked.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('every node offers a top and bottom port, so a top-down layout connects', async () => {
+    const node = flows.page.locator('.flow-node[data-node-id="a"]');
+
+    // Without these, an edge between vertically stacked nodes loops out to the
+    // right and back, because the only ports were on the sides.
+    await expect(node.locator('.flow-node-handle-vertical')).toHaveCount(2);
+    await expect(node.locator('.flow-node-handle')).toHaveCount(4);
+  });
+});
