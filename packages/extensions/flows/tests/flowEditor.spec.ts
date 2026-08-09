@@ -495,6 +495,24 @@ test.describe('running a flow', () => {
     await expect(dash.locator('[data-metric="tokens"] .flows-dashboard-value')).toHaveText('—');
     await expect(dash.locator('[data-dashboard-flow="approvals"]')).toBeVisible();
 
+    // The panel renders outside .flow-editor, where the --flow-* tokens live.
+    // When it did not share them it painted black-on-transparent with square
+    // corners, so assert the tokens actually resolved here.
+    const painted = await dash.evaluate((root) => {
+      const style = getComputedStyle(root);
+      const card = root.querySelector('.flows-dashboard-card')!;
+      return {
+        token: style.getPropertyValue('--flow-bg').trim(),
+        background: style.backgroundColor,
+        heading: getComputedStyle(root.querySelector('h1')!).color,
+        radius: getComputedStyle(card).borderTopLeftRadius,
+      };
+    });
+    expect(painted.token).not.toBe('');
+    expect(painted.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(painted.heading).not.toBe('rgb(0, 0, 0)');
+    expect(painted.radius).not.toBe('0px');
+
     // Leave the app where it was found, so the next test still has an editor.
     await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
     await expect(dash).toBeHidden();
