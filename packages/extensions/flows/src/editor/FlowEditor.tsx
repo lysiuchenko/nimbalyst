@@ -12,7 +12,7 @@ import {
   type FinalConnectionState,
   type NodeChange,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES, type Flow, type NodeType } from '../schema/types';
 import { parseFlowFile } from '../schema/validate';
 import {
@@ -92,6 +92,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [pastRuns, setPastRuns] = useState<RunRecord[]>([]);
   const [showRuns, setShowRuns] = useState(false);
+  const [openRun, setOpenRun] = useState<string | null>(null);
   const history = useRef(createHistory<FlowGraph>());
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
@@ -363,12 +364,23 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [markDirty, onDuplicate]
   );
   const run = useFlowRun(host);
+  // Runs that did not reach a clean finish; surfaced on the toolbar so a
+  // history full of failures is visible without opening it.
+  const unsettledRuns = pastRuns.filter((record) => {
+    const status = displayStatus(record, run.runState?.runId ?? null);
+    return status === 'failed' || status === 'interrupted';
+  }).length;
 
   // Reload past runs when the editor opens and after each run finishes.
   useEffect(() => {
     if (run.isRunning) return;
     const root = host.workspaceId ?? host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
-    void loadRunHistory(getHostServices().filesystem, host.filePath, root).then(setPastRuns);
+    const services = getHostServices();
+    // The writer settles records abandoned by an earlier session, so a phantom
+    // "running" run does not survive on disk for the next reader.
+    void loadRunHistory(services.filesystem, host.filePath, root, run.runState?.runId ?? null, {
+      write: (path, content) => services.filesystem.writeFile(path, content),
+    }).then(setPastRuns);
   }, [host, run.isRunning]);
 
   const useTemplate = useCallback(
@@ -472,6 +484,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
         >
           <span className="material-symbols-outlined">history</span>
           Runs ({pastRuns.length})
+          {/* Six healthy runs and six broken ones looked identical here. */}
+          {unsettledRuns > 0 && (
+            <span className="flow-toolbar-count" title={`${unsettledRuns} did not finish`}>
+              {unsettledRuns}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -492,6 +510,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           </span>
         )}
         <span className="flow-toolbar-status" data-dirty={isDirty}>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            {isDirty ? 'pending' : 'check_circle'}
+          </span>
           {isDirty ? 'Unsaved changes' : 'Saved'}
         </span>
         <button
@@ -506,7 +527,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       </div>
 
       {showRuns && (
-        <div className="flow-variables" data-testid="flow-run-history">
+        <div className="flow-variables flow-run-history" data-testid="flow-run-history">
           {pastRuns.length === 0 ? (
             <p className="flow-node-hint">
               This flow has not run yet. Runs are recorded in <code>.flow-runs/</code>.
@@ -523,15 +544,22 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                     <th>Status</th>
                     <th>Outcome</th>
                     <th className="flow-run-number">Took</th>
-                    <th className="flow-run-number">Tokens</th>
-                    <th className="flow-run-number">Cost</th>
+                    <th className="flow-run-number flow-run-optional">Tokens</th>
+                    <th className="flow-run-number flow-run-optional">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pastRuns.map((record) => {
                     const status = displayStatus(record, run.runState?.runId ?? null);
+                    const expanded = openRun === record.runId;
                     return (
-                      <tr key={record.runId} data-past-run={record.runId} data-run-status={status}>
+                      <Fragment key={record.runId}>
+                      <tr
+                        data-past-run={record.runId}
+                        data-run-status={status}
+                        className="flow-run-row"
+                        onClick={() => setOpenRun(expanded ? null : record.runId)}
+                      >
                         <td title={new Date(record.startedAt).toLocaleString()}>
                           {relativeWhen(record.startedAt)}
                         </td>
@@ -553,19 +581,40 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                           )}
                         </td>
                         <td
-                          className="flow-run-number"
+                          className="flow-run-number flow-run-optional"
                           title={
                             tokensLabel(record) === '—' ? 'Token usage was not recorded' : undefined
                           }
                         >
                           {tokensLabel(record)}
                         </td>
-                        <td className="flow-run-number">
+                        <td className="flow-run-number flow-run-optional">
                           {record.usage.costUsd !== undefined
                             ? `$${record.usage.costUsd.toFixed(4)}`
                             : '—'}
                         </td>
                       </tr>
+                      {expanded && (
+                        <tr className="flow-run-detail" data-run-detail={record.runId}>
+                          <td colSpan={6}>
+                            <ul className="flow-run-steps">
+                              {Object.values(record.nodes).map((node) => (
+                                <li key={node.nodeId} data-detail-node={node.nodeId}>
+                                  <span
+                                    className={`flow-node-badge flow-node-badge-${node.status}`}
+                                  >
+                                    {node.status}
+                                  </span>
+                                  <strong>{node.nodeId}</strong>
+                                  {node.error && <em>{node.error}</em>}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="flow-run-detail-id">{record.runId}</p>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

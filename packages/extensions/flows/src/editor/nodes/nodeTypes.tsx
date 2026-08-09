@@ -108,6 +108,10 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   // friction. A node loaded from a file starts closed, however deep its
   // configuration, because the canvas is there to be read first.
   const [open, setOpen] = useState(() => fieldValue.trim() === '');
+  // Kept beside `open` rather than left to the <details> element: closing the
+  // node unmounts it, and an author who opened Advanced should find it open
+  // when they come back to the same node.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   return (
     <div
@@ -284,7 +288,11 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
       {/* Everything below decides how the step runs rather than what it does.
           Folded away by default: someone reading or writing a flow needs the
           work described first, and defaults are right for most nodes. */}
-      <details className="flow-node-advanced">
+      <details
+        className="flow-node-advanced"
+        open={advancedOpen}
+        onToggle={(event) => setAdvancedOpen((event.target as HTMLDetailsElement).open)}
+      >
         <summary>Advanced</summary>
 
         {(agent || fanOut) && (

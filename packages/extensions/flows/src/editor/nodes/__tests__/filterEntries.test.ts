@@ -67,6 +67,13 @@ describe('formatDuration', () => {
   it('says nothing for a node that never finished', () => {
     expect(formatDuration(undefined)).toBe('—');
   });
+
+  it('does not report near-instant work as zero', () => {
+    // A node that failed before doing anything took a real, tiny amount of
+    // time; "0.0s" reads as a broken clock.
+    expect(formatDuration(0)).toBe('<1s');
+    expect(formatDuration(40)).toBe('<1s');
+  });
 });
 
 describe('previewOf', () => {

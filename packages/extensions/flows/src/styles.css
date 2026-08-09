@@ -142,9 +142,18 @@
   min-width: 0;
 }
 
+/* Save state is the one piece of status in a bar full of buttons, so it reads
+   as status: an icon and its own colour, not another label. */
 .flow-toolbar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
-  color: var(--flow-text-muted);
+  color: var(--flow-success);
+}
+
+.flow-toolbar-status .material-symbols-outlined {
+  font-size: 14px;
 }
 
 .flow-toolbar-status[data-dirty='true'] {
@@ -498,6 +507,72 @@
 }
 
 /* Orientation before the rows: how many, and how many went wrong. */
+/* Below this the numeric columns stop earning their width. Container query,
+   not media: the pane is a fraction of the window, not the window. */
+.flow-run-history {
+  container-type: inline-size;
+}
+
+@container (max-width: 560px) {
+  .flow-run-optional {
+    display: none;
+  }
+}
+
+.flow-run-row {
+  cursor: pointer;
+}
+
+.flow-run-row:hover td {
+  background: var(--flow-surface-hover);
+}
+
+.flow-run-detail td {
+  padding: 8px 10px;
+  background: var(--flow-surface-strong);
+}
+
+.flow-run-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-run-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: normal;
+}
+
+.flow-run-steps em {
+  color: var(--flow-danger);
+  font-style: normal;
+}
+
+.flow-run-detail-id {
+  margin: 8px 0 0;
+  font-family: var(--nim-font-mono, monospace);
+  font-size: 10px;
+  color: var(--flow-text-faint);
+  user-select: text;
+}
+
+.flow-toolbar-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--flow-danger);
+  color: var(--flow-accent-contrast);
+  font-size: 9px;
+}
+
 .flow-run-summary {
   margin: 0;
   padding: 6px 10px 0;

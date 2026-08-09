@@ -130,6 +130,7 @@ export class DagFlowRunner implements FlowRunner {
         execution.finishedAt = finishedAt;
         execution.output = result.output;
         execution.sessionId = result.sessionId;
+        execution.childSessionIds = result.childSessionIds;
         execution.usage = result.usage;
         addUsage(state.usage, result.usage);
 

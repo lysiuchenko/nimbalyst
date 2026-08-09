@@ -1,4 +1,5 @@
-import type { RunRecord } from '../runner/runStore';
+import type { RunFileWriter, RunRecord } from '../runner/runStore';
+import { repairStale } from '../runner/staleRuns';
 import type { WorkspaceFiles } from '../host/workspaceScan';
 
 /** Enough runs to see a trend, few enough to render. */
@@ -27,7 +28,11 @@ function runsGlobFor(flowPath: string, workspaceRoot: string): string {
 export async function loadRunHistory(
   files: WorkspaceFiles,
   flowPath: string,
-  workspaceRoot = ''
+  workspaceRoot = '',
+  /** Set when this editor is mid-run, so its own record is left alone. */
+  liveRunId: string | null = null,
+  /** Supplied to settle abandoned runs on disk as well as on screen. */
+  writer?: RunFileWriter
 ): Promise<RunRecord[]> {
   // The host globs relative to the workspace root, so an absolute pattern finds
   // nothing. Search every .flow-runs directory and let the flowPath filter
@@ -41,12 +46,19 @@ export async function loadRunHistory(
 
   const records = await Promise.all(paths.map((path) => readRecord(files, path)));
 
-  return records
+  const mine = records
     .filter((record): record is RunRecord => record !== null)
     // Runs of a sibling flow live in the same directory, so filter by source.
     .filter((record) => record.flowPath === flowPath)
     .sort((a, b) => b.startedAt - a.startedAt)
     .slice(0, MAX_RUNS);
+
+  if (!writer) return mine;
+
+  const directory = flowPath.slice(0, Math.max(flowPath.lastIndexOf('/'), 0));
+  return repairStale(mine, liveRunId, writer, (runId) =>
+    directory ? `${directory}/.flow-runs/${runId}.json` : `.flow-runs/${runId}.json`
+  );
 }
 
 async function readRecord(files: WorkspaceFiles, path: string): Promise<RunRecord | null> {

@@ -209,4 +209,15 @@ describe('fan-out executor', () => {
     ).rejects.toThrow('worktree isolation');
     expect(agent.calls).toEqual([]);
   });
+
+  it('reports every sub-agent session so the run can link to them', async () => {
+    let n = 0;
+    const agent = client(async () => ({ sessionId: `child-${++n}`, response: 'ok' }));
+
+    const result = await createFanOutExecutor(agent)(
+      contextFor(node, { prompt: 'p', over: 'a\nb\nc' })
+    );
+
+    expect(result.childSessionIds).toEqual(['child-1', 'child-2', 'child-3']);
+  });
 });

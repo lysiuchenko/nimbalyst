@@ -42,10 +42,12 @@ test.describe('flow editor', () => {
     await shell.getByLabel('Run').fill('npm test');
     await shell.getByLabel('Node label').fill('Verify');
 
-    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Unsaved changes');
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveAttribute('data-dirty', 'true');
 
     await flows.save();
-    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Saved', { timeout: 30_000 });
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveAttribute('data-dirty', 'false', {
+      timeout: 30_000,
+    });
 
     const saved = flows.readFlow('review.flow.json') as {
       nodes: { id: string; run?: string; label?: string; position?: unknown }[];
@@ -106,7 +108,9 @@ test.describe('starting from empty', () => {
 
   test('the templated flow saves without needing a single edit', async () => {
     await flows.save();
-    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Saved', { timeout: 30_000 });
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveAttribute('data-dirty', 'false', {
+      timeout: 30_000,
+    });
 
     const saved = flows.readFlow('blank.flow.json') as { nodes: unknown[]; edges: unknown[] };
     expect(saved.nodes).toHaveLength(5);
@@ -153,6 +157,19 @@ test.describe('canvas actions', () => {
     await expect(gate.getByLabel('Message')).toBeVisible();
     await expect(gate.locator('.flow-node-summary-text')).toHaveCount(0);
     await expect(gate.getByLabel('Output port')).toBeHidden();
+  });
+
+  test('Advanced stays open on the node that was opened', async () => {
+    const gate = flows.page.locator('.flow-node[data-node-type="human-gate"]');
+    const advanced = gate.locator('.flow-node-advanced');
+
+    await advanced.locator('summary').click();
+    await expect(advanced).toHaveAttribute('open', '');
+
+    // Closing the node unmounts the editor; reopening should not forget.
+    await gate.locator('.flow-node-expand').click();
+    await gate.locator('.flow-node-expand').click();
+    await expect(gate.locator('.flow-node-advanced')).toHaveAttribute('open', '');
   });
 
   test('every toolbar control stays reachable in a narrow pane', async () => {
@@ -253,7 +270,9 @@ test.describe('canvas actions', () => {
     await flows.page.locator('[data-testid="flow-add-variable"]').click();
     await flows.page.locator('[data-variable="input"] input').nth(1).fill('src/');
     await flows.save();
-    await expect(flows.page.locator('.flow-toolbar-status')).toHaveText('Saved', { timeout: 30_000 });
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveAttribute('data-dirty', 'false', {
+      timeout: 30_000,
+    });
 
     const saved = flows.readFlow('actions.flow.json') as { variables: Record<string, string> };
     expect(saved.variables).toMatchObject({ input: 'src/' });
@@ -413,6 +432,21 @@ test.describe('running a flow', () => {
     // A row says how far the run got, not which uuid it was.
     await expect(history.locator('.flow-run-outcome')).toContainText('2 of 2 steps');
     await expect(flows.page.locator('[data-testid="flow-run-history-summary"]')).toHaveText('1 run');
+  });
+
+  test('a run opens to show every step and its own id', async () => {
+    const history = flows.page.locator('[data-testid="flow-run-history"]');
+    await history.locator('[data-past-run]').first().click();
+
+    const detail = history.locator('[data-run-detail]');
+    await expect(detail).toBeVisible();
+    await expect(detail.locator('[data-detail-node="first"]')).toContainText('done');
+    await expect(detail.locator('[data-detail-node="second"]')).toContainText('done');
+    // The id is still reachable, just no longer the widest column.
+    await expect(detail.locator('.flow-run-detail-id')).toContainText('run-');
+
+    await history.locator('[data-past-run]').first().click();
+    await expect(detail).toHaveCount(0);
   });
 
   test('reports the finished run without opening a session', async () => {

@@ -37,6 +37,8 @@ function scoreOf(entry: CatalogEntry, needle: string): number {
 /** `1.5s`, `1m 5s` — short enough for a table cell. */
 export function formatDuration(ms: number | undefined): string {
   if (ms === undefined) return '—';
+  // Work that finished inside a tick still took time; "0.0s" reads as a stopped clock.
+  if (ms < 50) return '<1s';
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
 
   const minutes = Math.floor(ms / 60_000);

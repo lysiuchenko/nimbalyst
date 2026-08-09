@@ -147,6 +147,9 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
     publish();
 
     const results: (string | undefined)[] = new Array(items.length);
+    // Indexed, not pushed: workers finish out of order and the run should list
+    // sub-agent sessions in item order.
+    const childSessionIds: (string | undefined)[] = new Array(items.length);
     const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
     const failures: string[] = [];
     const limit = Math.max(1, node.concurrency ?? DEFAULT_FAN_OUT_CONCURRENCY);
@@ -178,6 +181,7 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
           );
           results[index] = result.response;
           children[index] = { label: item, status: 'done', sessionId: result.sessionId };
+          if (result.sessionId) childSessionIds[index] = result.sessionId;
           addUsage(usage, result.usage);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -199,6 +203,7 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
     return {
       output: items.map((item, index) => `## ${item}\n\n${results[index] ?? ''}`).join('\n\n'),
       usage,
+      childSessionIds: childSessionIds.filter((id): id is string => id !== undefined),
     };
   };
 }

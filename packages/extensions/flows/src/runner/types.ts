@@ -2,7 +2,11 @@ import type { Flow, FlowNode, NodeType } from '../schema/types';
 
 export type NodeStatus = 'queued' | 'running' | 'done' | 'failed' | 'skipped';
 
-export type RunStatus = 'running' | 'done' | 'failed' | 'cancelled';
+/**
+ * `interrupted` is never written by the runner. It is applied afterwards to a
+ * record whose run died with the app — see `staleRuns.ts`.
+ */
+export type RunStatus = 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted';
 
 export interface TokenUsage {
   inputTokens: number;
@@ -16,6 +20,8 @@ export interface NodeExecutorResult {
   usage?: TokenUsage;
   /** Nimbalyst session this node ran in, when it ran as one (Goal 3.3). */
   sessionId?: string;
+  /** Sessions this node's sub-agents ran in, so a fan-out's work is reachable. */
+  childSessionIds?: string[];
 }
 
 /** One sub-agent inside a fan-out node, as the canvas shows it. */
@@ -47,6 +53,8 @@ export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecuto
 export interface NodeExecution {
   nodeId: string;
   status: NodeStatus;
+  /** Sessions this node's sub-agents ran in. */
+  childSessionIds?: string[];
   /** Sub-agents spawned by this node, when it fans out. */
   children?: ChildProgress[];
   output?: string;

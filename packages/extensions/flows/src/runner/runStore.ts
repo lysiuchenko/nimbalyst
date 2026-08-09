@@ -15,6 +15,8 @@ export interface RunRecord {
   status: RunStatus;
   startedAt: number;
   finishedAt?: number;
+  /** Last time this record was written; how an abandoned run is detected. */
+  updatedAt?: number;
   nodes: Record<string, NodeExecution>;
   outputs: Record<string, Record<string, string>>;
   usage: TokenUsage;
@@ -50,14 +52,18 @@ export class RunStore {
 }
 
 function toRecord(state: RunState, flowPath: string): RunRecord {
-  const sessionIds = Object.values(state.nodes)
-    .map((node) => node.sessionId)
-    .filter((sessionId): sessionId is string => sessionId !== undefined);
+  // A fan-out's work lives in its sub-agents' sessions, so listing only the
+  // node's own session would leave most of a run unreachable.
+  const sessionIds = Object.values(state.nodes).flatMap((node) => [
+    ...(node.sessionId ? [node.sessionId] : []),
+    ...(node.childSessionIds ?? []),
+  ]);
 
   return {
     runId: state.runId,
     flowName: state.flowName,
     flowPath,
+    updatedAt: Date.now(),
     status: state.status,
     startedAt: state.startedAt,
     ...(state.finishedAt !== undefined ? { finishedAt: state.finishedAt } : {}),
