@@ -8,6 +8,9 @@ on:
   pull_request:
     branches:
       - main
+  # Lets CI be started by hand. Useful on a fork, where pushes do not always
+  # trigger workflows until they are enabled in the Actions tab.
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -221,3 +224,66 @@ jobs:
   #
   # Override the server location with COLLAB_SERVER_PATH (relative to
   # the public repo root) if your nimbalyst-collab checkout is elsewhere.
+
+  flows-e2e:
+    name: Flows E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            packages/extensions/*/node_modules
+          key: node-modules-${{ runner.os }}-node24-${{ hashFiles('**/package-lock.json', 'patches/**') }}
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # The extension typechecks and builds against the SDK's emitted types.
+      - name: Build extension-sdk
+        working-directory: packages/extension-sdk
+        run: npm run build
+
+      - name: Build the flows extension
+        working-directory: packages/extensions/flows
+        run: npm run build
+
+      # The CLI suite needs no Electron and no display: pure node, ~1s. It runs
+      # first so a broken headless runner is reported before the slow job.
+      - name: Headless CLI suite
+        working-directory: packages/extensions/flows
+        run: npx playwright test --config=playwright.config.ts tests/flowsCli.spec.ts
+
+      - name: Build the Electron app
+        working-directory: packages/electron
+        run: npm run build
+
+      # Electron needs a display. The fixture-driven suites are deterministic
+      # and spend no tokens; the agent-driven specs are excluded because they
+      # need a signed-in provider that CI does not have.
+      - name: Canvas and dashboard suites
+        working-directory: packages/extensions/flows
+        run: xvfb-run -a npx playwright test --config=playwright.config.ts tests/flowsData.spec.ts
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flows-e2e-results
+          path: packages/extensions/flows/test-results
+          retention-days: 7
