@@ -440,6 +440,15 @@
   color: var(--flow-accent-contrast);
 }
 
+/* Interrupted is not failure and not progress: a run whose app went away.
+   Muted so a real failure still stands out in a column of them. */
+.flow-node-badge-interrupted,
+.flow-node-badge-cancelled {
+  background: transparent;
+  border: 1px solid var(--flow-border);
+  color: var(--flow-text-faint);
+}
+
 .flow-node[data-node-status='running'] {
   border-color: var(--flow-accent);
 }
@@ -486,6 +495,32 @@
 .flow-run-number {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* Orientation before the rows: how many, and how many went wrong. */
+.flow-run-summary {
+  margin: 0;
+  padding: 6px 10px 0;
+  color: var(--flow-text-faint);
+  font-size: 11px;
+}
+
+/* One row, one line: wrapping here turned a six-row table into a page. */
+.flow-run-table td,
+.flow-run-table th {
+  white-space: nowrap;
+}
+
+.flow-run-outcome {
+  color: var(--flow-text-muted);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A stranded run is history, not activity — it should not draw the eye. */
+.flow-run-table tr[data-run-status='interrupted'] td {
+  color: var(--flow-text-faint);
 }
 
 .flow-run-session {

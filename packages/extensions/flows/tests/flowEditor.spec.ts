@@ -409,6 +409,10 @@ test.describe('running a flow', () => {
     await expect(history).toBeVisible();
     await expect(history.locator('[data-past-run]')).toHaveCount(1);
     await expect(history).toContainText('done');
+
+    // A row says how far the run got, not which uuid it was.
+    await expect(history.locator('.flow-run-outcome')).toContainText('2 of 2 steps');
+    await expect(flows.page.locator('[data-testid="flow-run-history-summary"]')).toHaveText('1 run');
   });
 
   test('reports the finished run without opening a session', async () => {

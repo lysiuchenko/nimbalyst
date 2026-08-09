@@ -30,6 +30,7 @@ import { FLOW_THEMES, nextTheme, readTheme, THEME_STORAGE_KEY, type FlowThemeId 
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
+import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } from './runSummary';
 import type { RunRecord } from '../runner/runStore';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { SubAgentLayer } from './SubAgentLayer';
@@ -511,46 +512,65 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               This flow has not run yet. Runs are recorded in <code>.flow-runs/</code>.
             </p>
           ) : (
-            <table className="flow-run-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Status</th>
-                  <th className="flow-run-number">Took</th>
-                  <th className="flow-run-number">Tokens</th>
-                  <th className="flow-run-number">Cost</th>
-                  <th>Run</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pastRuns.map((record) => (
-                  <tr key={record.runId} data-past-run={record.runId}>
-                    <td>{new Date(record.startedAt).toLocaleString()}</td>
-                    <td>
-                      <span className={`flow-node-badge flow-node-badge-${record.status}`}>
-                        {record.status}
-                      </span>
-                    </td>
-                    <td className="flow-run-number">
-                      {formatDuration(
-                        record.finishedAt !== undefined
-                          ? record.finishedAt - record.startedAt
-                          : undefined
-                      )}
-                    </td>
-                    <td className="flow-run-number">
-                      {record.usage.inputTokens + record.usage.outputTokens}
-                    </td>
-                    <td className="flow-run-number">
-                      {record.usage.costUsd !== undefined
-                        ? `$${record.usage.costUsd.toFixed(4)}`
-                        : '—'}
-                    </td>
-                    <td className="flow-run-session">{record.runId}</td>
+            <>
+              <p className="flow-run-summary" data-testid="flow-run-history-summary">
+                {historySummary(pastRuns, run.runState?.runId ?? null)}
+              </p>
+              <table className="flow-run-table">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Status</th>
+                    <th>Outcome</th>
+                    <th className="flow-run-number">Took</th>
+                    <th className="flow-run-number">Tokens</th>
+                    <th className="flow-run-number">Cost</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pastRuns.map((record) => {
+                    const status = displayStatus(record, run.runState?.runId ?? null);
+                    return (
+                      <tr key={record.runId} data-past-run={record.runId} data-run-status={status}>
+                        <td title={new Date(record.startedAt).toLocaleString()}>
+                          {relativeWhen(record.startedAt)}
+                        </td>
+                        <td>
+                          <span className={`flow-node-badge flow-node-badge-${status}`}>
+                            {status}
+                          </span>
+                        </td>
+                        {/* The run id used to own this column; where a run got to
+                            is what a reader needs, and the id is on the row. */}
+                        <td className="flow-run-outcome" title={record.runId}>
+                          {runOutcome(record, status)}
+                        </td>
+                        <td className="flow-run-number">
+                          {formatDuration(
+                            record.finishedAt !== undefined
+                              ? record.finishedAt - record.startedAt
+                              : undefined
+                          )}
+                        </td>
+                        <td
+                          className="flow-run-number"
+                          title={
+                            tokensLabel(record) === '—' ? 'Token usage was not recorded' : undefined
+                          }
+                        >
+                          {tokensLabel(record)}
+                        </td>
+                        <td className="flow-run-number">
+                          {record.usage.costUsd !== undefined
+                            ? `$${record.usage.costUsd.toFixed(4)}`
+                            : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       )}
