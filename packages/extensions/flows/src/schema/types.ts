@@ -118,6 +118,14 @@ export interface Flow {
   variables: Record<string, string>;
   /** When this flow runs on its own. Absent means only when someone presses Run. */
   schedule?: FlowSchedule;
+  /**
+   * How long this work takes a person by hand, in minutes.
+   *
+   * The one number no run record can know. Supplied by the flow's author so the
+   * dashboard can show time saved as *their* estimate rather than one invented
+   * by a multiplier. Absent means the figure is simply not shown.
+   */
+  manualBaselineMinutes?: number;
 }
 
 export interface ValidationError {

@@ -228,7 +228,7 @@ reachable through it:
 
 | Needed | Status |
 | --- | --- |
-| Per-node token usage / cost | **Solved by an adapter.** `sendPrompt` returns none, but `sessions:get` returns the session record and `AISession.tokenUsage` (`packages/runtime/src/ai/server/types.ts:383`) carries cumulative `inputTokens` / `outputTokens`. Since each node gets its own session, that is the node's usage. `NimbalystAgentClient` reads it back through a `SessionUsageReader`. |
+| Per-node token usage / cost | **Not available — app-wide, not a flows gap.** `sendPrompt` returns none, but `sessions:get` returns the session record and `AISession.tokenUsage` (`packages/runtime/src/ai/server/types.ts:383`) carries cumulative `inputTokens` / `outputTokens`. Since each node gets its own session, that *would* be the node's usage — but measured on 2026-08-09, `tokenUsage` comes back `null` for every session, including ones created through the app's own `ai:createSession` + `ai:sendMessage`. The adapter is wired and correct; the host simply records nothing here. Flows therefore report `—` rather than `0`. |
 | Per-node tool allowlist (`node.tools`) | **Still missing.** The call takes no tool list. |
 | Per-node worktree isolation (`node.worktree`) | **Solved by a one-parameter core change.** `sendPrompt` now takes an optional `worktreeId`; see below. |
 

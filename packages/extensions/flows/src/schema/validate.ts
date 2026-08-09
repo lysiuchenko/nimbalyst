@@ -79,6 +79,7 @@ export function validateFlow(input: unknown): ValidationResult {
   const edges = validateEdges(input.edges, nodes, fail);
   const variables = validateVariables(input.variables, fail);
   const schedule = validateSchedule(input.schedule, nodes ?? [], fail);
+  const baseline = validateBaseline(input.manualBaselineMinutes, fail);
 
   if (edges) detectCycle(nodes ?? [], edges, fail);
 
@@ -93,8 +94,24 @@ export function validateFlow(input: unknown): ValidationResult {
       edges: edges ?? [],
       variables,
       ...(schedule ? { schedule } : {}),
+      ...(baseline !== undefined ? { manualBaselineMinutes: baseline } : {}),
     },
   };
+}
+
+/**
+ * The author's own estimate of how long this takes by hand.
+ *
+ * Checked strictly because it is shown as a saved-time figure: a negative or
+ * fractional baseline would still render as a confident number.
+ */
+function validateBaseline(raw: unknown, fail: Fail): number | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 1) {
+    fail('manualBaselineMinutes', 'manualBaselineMinutes must be a whole number of minutes, at least 1');
+    return undefined;
+  }
+  return raw;
 }
 
 /**
@@ -424,6 +441,9 @@ export function serializeFlow(flow: Flow): string {
     // Written last, and only when set, so an unscheduled flow keeps the shape
     // it has always had on disk.
     ...(flow.schedule ? { schedule: flow.schedule } : {}),
+    ...(flow.manualBaselineMinutes !== undefined
+      ? { manualBaselineMinutes: flow.manualBaselineMinutes }
+      : {}),
   };
 
   return `${JSON.stringify(document, null, 2)}\n`;

@@ -909,6 +909,14 @@
   pointer-events: auto;
 }
 
+.flow-subagent-openable {
+  cursor: pointer;
+}
+
+.flow-subagent-openable:hover {
+  border-color: var(--flow-accent);
+}
+
 .flow-subagent-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1154,6 +1162,16 @@
   font-weight: 600;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+}
+
+/* The only estimated figure on the panel, so it is marked as one rather than
+   sitting among the measured numbers looking equally certain. */
+.flows-dashboard-card[data-metric='saved'] {
+  border-style: dashed;
+}
+
+.flows-dashboard-card[data-metric='saved'] .flows-dashboard-value {
+  color: var(--flow-success);
 }
 
 /* A dash means "not recorded"; it should not shout like a real figure. */

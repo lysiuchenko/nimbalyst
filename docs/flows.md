@@ -149,9 +149,19 @@ Plus a per-flow breakdown, so one flow failing repeatedly is visible without
 opening it. The panel follows whichever canvas theme the workspace is on — it
 reads the same stored key the editor writes, so the two never disagree.
 
-There is deliberately no "hours saved" figure. Nothing in a run record knows how
-long the work would have taken by hand, and inventing a multiplier would make
-the measured numbers untrustworthy too.
+**Time saved** appears only for flows that state their own baseline:
+
+```jsonc
+{ "manualBaselineMinutes": 90 }
+```
+
+Set it from the Variables panel — "minutes this takes by hand". The saving is
+`baseline × runs − the human time those runs actually cost`, never negative, and
+the card says it is an estimate and how many runs it covers. Without a baseline
+the figure is not shown at all: nothing in a run record knows how long the work
+would have taken by hand, and a multiplier chosen on the author's behalf would
+make the measured numbers untrustworthy too. The baseline is copied onto each
+run record, so an old estimate reflects what was claimed at the time.
 
 **Tokens read `—`, not `0`.** The host leaves `tokenUsage` null on the session
 path extensions use, so a run that spent real money totals zero. Reporting that

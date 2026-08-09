@@ -68,6 +68,19 @@ export function FlowsDashboard({ host }: PanelHostProps) {
               <span className="flows-dashboard-note">Spawned by fan-out steps</span>
             </article>
 
+            {/* Only shown where a flow author stated a baseline — the figure is
+                theirs, and without one there is nothing honest to display. */}
+            {summary.savedMs !== null && (
+              <article className="flows-dashboard-card" data-metric="saved">
+                <span className="flows-dashboard-value">{asDuration(summary.savedMs)}</span>
+                <span className="flows-dashboard-label">Time saved (estimated)</span>
+                <span className="flows-dashboard-note">
+                  From your own baseline, across {summary.baselineRuns}{' '}
+                  {summary.baselineRuns === 1 ? 'run' : 'runs'}
+                </span>
+              </article>
+            )}
+
             <article className="flows-dashboard-card" data-metric="tokens">
               <span className="flows-dashboard-value">
                 {summary.tokens === null ? '—' : summary.tokens.toLocaleString()}

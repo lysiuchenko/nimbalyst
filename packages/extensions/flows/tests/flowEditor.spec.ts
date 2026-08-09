@@ -383,6 +383,9 @@ test.describe('fan-out sub-agents', () => {
 
     // Each card is linked back to the node that spawned it.
     await expect(flows.page.locator('.flow-subagent-link')).toHaveCount(3);
+
+    // A sub-agent without a session yet is not pretending to be clickable.
+    await expect(flows.page.locator('.flow-subagent-openable')).toHaveCount(0);
   });
 
   test('a fan-out can be told to isolate its sub-agents without editing source', async () => {

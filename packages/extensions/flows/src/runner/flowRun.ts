@@ -42,7 +42,7 @@ export async function runFlow(
   dependencies: FlowRunDependencies,
   options: RunOptions = {}
 ): Promise<RunRecord> {
-  const store = new RunStore(dependencies.writer, flowPath);
+  const store = new RunStore(dependencies.writer, flowPath, flow.manualBaselineMinutes);
   const runner = new DagFlowRunner({
     executors: {
       agent: createAgentExecutor(dependencies.agent),

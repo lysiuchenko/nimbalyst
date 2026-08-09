@@ -105,4 +105,57 @@ describe('summariseRuns', () => {
     expect(summary.totals.runs).toBe(0);
     expect(summary.byFlow).toEqual([]);
   });
+
+  it('estimates time saved from the flow author\'s own baseline', () => {
+    const summary = summariseRuns([
+      record({
+        runId: 'a',
+        manualBaselineMinutes: 90,
+        nodes: {
+          g: node({ nodeId: 'g', type: 'human-gate', startedAt: 0, finishedAt: 600_000 }),
+        } as unknown as RunRecord['nodes'],
+      }),
+    ]);
+
+    // 90 minutes by hand, minus the 10 a person actually spent at the gate.
+    expect(summary.savedMs).toBe(80 * 60_000);
+  });
+
+  it('adds up the saving across every run that has a baseline', () => {
+    const summary = summariseRuns([
+      record({ runId: 'a', manualBaselineMinutes: 30 }),
+      record({ runId: 'b', manualBaselineMinutes: 30 }),
+    ]);
+
+    expect(summary.savedMs).toBe(60 * 60_000);
+  });
+
+  it('has no estimate when nobody supplied a baseline', () => {
+    // Rather than invent a multiplier, the figure is simply absent.
+    expect(summariseRuns([record({ runId: 'a' })]).savedMs).toBeNull();
+  });
+
+  it('ignores runs without a baseline instead of counting them as zero', () => {
+    const summary = summariseRuns([
+      record({ runId: 'a', manualBaselineMinutes: 30 }),
+      record({ runId: 'b' }),
+    ]);
+
+    expect(summary.savedMs).toBe(30 * 60_000);
+    expect(summary.baselineRuns).toBe(1);
+  });
+
+  it('never claims a negative saving when the people took longer', () => {
+    const summary = summariseRuns([
+      record({
+        runId: 'a',
+        manualBaselineMinutes: 1,
+        nodes: {
+          g: node({ nodeId: 'g', type: 'human-gate', startedAt: 0, finishedAt: 600_000 }),
+        } as unknown as RunRecord['nodes'],
+      }),
+    ]);
+
+    expect(summary.savedMs).toBe(0);
+  });
 });

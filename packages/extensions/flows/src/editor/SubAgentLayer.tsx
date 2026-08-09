@@ -11,6 +11,8 @@ import {
 interface SubAgentLayerProps {
   /** Live sub-agents, keyed by the fan-out node that spawned them. */
   subAgents: Record<string, ChildProgress[]>;
+  /** Opens a sub-agent's session; absent while the host offers no way to. */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 /**
@@ -22,7 +24,7 @@ interface SubAgentLayerProps {
  * dirty and persist a run into `.flow.json`. These exist only while the run
  * does.
  */
-export function SubAgentLayer({ subAgents }: SubAgentLayerProps) {
+export function SubAgentLayer({ subAgents, onOpenSession }: SubAgentLayerProps) {
   const nodes = useNodes();
   const { getNode, fitBounds } = useReactFlow();
   const spawning = Object.entries(subAgents).filter(
@@ -109,8 +111,12 @@ export function SubAgentLayer({ subAgents }: SubAgentLayerProps) {
                       vectorEffect="non-scaling-stroke"
                     />
                   </svg>
+                  {/* A sub-agent's session is where its work actually is, so the
+                      card opens it once one exists. */}
                   <div
-                    className={`flow-subagent flow-subagent-${child.status}`}
+                    className={`flow-subagent flow-subagent-${child.status}${
+                      child.sessionId ? ' flow-subagent-openable' : ''
+                    }`}
                     style={{
                       left: card.x,
                       top: card.y,
@@ -119,7 +125,26 @@ export function SubAgentLayer({ subAgents }: SubAgentLayerProps) {
                     }}
                     data-child-status={child.status}
                     data-subagent-of={parentId}
-                    title={child.error ?? child.label}
+                    {...(child.sessionId ? { 'data-subagent-session': child.sessionId } : {})}
+                    role={child.sessionId ? 'button' : undefined}
+                    tabIndex={child.sessionId ? 0 : undefined}
+                    title={
+                      child.error ??
+                      (child.sessionId ? `${child.label} — open its session` : child.label)
+                    }
+                    onClick={
+                      child.sessionId ? () => onOpenSession?.(child.sessionId!) : undefined
+                    }
+                    onKeyDown={
+                      child.sessionId
+                        ? (event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onOpenSession?.(child.sessionId!);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     <span className="flow-subagent-dot" />
                     <span className="flow-subagent-label">{child.label}</span>

@@ -67,6 +67,7 @@ const finished = record({
   },
   usage: { inputTokens: 1_000, outputTokens: 200 },
   sessionIds: ['session-main', 'child-a', 'child-b'],
+  manualBaselineMinutes: 90,
 });
 
 const failed = record({
@@ -264,6 +265,17 @@ test.describe('the dashboard, from seeded records', () => {
     const dash = flows.page.locator('[data-testid="flows-dashboard"]');
 
     await expect(dash.locator('[data-metric="tokens"] .flows-dashboard-value')).toHaveText('1,200');
+  });
+
+  test('estimates time saved only where an author supplied a baseline', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+    const saved = dash.locator('[data-metric="saved"]');
+
+    // 90 minutes claimed by hand, minus the 5 minutes spent at that run's gate.
+    await expect(saved.locator('.flows-dashboard-value')).toHaveText('1h 25m');
+    // And it says what it is based on, rather than presenting itself as measured.
+    await expect(saved).toContainText('your own baseline');
+    await expect(saved).toContainText('1 run');
   });
 
   test('breaks the numbers down per flow', async () => {

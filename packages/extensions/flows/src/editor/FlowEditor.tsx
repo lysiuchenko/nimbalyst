@@ -102,6 +102,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // Mirrors baseRef.current.schedule for rendering; the ref stays the source of
   // truth so editing a schedule never re-renders the canvas.
   const [schedule, setScheduleState] = useState<FlowSchedule | undefined>(undefined);
+  const [baseline, setBaseline] = useState<number | undefined>(undefined);
   const history = useRef(createHistory<FlowGraph>());
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
@@ -139,6 +140,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setIsEmpty(candidate.nodes.length === 0);
     setVariables(candidate.variables);
     setScheduleState(candidate.schedule);
+    setBaseline(candidate.manualBaselineMinutes);
   }, [readGraph]);
 
   const applyContent = useCallback((flow: Flow) => {
@@ -412,6 +414,20 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       setOpenRun(null);
     },
     []
+  );
+
+  /** The author's own estimate of the manual cost of this flow. */
+  const patchBaseline = useCallback(
+    (raw: string) => {
+      const minutes = Number(raw);
+      const next = raw.trim() === '' || !Number.isFinite(minutes) || minutes < 1
+        ? undefined
+        : Math.round(minutes);
+      baseRef.current = { ...baseRef.current, manualBaselineMinutes: next };
+      setBaseline(next);
+      markDirty();
+    },
+    [markDirty]
   );
 
   /** Edit the schedule on the document, the way variables are edited. */
@@ -806,6 +822,21 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
       {showVariables && (
         <div className="flow-variables" data-testid="flow-variables">
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">
+              Minutes this takes by hand
+              <span className="flow-node-hint-inline">used for the saved estimate</span>
+            </span>
+            <input
+              className="flow-node-input"
+              type="number"
+              min={1}
+              aria-label="Minutes this takes by hand"
+              value={baseline ?? ''}
+              placeholder="(not estimated)"
+              onChange={(event) => patchBaseline(event.target.value)}
+            />
+          </label>
           <table className="flow-run-table">
             <thead>
               <tr>
@@ -1003,7 +1034,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.6} />
             <Controls />
             <MiniMap pannable zoomable />
-            <SubAgentLayer subAgents={run.children} />
+            <SubAgentLayer subAgents={run.children} onOpenSession={showSession} />
           </ReactFlow>
           {isEmpty && (
             <div className="flow-empty" data-testid="flow-empty">

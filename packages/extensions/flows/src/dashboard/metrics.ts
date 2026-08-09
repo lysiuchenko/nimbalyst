@@ -20,6 +20,16 @@ export interface RunsSummary {
   subAgents: number;
   /** Null when no run recorded any usage; see docs — zero would be a lie. */
   tokens: number | null;
+  /**
+   * Estimated time saved, from the baselines flow authors supplied.
+   *
+   * Null when no run carried one. This is the only figure here that is not
+   * measured, which is why it depends on someone having stated a baseline
+   * rather than on a multiplier chosen for them.
+   */
+  savedMs: number | null;
+  /** How many runs the estimate is based on, so it can be qualified. */
+  baselineRuns: number;
   byFlow: FlowMetrics[];
 }
 
@@ -49,6 +59,8 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
   let subAgents = 0;
   let tokens = 0;
   let sawUsage = false;
+  let savedMs = 0;
+  let baselineRuns = 0;
 
   for (const record of records) {
     if (record.status === 'done') totals.done += 1;
@@ -79,6 +91,16 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
       subAgents += node.childSessionIds?.length ?? 0;
     }
 
+    if (record.manualBaselineMinutes !== undefined) {
+      baselineRuns += 1;
+      const humanForRun = Object.values(record.nodes ?? {})
+        .filter((node) => isHumanNode(node as NodeExecution & { type?: string }))
+        .reduce((total, node) => total + durationOf(node), 0);
+      // Never negative: a run where the people took longer than the manual
+      // baseline saved nothing, it did not cost time back.
+      savedMs += Math.max(0, record.manualBaselineMinutes * 60_000 - humanForRun);
+    }
+
     const used = (record.usage?.inputTokens ?? 0) + (record.usage?.outputTokens ?? 0);
     if (used > 0) sawUsage = true;
     tokens += used;
@@ -92,6 +114,8 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
     humanMs,
     subAgents,
     tokens: sawUsage ? tokens : null,
+    savedMs: baselineRuns > 0 ? savedMs : null,
+    baselineRuns,
     byFlow: [...byFlow.values()].sort((a, b) => b.runs - a.runs),
   };
 }
