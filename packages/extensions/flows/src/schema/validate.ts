@@ -7,8 +7,11 @@ import {
   type ValidationError,
   type ValidationResult,
 } from './types';
+import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
 
 /** The field each node type cannot do without, and the fields it may also carry. */
+const WEEKDAY_SET = new Set<unknown>(WEEKDAYS);
+
 const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly string[] }> = {
   agent: { required: 'prompt', optional: ['model', 'tools', 'worktree'] },
   'fan-out': {
@@ -75,6 +78,7 @@ export function validateFlow(input: unknown): ValidationResult {
   const nodes = validateNodes(input.nodes, fail);
   const edges = validateEdges(input.edges, nodes, fail);
   const variables = validateVariables(input.variables, fail);
+  const schedule = validateSchedule(input.schedule, nodes ?? [], fail);
 
   if (edges) detectCycle(nodes ?? [], edges, fail);
 
@@ -88,8 +92,72 @@ export function validateFlow(input: unknown): ValidationResult {
       nodes: nodes ?? [],
       edges: edges ?? [],
       variables,
+      ...(schedule ? { schedule } : {}),
     },
   };
+}
+
+/**
+ * A flow's schedule, if it has one.
+ *
+ * Times are checked here rather than at fire time because a schedule that can
+ * never fire is worse than none: it looks armed and silently never runs.
+ */
+function validateSchedule(
+  raw: unknown,
+  nodes: FlowNode[],
+  fail: Fail
+): FlowSchedule | undefined {
+  if (raw === undefined) return undefined;
+  if (!isPlainObject(raw)) {
+    fail('schedule', 'schedule must be an object');
+    return undefined;
+  }
+
+  const type = raw.type;
+  if (type !== 'interval' && type !== 'daily' && type !== 'weekly') {
+    fail('schedule.type', 'schedule type must be interval, daily or weekly');
+    return undefined;
+  }
+  if (typeof raw.enabled !== 'boolean') {
+    fail('schedule.enabled', 'schedule must say whether it is enabled');
+    return undefined;
+  }
+
+  if (type === 'interval') {
+    const minutes = raw.intervalMinutes;
+    if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 1) {
+      fail('schedule.intervalMinutes', 'interval must be a whole number of minutes, at least 1');
+      return undefined;
+    }
+  } else {
+    if (typeof raw.time !== 'string' || !/^([01]?\d|2[0-3]):[0-5]\d$/.test(raw.time.trim())) {
+      fail('schedule.time', 'time must be a 24-hour HH:MM, e.g. 02:00');
+      return undefined;
+    }
+    if (type === 'weekly') {
+      const days = raw.days;
+      if (!Array.isArray(days) || days.length === 0 || !days.every((day) => WEEKDAY_SET.has(day))) {
+        fail('schedule.days', 'a weekly schedule must name at least one day, e.g. ["mon"]');
+        return undefined;
+      }
+    }
+  }
+
+  if (raw.onGate !== undefined && raw.onGate !== 'pause' && raw.onGate !== 'skip') {
+    fail('schedule.onGate', 'onGate must be pause or skip');
+    return undefined;
+  }
+  // Auto-approving a gate is only safe where there is no command behind it.
+  if (raw.onGate === 'skip' && nodes.some((node) => node.type === 'shell')) {
+    fail(
+      'schedule.onGate',
+      'onGate "skip" cannot be used in a flow that runs a shell command — the gate is what reviews it'
+    );
+    return undefined;
+  }
+
+  return raw as unknown as FlowSchedule;
 }
 
 type Fail = (path: string, message: string) => void;
@@ -353,6 +421,9 @@ export function serializeFlow(flow: Flow): string {
     nodes: flow.nodes.map((node) => orderKeys(node as unknown as Json, [...NODE_KEY_ORDER, ...NODE_TAIL_KEY_ORDER])),
     edges: flow.edges.map((edge) => orderKeys(edge as unknown as Json, ['from', 'to', 'port'])),
     variables: flow.variables ?? {},
+    // Written last, and only when set, so an unscheduled flow keeps the shape
+    // it has always had on disk.
+    ...(flow.schedule ? { schedule: flow.schedule } : {}),
   };
 
   return `${JSON.stringify(document, null, 2)}\n`;

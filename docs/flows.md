@@ -104,6 +104,35 @@ Inside an open node the content comes first — the prompt, the list, the gate
 message — and everything that decides *how* it runs (model, tools, worktree,
 output port) is folded behind **Advanced**. Most nodes never need it.
 
+## Running on a schedule
+
+A flow can carry a `schedule`, set from the toolbar rather than by editing JSON:
+
+```jsonc
+{ "schedule": { "type": "daily", "time": "02:00", "enabled": true } }
+```
+
+`type` is `daily`, `weekly` (with `days: ["mon"]`) or `interval` (with
+`intervalMinutes`). Deliberately not cron — `0 2 * * 1-5` is a barrier for half
+the people who read these files, and these three shapes cover what a flow needs.
+
+The definition lives in the flow, so it travels with it and shows up in a diff.
+The *state* — when the next run is due, how the last one went — lives in
+`.flow-runs/<flow>.schedule.json`, which is machine-local: writing a due time
+into `.flow.json` would dirty a shared file on a timer.
+
+Two rules worth knowing:
+
+- **A missed run catches up once, within 12 hours.** Anything older is recorded
+  as missed. Firing a week of nightly runs on Monday morning is worse than
+  skipping them.
+- **`onGate: "skip"` is refused for any flow containing a shell node.** A gate
+  in front of a command exists so a person sees the command; auto-approving it
+  defeats the point. The default, `pause`, waits and notifies.
+
+Schedules fire while Nimbalyst is running. Headless mode cannot run agent nodes
+(`runHeadless.ts`), so an agent flow has to be scheduled inside the app.
+
 ## Working on the canvas
 
 - **Duplicate** a node from its header. The copy keeps the prompt and settings

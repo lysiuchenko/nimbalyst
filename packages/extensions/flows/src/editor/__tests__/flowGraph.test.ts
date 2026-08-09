@@ -199,4 +199,22 @@ describe('placeNewNode', () => {
   it('is deterministic, so adding the same node twice lands in the same two places', () => {
     expect(placeNewNode([at(0, 0)], { x: 0, y: 0 })).toEqual(placeNewNode([at(0, 0)], { x: 0, y: 0 }));
   });
+
+  it('carries document fields the canvas does not own through a round trip', () => {
+    const base = {
+      version: 1,
+      name: 'f',
+      nodes: [],
+      edges: [],
+      variables: {},
+      schedule: { type: 'daily', time: '02:30', enabled: true },
+    } as unknown as Flow;
+
+    // Losing this on save meant a schedule set in the editor never reached disk.
+    expect(graphToFlow(base, { nodes: [], edges: [] }).schedule).toEqual({
+      type: 'daily',
+      time: '02:30',
+      enabled: true,
+    });
+  });
 });

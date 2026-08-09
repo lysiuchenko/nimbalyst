@@ -1,3 +1,5 @@
+import type { FlowSchedule } from '../schedule/types';
+
 /**
  * `.flow.json` schema v1.
  *
@@ -114,6 +116,8 @@ export interface Flow {
   nodes: FlowNode[];
   edges: FlowEdge[];
   variables: Record<string, string>;
+  /** When this flow runs on its own. Absent means only when someone presses Run. */
+  schedule?: FlowSchedule;
 }
 
 export interface ValidationError {

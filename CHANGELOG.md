@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flow sub-agents appear as their own cards on the canvas, and a fan-out can give each one its own worktree
 - Flow nodes read as a plain sentence until you open them, with advanced settings folded away
 - Flow run history settles abandoned runs, opens to show each step, and adapts to a narrow pane
+- Flows can run on a daily, weekly or interval schedule, set from the toolbar
+- Flow steps no longer finish empty when the agent was waiting on a tool-permission prompt
 
 ### Changed
 <!-- Changes to existing functionality go here -->

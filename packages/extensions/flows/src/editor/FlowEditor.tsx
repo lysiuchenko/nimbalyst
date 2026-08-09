@@ -30,6 +30,8 @@ import { FLOW_THEMES, nextTheme, readTheme, THEME_STORAGE_KEY, type FlowThemeId 
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
+import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
+import { scheduleLabel } from '../schedule/label';
 import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } from './runSummary';
 import type { RunRecord } from '../runner/runStore';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
@@ -93,6 +95,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   const [pastRuns, setPastRuns] = useState<RunRecord[]>([]);
   const [showRuns, setShowRuns] = useState(false);
   const [openRun, setOpenRun] = useState<string | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  // Mirrors baseRef.current.schedule for rendering; the ref stays the source of
+  // truth so editing a schedule never re-renders the canvas.
+  const [schedule, setScheduleState] = useState<FlowSchedule | undefined>(undefined);
   const history = useRef(createHistory<FlowGraph>());
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
@@ -129,6 +135,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setAnalysis({ references: referencesByNode(candidate), issues: issuesByNode(candidate) });
     setIsEmpty(candidate.nodes.length === 0);
     setVariables(candidate.variables);
+    setScheduleState(candidate.schedule);
   }, [readGraph]);
 
   const applyContent = useCallback((flow: Flow) => {
@@ -383,6 +390,22 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     }).then(setPastRuns);
   }, [host, run.isRunning]);
 
+  /** Edit the schedule on the document, the way variables are edited. */
+  const patchSchedule = useCallback(
+    (changes: Partial<Record<string, unknown>>) => {
+      const current = (baseRef.current.schedule ?? {
+        type: 'daily',
+        time: '02:00',
+        enabled: false,
+      }) as unknown as Record<string, unknown>;
+      const next = { ...current, ...changes } as unknown as FlowSchedule;
+      baseRef.current = { ...baseRef.current, schedule: next };
+      setScheduleState(next);
+      markDirty();
+    },
+    [markDirty]
+  );
+
   const useTemplate = useCallback(
     (template: FlowTemplate) => {
       remember();
@@ -490,6 +513,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               {unsettledRuns}
             </span>
           )}
+        </button>
+        <button
+          type="button"
+          className="flow-toolbar-button"
+          data-testid="flow-schedule-toggle"
+          onClick={() => setShowSchedule((previous) => !previous)}
+        >
+          <span className="material-symbols-outlined">schedule</span>
+          {scheduleLabel(baseRef.current.schedule)}
         </button>
         <button
           type="button"
@@ -623,6 +655,95 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                 </tbody>
               </table>
             </>
+          )}
+        </div>
+      )}
+
+      {showSchedule && (
+        <div className="flow-variables flow-schedule" data-testid="flow-schedule">
+          <label className="flow-node-toggle">
+            <input
+              type="checkbox"
+              aria-label="Run on a schedule"
+              checked={schedule?.enabled === true}
+              onChange={(event) => patchSchedule({ enabled: event.target.checked })}
+            />
+            <span>Run this flow on a schedule</span>
+          </label>
+
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">How often</span>
+            <select
+              className="flow-node-input"
+              aria-label="How often"
+              value={schedule?.type ?? 'daily'}
+              onChange={(event) =>
+                patchSchedule({ type: event.target.value as FlowSchedule['type'] })
+              }
+            >
+              <option value="daily">Every day</option>
+              <option value="weekly">Certain days</option>
+              <option value="interval">Every so often</option>
+            </select>
+          </label>
+
+          {schedule?.type === 'interval' ? (
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">Minutes between runs</span>
+              <input
+                className="flow-node-input"
+                type="number"
+                min={1}
+                aria-label="Minutes between runs"
+                value={schedule.intervalMinutes ?? 60}
+                onChange={(event) =>
+                  patchSchedule({ intervalMinutes: Number(event.target.value) || 1 })
+                }
+              />
+            </label>
+          ) : (
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">At</span>
+              <input
+                className="flow-node-input"
+                type="time"
+                aria-label="At"
+                value={(schedule as { time?: string } | undefined)?.time ?? '02:00'}
+                onChange={(event) => patchSchedule({ time: event.target.value })}
+              />
+            </label>
+          )}
+
+          {schedule?.type === 'weekly' && (
+            <div className="flow-node-field">
+              <span className="flow-node-field-label">On</span>
+              <div className="flow-schedule-days">
+                {WEEKDAYS.map((day) => (
+                  <label key={day} className="flow-node-toggle">
+                    <input
+                      type="checkbox"
+                      aria-label={day}
+                      checked={(schedule.days ?? []).includes(day)}
+                      onChange={(event) => {
+                        const days = new Set(schedule.days ?? []);
+                        if (event.target.checked) days.add(day);
+                        else days.delete(day);
+                        patchSchedule({ days: [...days] });
+                      }}
+                    />
+                    <span>{day}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* A scheduled run has nobody to approve a gate, so say what happens. */}
+          {baseRef.current.nodes.some((node) => node.type === 'human-gate') && (
+            <p className="flow-node-hint" data-testid="flow-schedule-gate-hint">
+              This flow waits for a person at a gate. A scheduled run will pause there and
+              notify you.
+            </p>
           )}
         </div>
       )}

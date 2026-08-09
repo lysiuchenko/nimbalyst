@@ -113,7 +113,16 @@ export function graphToFlow(base: Flow, graph: FlowGraph): Flow {
     edges.push(edge);
   }
 
-  return { version: 1, name: base.name, nodes, edges, variables: base.variables };
+  return {
+    version: 1,
+    name: base.name,
+    nodes,
+    edges,
+    variables: base.variables,
+    // The canvas owns nodes and edges; everything else on the document belongs
+    // to the base and must survive the round trip.
+    ...(base.schedule ? { schedule: base.schedule } : {}),
+  };
 }
 
 /** Roughly a node's footprint, used to decide whether a spot is free. */

@@ -263,6 +263,31 @@ test.describe('canvas actions', () => {
     await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
   });
 
+  test('a schedule can be set without editing source', async () => {
+    await flows.page.locator('[data-testid="flow-schedule-toggle"]').click();
+    const panel = flows.page.locator('[data-testid="flow-schedule"]');
+    await expect(panel).toBeVisible();
+
+    await panel.getByLabel('Run on a schedule').check();
+    await panel.getByLabel('How often').selectOption('daily');
+    await panel.getByLabel('At').fill('02:30');
+
+    // The flow has a gate, so a scheduled run needs to say what happens there.
+    await expect(flows.page.locator('[data-testid="flow-schedule-gate-hint"]')).toBeVisible();
+    // The toolbar stops saying "Schedule" once one is armed.
+    await expect(flows.page.locator('[data-testid="flow-schedule-toggle"]')).toContainText('02:30');
+
+    await flows.save();
+    await expect(flows.page.locator('.flow-toolbar-status')).toHaveAttribute('data-dirty', 'false', {
+      timeout: 30_000,
+    });
+
+    const saved = flows.readFlow('actions.flow.json') as { schedule?: Record<string, unknown> };
+    expect(saved.schedule).toMatchObject({ type: 'daily', time: '02:30', enabled: true });
+
+    await flows.page.locator('[data-testid="flow-schedule-toggle"]').click();
+  });
+
   test('variables are editable without dropping into source mode', async () => {
     await flows.page.locator('[data-testid="flow-variables-toggle"]').click();
     await expect(flows.page.locator('[data-testid="flow-variables"]')).toBeVisible();
