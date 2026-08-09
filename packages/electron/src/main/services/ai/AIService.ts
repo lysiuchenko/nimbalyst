@@ -2130,7 +2130,13 @@ export class AIService {
       // Pass through allowedTools and effort level settings for Claude Code
       if (provider === 'claude-code') {
         const providerSettings = this.getSettingsStore().get('providerSettings', {}) as any;
-        if (providerSettings?.['claude-code']?.allowedTools) {
+        // A session may restrict its own tools — a flow step declaring
+        // `tools: [...]` does exactly that. Its list wins over the app-wide one,
+        // because it was chosen for this piece of work.
+        const sessionTools = (session.providerConfig as any)?.allowedTools;
+        if (Array.isArray(sessionTools) && sessionTools.length > 0) {
+          initConfig.allowedTools = sessionTools;
+        } else if (providerSettings?.['claude-code']?.allowedTools) {
           initConfig.allowedTools = providerSettings['claude-code'].allowedTools;
         }
         // Effort level: explicit session value, else the app-wide default the
@@ -3937,10 +3943,11 @@ export class AIService {
         provider?: string;
         model?: string;
         mode?: SessionMode;
+        tools?: string[];
         worktreeId?: string;
       }
     ) => {
-      const { prompt, sessionName, worktreeId, mode } = options;
+      const { prompt, sessionName, worktreeId, mode, tools } = options;
       const provider = (options.provider || 'claude-code') as AIProviderType;
       if (!prompt) {
         throw new Error('prompt is required');
@@ -3975,6 +3982,8 @@ export class AIService {
       const providerConfig: any = {
         maxTokens: this.getProviderSetting(provider, 'maxTokens'),
         temperature: this.getProviderSetting(provider, 'temperature'),
+        // Carried on the session so the provider picks it up at init.
+        ...(tools && tools.length > 0 ? { allowedTools: tools } : {}),
       };
 
       // For non-claude-code providers, set the model in provider config

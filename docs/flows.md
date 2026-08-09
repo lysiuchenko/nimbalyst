@@ -306,8 +306,7 @@ command your own authenticated Claude Code CLI runs. Both are explained in
 
 | Limit | Why |
 | --- | --- |
-| `tools: [...]` fails instead of restricting | `sendPrompt` takes no tool allowlist. |
-| Clicking a node does not open its session | No SDK method, IPC channel, or deep-link route can open a session from an extension. The run panel shows session ids as selectable text instead. |
+| Scheduled runs need the app open | Headless mode cannot run agent nodes, so a schedule fires only while Nimbalyst is running. |
 | Agent nodes are app-only | The extension runs no agent of its own; see `editorhost-notes.md` §5b. |
 
 Each has a documented route to fix it in `editorhost-notes.md`; all of them need

@@ -1187,6 +1187,13 @@ export interface ExtensionAIService {
      */
     mode?: 'planning' | 'agent' | 'auto';
     /**
+     * Restrict the agent to these tools for this prompt.
+     *
+     * Recorded on the session, so the provider applies it at init and it wins
+     * over the app-wide allowlist. Omit to use whatever the user has configured.
+     */
+    tools?: string[];
+    /**
      * Run the prompt in an existing git worktree instead of the main working
      * tree. Create it first with the `worktree:create` IPC and pass the id back
      * here; the host binds the new session to it, so the agent's edits land in

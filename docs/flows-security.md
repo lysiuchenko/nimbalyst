@@ -73,7 +73,7 @@ tree with every tool available. Enforced at `assertCapableFor` in
 `worktree: true` is honored: `services.ai.sendPrompt` takes a `worktreeId`, and
 `NimbalystAgentClient` creates the checkout *before* sending the prompt, so a
 worktree that cannot be created or resolved fails the node instead of leaving it
-loose in the main tree. `tools` has no equivalent and still fails.
+loose in the main tree. `tools` is honored too: the list rides on the session's provider config, where it wins over the app-wide allowlist.
 
 On a `fan-out` the flag is per sub-agent, not per node — concurrent workers
 sharing one checkout would overwrite each other. Each checkout is branched under

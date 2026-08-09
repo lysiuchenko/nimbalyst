@@ -69,6 +69,27 @@ describe('NimbalystAgentClient', () => {
     expect(result.response).toBe('');
   });
 
+  it('restricts the agent to the tools the node named', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(
+      { ...request, tools: ['Read', 'Grep'] },
+      new AbortController().signal
+    );
+
+    expect(ai.sendPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ tools: ['Read', 'Grep'] })
+    );
+  });
+
+  it('says nothing about tools when the node named none', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(request, new AbortController().signal);
+
+    expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).not.toHaveProperty('tools');
+  });
+
   it('passes an explicit node model through', async () => {
     const ai = aiService();
 

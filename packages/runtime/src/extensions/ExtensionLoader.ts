@@ -1041,6 +1041,7 @@ function createExtensionContext(
         provider?: 'claude-code' | 'claude' | 'openai' | 'openai-codex';
         model?: string;
         mode?: 'planning' | 'agent' | 'auto';
+        tools?: string[];
         worktreeId?: string;
       }): Promise<{ sessionId: string; response: string }> => {
         const electronAPI = (window as any).electronAPI;

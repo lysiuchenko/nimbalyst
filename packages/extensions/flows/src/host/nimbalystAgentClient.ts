@@ -30,13 +30,8 @@ export interface NodeWorktreeCreator {
 
 export class NimbalystAgentClient implements AgentClient {
   /**
-   * A tool allowlist is still not available through `sendPrompt`, and this
-   * client deliberately does not try to provide one by running its own agent:
-   * the host strips API keys from three env sources and resolves the CLI binary
-   * through its own fallback policy, all of it written after a real billing
-   * incident. Re-implementing that here would put credential handling in an
-   * extension that will not inherit the host's future fixes. Declaring the
-   * limit instead makes the executor fail such nodes loudly.
+   * Both are now carried by `sendPrompt`: a tool allowlist rides on the
+   * session's provider config, and a worktree needs a host that can create one.
    */
   readonly capabilities: { worktree: boolean; tools: boolean };
 
@@ -45,7 +40,7 @@ export class NimbalystAgentClient implements AgentClient {
     private readonly sessions?: SessionUsageReader,
     private readonly worktrees?: NodeWorktreeCreator
   ) {
-    this.capabilities = { worktree: worktrees !== undefined, tools: false };
+    this.capabilities = { worktree: worktrees !== undefined, tools: true };
   }
 
   async run(request: AgentRunRequest, signal: AbortSignal): Promise<AgentRunResult> {
@@ -68,6 +63,7 @@ export class NimbalystAgentClient implements AgentClient {
       // behalf. Flows inherit the project's trust level.
       mode: 'agent',
       ...(request.model ? { model: request.model } : {}),
+      ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       ...(worktree ? { worktreeId: worktree.id } : {}),
     });
 
