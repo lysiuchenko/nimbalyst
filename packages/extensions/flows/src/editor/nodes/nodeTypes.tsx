@@ -122,7 +122,11 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
       data-node-type={node.type}
       data-node-status={status ?? ''}
     >
-      <Handle type="target" position={Position.Left} className="flow-node-handle" />
+      {/* Two targets and two sources: a flow laid out top-down would otherwise
+          route every edge out to the right and back, because the only ports
+          were on the sides. */}
+      <Handle type="target" position={Position.Left} id="left" className="flow-node-handle" />
+      <Handle type="target" position={Position.Top} id="top" className="flow-node-handle flow-node-handle-vertical" />
 
       <header className="flow-node-header" onDoubleClick={() => setOpen((wasOpen) => !wasOpen)}>
         <span className="flow-node-icon material-symbols-outlined">{chrome.icon}</span>
@@ -357,7 +361,8 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </ul>
       )}
 
-      <Handle type="source" position={Position.Right} className="flow-node-handle" />
+      <Handle type="source" position={Position.Right} id="right" className="flow-node-handle" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="flow-node-handle flow-node-handle-vertical" />
     </div>
   );
 }

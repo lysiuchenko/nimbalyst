@@ -30,6 +30,8 @@ import { FLOW_THEMES, nextTheme, readTheme, THEME_STORAGE_KEY, type FlowThemeId 
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
+import { deleteRunRecord } from './deleteRunRecord';
+import type { HostIpc } from '../host/nimbalystSessionHost';
 import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
 import { scheduleLabel } from '../schedule/label';
 import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } from './runSummary';
@@ -390,6 +392,18 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     }).then(setPastRuns);
   }, [host, run.isRunning]);
 
+  /** Remove one run record, and the row with it. */
+  const forgetRun = useCallback(
+    async (record: RunRecord) => {
+      const ipc = (window as unknown as { electronAPI?: HostIpc }).electronAPI;
+      if (!ipc) return;
+      await deleteRunRecord(ipc, record.flowPath, record.runId);
+      setPastRuns((runs) => runs.filter((past) => past.runId !== record.runId));
+      setOpenRun(null);
+    },
+    []
+  );
+
   /** Edit the schedule on the document, the way variables are edited. */
   const patchSchedule = useCallback(
     (changes: Partial<Record<string, unknown>>) => {
@@ -646,6 +660,19 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                               ))}
                             </ul>
                             <p className="flow-run-detail-id">{record.runId}</p>
+                            <button
+                              type="button"
+                              className="flow-node-duplicate flow-run-forget"
+                              data-forget-run={record.runId}
+                              title="Delete this run record"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void forgetRun(record);
+                              }}
+                            >
+                              <span className="material-symbols-outlined">delete</span>
+                              Forget this run
+                            </button>
                           </td>
                         </tr>
                       )}

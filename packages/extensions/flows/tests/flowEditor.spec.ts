@@ -494,5 +494,20 @@ test.describe('running a flow', () => {
     // Nothing recorded usage, and the panel says so rather than claiming zero.
     await expect(dash.locator('[data-metric="tokens"] .flows-dashboard-value')).toHaveText('—');
     await expect(dash.locator('[data-dashboard-flow="approvals"]')).toBeVisible();
+
+    // Leave the app where it was found, so the next test still has an editor.
+    await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
+    await expect(dash).toBeHidden();
+  });
+
+  test('a run can be forgotten from its own row', async () => {
+    const history = flows.page.locator('[data-testid="flow-run-history"]');
+    const rows = history.locator('[data-past-run]');
+    const before = await rows.count();
+
+    await rows.first().click();
+    await history.locator('[data-forget-run]').first().click();
+
+    await expect(rows).toHaveCount(before - 1);
   });
 });
