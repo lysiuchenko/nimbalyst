@@ -109,6 +109,7 @@ These are additions by this fork, not edits to upstream files:
 - `FORK-NOTICE.md` (this file)
 - `docs/editorhost-notes.md` (extension contract notes, Goal 1.2)
 - `docs/flows.md`, `docs/flows-security.md` (Goal 5)
+- `docs/superpowers/specs/**` — design specs for flows features
 - `packages/runtime/src/themes/builtin/globallogic/theme.json` and
   `packages/runtime/src/themes/builtin/globallogic-dark/theme.json` — the brand
   app themes, in the format the host's own theme loader already discovers
