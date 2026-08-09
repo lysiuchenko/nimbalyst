@@ -64,4 +64,27 @@ describe('parseCliArgs', () => {
       '--var expects name=value, got "oops"'
     );
   });
+
+  it('defaults schedule to listing, which changes nothing', () => {
+    expect(parseCliArgs(['schedule'])).toEqual({
+      command: 'schedule',
+      action: 'list',
+      everyMinutes: 30,
+    });
+  });
+
+  it('takes a wake interval for the installed agent', () => {
+    expect(parseCliArgs(['schedule', 'install', '--every', '10'])).toMatchObject({
+      action: 'install',
+      everyMinutes: 10,
+    });
+  });
+
+  it('refuses an interval that would spin', () => {
+    expect(() => parseCliArgs(['schedule', 'install', '--every', '0'])).toThrow('positive');
+  });
+
+  it('refuses an action it does not have', () => {
+    expect(() => parseCliArgs(['schedule', 'frobnicate'])).toThrow('unknown schedule action');
+  });
 });

@@ -4,6 +4,7 @@ import { parseFlowFile } from '../schema/validate';
 import { runFlow } from '../runner/flowRun';
 import type { AgentClient, GateController, ShellClient } from '../runner/ports';
 import type { RunFileWriter } from '../runner/runStore';
+import { runScheduleCommand, type ScheduleDeps } from './scheduleCommand';
 
 export interface HeadlessDeps {
   readFile(path: string): Promise<string>;
@@ -12,6 +13,8 @@ export interface HeadlessDeps {
   allowlist: readonly string[];
   /** CI has no one to ask, so gates fail unless the caller opts in. */
   approveGates?: boolean;
+  /** Supplied by the CLI entry point; absent in embedded callers. */
+  schedule?: ScheduleDeps;
   log(message: string): void;
 }
 
@@ -60,6 +63,16 @@ export async function runHeadless(argv: string[], deps: HeadlessDeps): Promise<n
   if (args.command === 'help') {
     deps.log(USAGE);
     return 0;
+  }
+
+  // `schedule` works across the workspace rather than on one flow, so it is
+  // handled before the single-flow path reads a file.
+  if (args.command === 'schedule') {
+    if (!deps.schedule) {
+      deps.log('this build cannot manage schedules');
+      return 2;
+    }
+    return runScheduleCommand(args.action, args.everyMinutes, deps.schedule);
   }
 
   const raw = await deps.readFile(args.flowPath);

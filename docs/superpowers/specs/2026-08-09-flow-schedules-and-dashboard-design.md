@@ -45,10 +45,13 @@ agent node can only run inside the running app. Three options were considered:
   flow file, so any future runner can read it; the in-app scheduler is a thin
   driver over that definition.
 
-**This spec assumes C.** It is the recommendation, and it was not confirmed
-before writing — if overnight runs with the app closed are a hard requirement,
-stop here, because B is a materially larger piece of work that deserves its own
-spec.
+**This spec assumed C**, and C shipped first. **B shipped afterwards**, by the
+launchd route rather than a headless agent runtime: `nimbalyst-flows schedule
+install` writes a per-workspace LaunchAgent that runs `schedule run` on an
+interval. It fires shell and gate flows with the app closed and *reports* agent
+flows instead of attempting them, so the declined headless-agent runtime stays
+declined. Verified end to end: launchd ran a due flow with no app process
+alive.
 
 ## 4. Design — schedules
 

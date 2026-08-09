@@ -9,6 +9,8 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { runHeadless } from './runHeadless';
 import type { ShellClient } from '../runner/ports';
+import { launchAgentPath, launchAgentPlist, labelFor, logPathFor } from '../schedule/launchAgent';
+import type { ScheduleDeps } from './scheduleCommand';
 
 /** Same default as the editor. Override with FLOWS_SHELL_ALLOWLIST. */
 const DEFAULT_ALLOWLIST = ['npm', 'npx', 'node', 'git', 'echo', 'ls', 'pwd', 'cat'];
@@ -72,19 +74,85 @@ const allowlist = process.env.FLOWS_SHELL_ALLOWLIST
 
 const argv = process.argv.slice(2);
 
+/** `launchctl`, as a promise, so install/uninstall can report what happened. */
+function launchctl(...args: string[]): Promise<{ code: number; output: string }> {
+  return new Promise((resolve) => {
+    const child = spawn('launchctl', args, { shell: false });
+    let output = '';
+    child.stdout?.on('data', (chunk) => (output += String(chunk)));
+    child.stderr?.on('data', (chunk) => (output += String(chunk)));
+    child.on('error', (error) => resolve({ code: -1, output: String(error) }));
+    child.on('close', (code) => resolve({ code: code ?? -1, output }));
+  });
+}
+
+const workspace = process.cwd();
+
+const schedule: ScheduleDeps = {
+  listFlows: async () => {
+    const names = await fs.readdir(workspace);
+    return names.filter((name) => name.endsWith('.flow.json'));
+  },
+  readFile: (file) => fs.readFile(file, 'utf-8'),
+  writeFile: async (file, content) => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, content, 'utf-8');
+  },
+  // One flow at a time: a scheduled batch competing for the same working tree
+  // is the same hazard the in-app scheduler refuses.
+  runFlow: async (flowPath) => {
+    const code = await runHeadless(['run', flowPath], baseDeps);
+    return code === 0;
+  },
+
+  installAgent: async (everyMinutes) => {
+    if (process.platform !== 'darwin') {
+      return 'schedule install only supports macOS launchd for now.';
+    }
+    const target = launchAgentPath(workspace);
+    const plist = launchAgentPlist({
+      workspace,
+      cliPath: process.argv[1],
+      nodePath: process.execPath,
+      everyMinutes,
+    });
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, plist, 'utf-8');
+
+    // `bootout` first so re-installing picks up a changed interval.
+    await launchctl('bootout', `gui/${process.getuid?.() ?? ''}/${labelFor(workspace)}`);
+    const loaded = await launchctl('bootstrap', `gui/${process.getuid?.() ?? ''}`, target);
+    if (loaded.code !== 0) {
+      return `Wrote ${target}, but launchctl refused it: ${loaded.output.trim()}`;
+    }
+    return `Scheduled flows will run every ${everyMinutes}m while Nimbalyst is closed.\n  agent: ${target}\n  log:   ${logPathFor(workspace)}`;
+  },
+
+  uninstallAgent: async () => {
+    const target = launchAgentPath(workspace);
+    await launchctl('bootout', `gui/${process.getuid?.() ?? ''}/${labelFor(workspace)}`);
+    await fs.rm(target, { force: true });
+    return `Removed ${target}.`;
+  },
+
+  log: (message) => console.log(message),
+};
+
+const baseDeps = {
+  readFile: (file: string) => fs.readFile(file, 'utf-8'),
+  writeFile: async (file: string, content: string) => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, content, 'utf-8');
+  },
+  shell,
+  allowlist,
+  approveGates: argv.includes('--approve-gates'),
+  log: (message: string) => console.log(message),
+};
+
 runHeadless(
   argv.filter((arg) => arg !== '--approve-gates'),
-  {
-    readFile: (file) => fs.readFile(file, 'utf-8'),
-    writeFile: async (file, content) => {
-      await fs.mkdir(path.dirname(file), { recursive: true });
-      await fs.writeFile(file, content, 'utf-8');
-    },
-    shell,
-    allowlist,
-    approveGates: argv.includes('--approve-gates'),
-    log: (message) => console.log(message),
-  }
+  { ...baseDeps, schedule }
 )
   .then((code) => {
     process.exitCode = code;

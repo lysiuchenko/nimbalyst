@@ -136,4 +136,55 @@ test.describe('the headless CLI', () => {
 
     expect(result.out).toContain('nimbalyst-flows run');
   });
+
+  test('lists what is scheduled, and what cannot run out here', () => {
+    const dir = workspace({
+      'nightly.flow.json': {
+        ...shellFlow,
+        name: 'nightly',
+        schedule: { type: 'interval', intervalMinutes: 60, enabled: true },
+      },
+      'thinking.flow.json': {
+        ...agentFlow,
+        schedule: { type: 'interval', intervalMinutes: 60, enabled: true },
+      },
+    });
+
+    const result = run(['schedule', 'list'], dir);
+
+    expect(result.status).toBe(0);
+    expect(result.out).toContain('nightly');
+    // Agent work is called out before it comes due, not after it fails.
+    expect(result.out).toMatch(/needs-an-agent.*needs the app/s);
+  });
+
+  test('anchors a due time, then runs the flow once it passes', () => {
+    const dir = workspace({
+      'nightly.flow.json': {
+        ...shellFlow,
+        name: 'nightly',
+        schedule: { type: 'interval', intervalMinutes: 60, enabled: true },
+      },
+    });
+
+    // First pass writes the deadline down; without that it would be recomputed
+    // forever and the flow would never come due.
+    expect(run(['schedule', 'run'], dir).out).toContain('Nothing is due');
+    const statePath = path.join(dir, '.flow-runs', 'nightly.flow.json.schedule.json');
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    expect(state.dueAt).toBeGreaterThan(Date.now());
+
+    fs.writeFileSync(statePath, JSON.stringify({ ...state, dueAt: Date.now() - 1_000 }));
+    const second = run(['schedule', 'run'], dir);
+
+    expect(second.status).toBe(0);
+    expect(second.out).toContain('nightly: running');
+    expect(JSON.parse(fs.readFileSync(statePath, 'utf8')).lastOutcome).toBe('done');
+  });
+
+  test('says so when nothing here is scheduled', () => {
+    const dir = workspace({ 'smoke.flow.json': shellFlow });
+
+    expect(run(['schedule', 'list'], dir).out).toContain('No flow');
+  });
 });

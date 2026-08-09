@@ -5,19 +5,26 @@
  * own and the entry point stays a thin shell around it.
  */
 
+export type ScheduleAction = 'list' | 'run' | 'install' | 'uninstall';
+
 export type CliArgs =
   | { command: 'help' }
+  | { command: 'schedule'; action: ScheduleAction; everyMinutes: number }
   | { command: 'run'; flowPath: string; variables: Record<string, string> }
   | { command: 'compile'; flowPath: string; outPath?: string }
   | { command: 'validate'; flowPath: string };
 
-const COMMANDS = ['run', 'compile', 'validate'] as const;
+const COMMANDS = ['run', 'compile', 'validate', 'schedule'] as const;
 
 export const USAGE = `nimbalyst-flows — run Nimbalyst flows headlessly
 
   nimbalyst-flows run <file.flow.json> [--var name=value ...]
   nimbalyst-flows compile <file.flow.json> [--out <path.md>]
   nimbalyst-flows validate <file.flow.json>
+  nimbalyst-flows schedule list        what is scheduled here, and when it is next due
+  nimbalyst-flows schedule run         run every scheduled flow that is due
+  nimbalyst-flows schedule install [--every <minutes>]   run them while the app is closed
+  nimbalyst-flows schedule uninstall
 
 Exit codes: 0 success, 1 the flow failed, 2 bad usage or an invalid flow.`;
 
@@ -33,6 +40,20 @@ export function parseCliArgs(argv: string[]): CliArgs {
 
   const command = first as (typeof COMMANDS)[number];
   const positional = rest.filter((arg) => !arg.startsWith('-'));
+
+  if (command === 'schedule') {
+    const action = (positional[0] ?? 'list') as ScheduleAction;
+    if (!['list', 'run', 'install', 'uninstall'].includes(action)) {
+      throw new Error(`unknown schedule action ${JSON.stringify(action)}\n\n${USAGE}`);
+    }
+    const everyIndex = rest.indexOf('--every');
+    const every = everyIndex >= 0 ? Number(rest[everyIndex + 1]) : 30;
+    if (!Number.isFinite(every) || every < 1) {
+      throw new Error(`--every needs a positive number of minutes\n\n${USAGE}`);
+    }
+    return { command, action, everyMinutes: Math.round(every) };
+  }
+
   const flowPath = positional[0];
   if (!flowPath) {
     throw new Error(`${command} needs a .flow.json path\n\n${USAGE}`);

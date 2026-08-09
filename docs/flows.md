@@ -130,8 +130,32 @@ Two rules worth knowing:
   in front of a command exists so a person sees the command; auto-approving it
   defeats the point. The default, `pause`, waits and notifies.
 
-Schedules fire while Nimbalyst is running. Headless mode cannot run agent nodes
-(`runHeadless.ts`), so an agent flow has to be scheduled inside the app.
+### While the app is closed
+
+Two schedulers, one schedule. The in-app one fires everything, including agent
+steps. The CLI one fires whatever does not need an agent:
+
+```
+nimbalyst-flows schedule list                    what is scheduled, when it is next due
+nimbalyst-flows schedule run                     run whatever is due now
+nimbalyst-flows schedule install --every 30      keep doing that while the app is closed
+nimbalyst-flows schedule uninstall
+```
+
+`install` writes a macOS LaunchAgent under `~/Library/LaunchAgents`, one per
+workspace, and loads it. Output goes to `~/Library/Logs`, so an overnight
+failure can be read in the morning. `RunAtLoad` is deliberately off: loading the
+agent happens at every login, and firing every overdue flow then is the same
+backlog the 12-hour catch-up window exists to avoid.
+
+**Shell and gate flows run; agent flows are reported, not attempted.** Agent
+work goes through the host's Claude Code provider, which owns credentials and
+binary resolution this extension does not re-implement (`editorhost-notes.md`
+§5b). `schedule list` marks those flows *(needs the app)* before they come due,
+rather than letting them fail at 2am.
+
+Both schedulers share the same state files, so a flow run by the CLI is not run
+again by the app.
 
 ## The dashboard
 
