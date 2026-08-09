@@ -1168,3 +1168,26 @@
 .react-flow__minimap:hover {
   opacity: 1;
 }
+
+/* A run's sessions are the work itself; they should be reachable, not just
+   readable. */
+.flow-run-sessions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.flow-run-session-link {
+  padding: 2px 8px;
+  border: 1px solid var(--flow-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--flow-link, var(--flow-accent));
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.flow-run-session-link:hover {
+  background: var(--flow-surface-hover);
+}

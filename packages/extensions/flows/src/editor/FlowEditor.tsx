@@ -31,6 +31,7 @@ import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from '
 import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
 import { deleteRunRecord } from './deleteRunRecord';
+import { openSession } from './openSession';
 import type { HostIpc } from '../host/nimbalystSessionHost';
 import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
 import { scheduleLabel } from '../schedule/label';
@@ -392,6 +393,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     }).then(setPastRuns);
   }, [host, run.isRunning]);
 
+  /** Put one of a run's sessions on screen. */
+  const showSession = useCallback(
+    async (sessionId: string) => {
+      const ipc = (window as unknown as { electronAPI?: HostIpc }).electronAPI;
+      if (ipc) await openSession(ipc, sessionId, host.workspaceId);
+    },
+    [host.workspaceId]
+  );
+
   /** Remove one run record, and the row with it. */
   const forgetRun = useCallback(
     async (record: RunRecord) => {
@@ -659,6 +669,25 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                 </li>
                               ))}
                             </ul>
+                            {record.sessionIds.length > 0 && (
+                              <p className="flow-run-sessions">
+                                {record.sessionIds.map((sessionId, index) => (
+                                  <button
+                                    key={sessionId}
+                                    type="button"
+                                    className="flow-run-session-link"
+                                    data-open-session={sessionId}
+                                    title={sessionId}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void showSession(sessionId);
+                                    }}
+                                  >
+                                    Session {index + 1}
+                                  </button>
+                                ))}
+                              </p>
+                            )}
                             <p className="flow-run-detail-id">{record.runId}</p>
                             <button
                               type="button"

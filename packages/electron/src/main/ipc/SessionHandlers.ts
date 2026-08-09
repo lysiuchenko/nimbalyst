@@ -13,6 +13,7 @@ import type { UpdateSessionMetadataPayload } from '@nimbalyst/runtime/ai/adapter
 import path from "path";
 import { BrowserWindow } from 'electron';
 import { safeHandle, safeOn } from '../utils/ipcRegistry';
+import { safeSend } from '../services/ai/aiServiceUtils';
 import { getCachedUncommittedFiles } from '../utils/gitUncommittedFiles';
 import { parseJsonObjectColumn } from '../utils/jsonColumn';
 import type { SessionCreateResult } from '../../shared/ipc/types';
@@ -467,6 +468,16 @@ export async function registerSessionHandlers() {
     });
 
     // Get a single session by id (lightweight — does not load the message log).
+    // Bring a session on screen. The renderer already listens for
+    // `load-session-from-manager` (useIPCHandlers.ts) but nothing in main sent
+    // it, so a session id held anywhere else — a flow run record, for instance —
+    // could be shown to the user but never opened.
+    safeHandle('sessions:focus', async (event, sessionId: string, workspacePath?: string) => {
+        if (!sessionId) throw new Error('sessionId is required');
+        safeSend(event, 'load-session-from-manager', { sessionId, workspacePath });
+        return { success: true };
+    });
+
     // Used by GitOperationsPanel to read a session's provider (smart-commit
     // routing) and parentSessionId (post-merge blitz detection).
     safeHandle('sessions:get', async (event, sessionId: string) => {
