@@ -58,6 +58,14 @@ export interface FanOutNode extends FlowNodeCommon {
   concurrency?: number;
   model?: string | null;
   tools?: string[];
+  /**
+   * Give every sub-agent its own git worktree.
+   *
+   * Sub-agents run concurrently, so without this they all edit the same
+   * checkout and can overwrite each other. Each one gets an isolated branch
+   * whose diff is reviewable on its own.
+   */
+  worktree?: boolean;
 }
 
 export interface SlashCommandNode extends FlowNodeCommon {

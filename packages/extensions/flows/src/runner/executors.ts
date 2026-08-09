@@ -170,6 +170,9 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
               prompt: (context.resolved.prompt ?? '').split('{{item}}').join(item),
               model: node.model,
               tools: node.tools,
+              // Per sub-agent, not per node: concurrent workers sharing one
+              // checkout would overwrite each other's edits.
+              worktree: node.worktree,
             },
             context.signal
           );

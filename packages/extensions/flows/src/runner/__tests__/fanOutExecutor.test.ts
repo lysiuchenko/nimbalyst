@@ -27,10 +27,14 @@ const node = {
   output: 'reviews',
 } as FlowNode;
 
-function client(run?: AgentClient['run']): AgentClient & { calls: string[] } {
+function client(
+  run?: AgentClient['run'],
+  capabilities?: AgentClient['capabilities']
+): AgentClient & { calls: string[] } {
   const calls: string[] = [];
   return {
     calls,
+    ...(capabilities ? { capabilities } : {}),
     run:
       run ??
       (async (request) => {
@@ -169,5 +173,40 @@ describe('fan-out executor', () => {
     await createFanOutExecutor(agent)(contextFor(node, { prompt: 'p', over: 'a.ts\nb.ts' }));
 
     expect(requests).toEqual(['review · a.ts', 'review · b.ts']);
+  });
+
+  it('gives every sub-agent its own checkout when the node asks for one', async () => {
+    const requests: (boolean | undefined)[] = [];
+    const agent = client(async (request) => {
+      requests.push(request.worktree);
+      return { sessionId: 's', response: 'ok' };
+    }, { worktree: true, tools: false });
+    const isolated = { ...node, worktree: true } as FlowNode;
+
+    await createFanOutExecutor(agent)(contextFor(isolated, { prompt: 'p', over: 'a.ts\nb.ts' }));
+
+    expect(requests).toEqual([true, true]);
+  });
+
+  it('leaves sub-agents in the main tree when the node does not ask', async () => {
+    const requests: (boolean | undefined)[] = [];
+    const agent = client(async (request) => {
+      requests.push(request.worktree);
+      return { sessionId: 's', response: 'ok' };
+    });
+
+    await createFanOutExecutor(agent)(contextFor(node, { prompt: 'p', over: 'a.ts' }));
+
+    expect(requests).toEqual([undefined]);
+  });
+
+  it('refuses to fan out isolated work through a host that cannot isolate', async () => {
+    const agent = client();
+    const isolated = { ...node, worktree: true } as FlowNode;
+
+    await expect(
+      createFanOutExecutor(agent)(contextFor(isolated, { prompt: 'p', over: 'a.ts' }))
+    ).rejects.toThrow('worktree isolation');
+    expect(agent.calls).toEqual([]);
   });
 });

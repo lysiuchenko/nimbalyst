@@ -203,24 +203,13 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
               }
             />
           </label>
+          {/* The sub-agents themselves are drawn on the canvas by SubAgentLayer;
+              the node only keeps the tally, so the two never disagree. */}
           {children.length > 0 && (
             <div className="flow-node-field" data-testid={`flow-children-${id}`}>
               <span className="flow-node-field-label">
                 Sub-agents ({children.filter((c) => c.status === 'done').length}/{children.length})
               </span>
-              <div className="flow-children">
-                {children.map((child) => (
-                  <span
-                    key={child.label}
-                    className={`flow-child flow-child-${child.status}`}
-                    data-child-status={child.status}
-                    title={child.error ?? child.label}
-                  >
-                    <span className="flow-child-dot" />
-                    {child.label}
-                  </span>
-                ))}
-              </div>
             </div>
           )}
         </>
@@ -262,6 +251,20 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             choices={catalog.tools}
             onChange={(tools) => patch({ tools })}
           />
+          {/* Sub-agents run at the same time, so for a fan-out this is the
+              difference between parallel work and workers overwriting each
+              other in one checkout. */}
+          <label className="flow-node-toggle">
+            <input
+              type="checkbox"
+              aria-label={fanOut ? 'Isolate each sub-agent' : 'Run in its own worktree'}
+              checked={(agent ?? fanOut)?.worktree === true}
+              onChange={(event) => patch({ worktree: event.target.checked || undefined })}
+            />
+            <span>
+              {fanOut ? 'Give each sub-agent its own worktree' : 'Run in its own worktree'}
+            </span>
+          </label>
         </>
       )}
 

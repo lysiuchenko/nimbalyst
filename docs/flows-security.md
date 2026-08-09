@@ -75,6 +75,11 @@ tree with every tool available. Enforced at `assertCapableFor` in
 worktree that cannot be created or resolved fails the node instead of leaving it
 loose in the main tree. `tools` has no equivalent and still fails.
 
+On a `fan-out` the flag is per sub-agent, not per node — concurrent workers
+sharing one checkout would overwrite each other. Each checkout is branched under
+a name unique to the run, so re-running the same flow cannot collide with the
+worktrees an earlier run left behind.
+
 ## 5. The extension runs no agent of its own
 
 Flows never spawn the Claude Agent SDK. Agent work goes through the host's own

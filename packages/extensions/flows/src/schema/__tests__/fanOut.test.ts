@@ -49,13 +49,18 @@ describe('fan-out node', () => {
     }
   });
 
+  it('accepts giving every sub-agent its own worktree', () => {
+    expect(validateFlow(flowWith({ ...valid, worktree: true })).valid).toBe(true);
+  });
+
   it('keeps the fan-out fields through a round trip', () => {
-    const result = validateFlow(flowWith({ ...valid, concurrency: 4 }));
+    const result = validateFlow(flowWith({ ...valid, concurrency: 4, worktree: true }));
 
     expect(result.valid && result.flow.nodes[1]).toMatchObject({
       prompt: 'Review {{item}}',
       over: '{{list.files}}',
       concurrency: 4,
+      worktree: true,
     });
   });
 });

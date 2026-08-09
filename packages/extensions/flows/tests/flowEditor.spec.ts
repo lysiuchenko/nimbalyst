@@ -297,11 +297,29 @@ test.describe('fan-out sub-agents', () => {
     await flows.page.locator('[data-testid="flow-gate-approve"]').click();
 
     // Agent nodes need a live provider, so the sub-agents will fail here — what
-    // matters is that all three appear individually and are tracked separately.
-    const chips = flows.page.locator('[data-testid="flow-children-review"] .flow-child');
-    await expect(chips).toHaveCount(3, { timeout: 60_000 });
-    await expect(chips.first()).toContainText('alpha');
-    await expect(chips.nth(2)).toContainText('gamma');
+    // matters is that all three appear on the canvas as their own cards.
+    const cards = flows.page.locator('.flow-subagent[data-subagent-of="review"]');
+    await expect(cards).toHaveCount(3, { timeout: 60_000 });
+    await expect(cards.first()).toContainText('alpha');
+    await expect(cards.nth(2)).toContainText('gamma');
+
+    // Cards are laid out beside their parent, not stacked on top of it.
+    const parent = await flows.page.locator('.flow-node[data-node-type="fan-out"]').boundingBox();
+    const first = await cards.first().boundingBox();
+    expect(first!.x).toBeGreaterThan(parent!.x + parent!.width);
+
+    // Each card is linked back to the node that spawned it.
+    await expect(flows.page.locator('.flow-subagent-link')).toHaveCount(3);
+  });
+
+  test('a fan-out can be told to isolate its sub-agents without editing source', async () => {
+    const toggle = flows.page
+      .locator('.flow-node[data-node-type="fan-out"]')
+      .getByLabel('Isolate each sub-agent');
+
+    await expect(toggle).not.toBeChecked();
+    await toggle.check();
+    await expect(toggle).toBeChecked();
   });
 });
 

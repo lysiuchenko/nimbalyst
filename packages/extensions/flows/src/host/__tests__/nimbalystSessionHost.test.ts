@@ -18,12 +18,33 @@ function electronApi(responses: Record<string, unknown> = {}) {
 }
 
 describe('NimbalystSessionHost', () => {
+  it('makes a sub-agent id safe to use as a branch name', async () => {
+    const { api, calls } = electronApi();
+
+    await new NimbalystSessionHost(api, '/repo').createWorktree('review[2]');
+
+    // Brackets are not legal in a refname, so `review[2]` cannot be one.
+    expect((calls[0].args[1] as { name: string }).name).toMatch(/^review-2-[a-z0-9]+$/);
+  });
+
+  it('does not collide with the worktree an earlier run of the same node left behind', async () => {
+    const { api, calls } = electronApi();
+    const host = new NimbalystSessionHost(api, '/repo');
+
+    await host.createWorktree('review[2]');
+    await host.createWorktree('review[2]');
+
+    expect(calls[0].args[1]).not.toEqual(calls[1].args[1]);
+  });
+
   it('creates a worktree for a node and returns where it landed', async () => {
     const { api, calls } = electronApi();
 
     const worktree = await new NimbalystSessionHost(api, '/repo').createWorktree('plan');
 
-    expect(calls[0]).toEqual({ channel: 'worktree:create', args: ['/repo', { name: 'plan' }] });
+    expect(calls[0].channel).toBe('worktree:create');
+    expect(calls[0].args[0]).toBe('/repo');
+    expect((calls[0].args[1] as { name: string }).name).toMatch(/^plan-/);
     expect(worktree).toEqual({ id: 'wt-1', path: '/repo_worktrees/plan', branch: 'worktree/plan' });
   });
 

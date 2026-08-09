@@ -132,7 +132,7 @@ Every node carries:
 | `slash-command` | `command` (must start with `/`) | `args` | Sends `/command args` to the agent. |
 | `skill` | `skill` | `input` | Asks the agent to use a named skill. |
 | `shell` | `run` | `cwd` | Runs one allowlisted command. Named `run`, not `command`, so `command` always means a slash command. |
-| `fan-out` | `prompt`, `over` | `concurrency`, `model`, `tools` | Runs the prompt once per item as concurrent sub-agents. Each sub-agent sees its item as `{{item}}`. |
+| `fan-out` | `prompt`, `over` | `concurrency`, `model`, `tools`, `worktree` | Runs the prompt once per item as concurrent sub-agents. Each sub-agent sees its item as `{{item}}`. |
 | `human-gate` | `message` | — | Holds the branch until a person approves. Rejecting fails the node. |
 
 ### Edges and ports
@@ -170,6 +170,7 @@ A `fan-out` node spreads one prompt across many sub-agents:
   "prompt": "Review {{item}} for bugs",
   "over": "{{files.list}}",   // one item per line, usually an upstream output
   "concurrency": 4,           // sub-agents in flight at once
+  "worktree": true,           // one git checkout per sub-agent, not per node
   "output": "reviews"         // every result, joined under a heading per item
 }
 ```
@@ -179,9 +180,17 @@ to, so a flow can fan out over files, tickets or packages it could not have
 known about when it was written. `{{item}}` is a real input inside a fan-out and
 nowhere else.
 
-While it runs the node lists every sub-agent by name with its own state —
-queued, running, done, failed — so five sub-agents at a concurrency of three
-visibly show three in flight and two waiting. A failure names only the
+While it runs, each sub-agent appears on the canvas as its own card, fanning
+out from the node on a connector that carries its state — queued, running, done,
+failed — so five sub-agents at a concurrency of three visibly show three in
+flight and two waiting. The cards are drawn in the canvas viewport rather than
+added to the graph, so a run never edits the flow or marks the file dirty; the
+node itself keeps only the tally.
+
+`worktree: true` is worth reaching for here more than anywhere else: sub-agents
+run at the same time, so without it they all edit the same checkout and can
+overwrite each other. With it each one gets its own branch, and each branch is
+reviewable as a diff on its own. A failure names only the
 sub-agents that failed and how many of how many, and the node fails so
 downstream work is skipped.
 

@@ -15,6 +15,25 @@ export interface NodeWorktree {
   branch: string;
 }
 
+/**
+ * A branch name for a node's worktree: readable, legal, and unique per run.
+ *
+ * Two constraints, both learned the hard way. Worktrees are branched as
+ * `worktree/<name>`, and git refnames reject the brackets a fan-out uses for
+ * its sub-agents (`review[2]`) — so those become `review-2`. And the host
+ * refuses a path it already has a row for, so a second run of the same flow
+ * would fail every node on `Worktree path already exists in database`; the
+ * suffix keeps runs from colliding with each other.
+ */
+function worktreeNameFor(nodeId: string): string {
+  const base =
+    nodeId
+      .replace(/[^A-Za-z0-9._-]+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '') || 'node';
+
+  return `${base}-${crypto.randomUUID().slice(0, 6)}`;
+}
+
 export interface CreateSessionRequest {
   nodeId: string;
   title: string;
@@ -44,7 +63,7 @@ export class NimbalystSessionHost implements SessionUsageReader {
 
   async createWorktree(nodeId: string): Promise<NodeWorktree> {
     const result = (await this.ipc.invoke('worktree:create', this.workspacePath, {
-      name: nodeId,
+      name: worktreeNameFor(nodeId),
     })) as { success?: boolean; error?: string; worktree?: NodeWorktree };
 
     if (!result?.success || !result.worktree) {

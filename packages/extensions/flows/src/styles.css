@@ -666,49 +666,84 @@
   letter-spacing: 0;
 }
 
-.flow-children {
+/* Sub-agents render on the canvas (SubAgentLayer), not inside the node, so
+   these live in flow coordinates inside the viewport portal. */
+.flow-subagent {
+  position: absolute;
   display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--flow-border);
+  border-radius: 8px;
+  background: var(--flow-surface);
+  color: var(--flow-text-muted);
+  font-size: 11px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%), 0 4px 12px rgb(0 0 0 / 8%);
+  pointer-events: auto;
 }
 
-.flow-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 1px 6px;
-  border: 1px solid var(--flow-border);
-  border-radius: 999px;
-  background: var(--flow-bg);
-  color: var(--flow-text-muted);
-  font-size: 10px;
+.flow-subagent-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.flow-child-dot {
-  width: 6px;
-  height: 6px;
+.flow-subagent-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--flow-text-faint);
   flex: none;
 }
 
-.flow-child-running {
+.flow-subagent-running {
   border-color: var(--flow-accent);
   color: var(--flow-text);
 }
 
-.flow-child-running .flow-child-dot {
+.flow-subagent-running .flow-subagent-dot {
   background: var(--flow-accent);
   animation: flow-pulse 1s ease-in-out infinite;
 }
 
-.flow-child-done .flow-child-dot { background: var(--flow-success); }
-.flow-child-failed { border-color: var(--flow-danger); color: var(--flow-danger); }
-.flow-child-failed .flow-child-dot { background: var(--flow-danger); }
+.flow-subagent-done .flow-subagent-dot { background: var(--flow-success); }
+.flow-subagent-failed { border-color: var(--flow-danger); color: var(--flow-danger); }
+.flow-subagent-failed .flow-subagent-dot { background: var(--flow-danger); }
+
+.flow-subagent-link {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flow-subagent-link path {
+  stroke: var(--flow-edge);
+  stroke-width: 1.5;
+}
+
+.flow-subagent-link[data-child-status='running'] path {
+  stroke: var(--flow-accent);
+  stroke-width: 2;
+}
+
+.flow-subagent-link[data-child-status='done'] path { stroke: var(--flow-success); }
+.flow-subagent-link[data-child-status='failed'] path { stroke: var(--flow-danger); }
+
+.flow-node-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--flow-text-muted);
+  cursor: pointer;
+}
+
+.flow-node-toggle input {
+  accent-color: var(--flow-accent);
+  margin: 0;
+}
 
 @keyframes flow-pulse {
   0%, 100% { opacity: 1; }
@@ -824,7 +859,9 @@
 }
 
 [data-theme='dark'] .flow-editor[data-flow-theme='globallogic'] .flow-node,
-[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] .flow-node {
+[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] .flow-node,
+[data-theme='dark'] .flow-editor[data-flow-theme='globallogic'] .flow-subagent,
+[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] .flow-subagent {
   background: #1e2130;
   border-color: #3a3f52;
   box-shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 6px 18px rgb(0 0 0 / 30%);

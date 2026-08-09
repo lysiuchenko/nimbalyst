@@ -11,7 +11,10 @@ import {
 /** The field each node type cannot do without, and the fields it may also carry. */
 const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly string[] }> = {
   agent: { required: 'prompt', optional: ['model', 'tools', 'worktree'] },
-  'fan-out': { required: 'prompt', optional: ['over', 'concurrency', 'model', 'tools'] },
+  'fan-out': {
+    required: 'prompt',
+    optional: ['over', 'concurrency', 'model', 'tools', 'worktree'],
+  },
   'slash-command': { required: 'command', optional: ['args'] },
   skill: { required: 'skill', optional: ['input'] },
   shell: { required: 'run', optional: ['cwd'] },

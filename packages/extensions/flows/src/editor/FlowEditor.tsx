@@ -32,6 +32,7 @@ import { createHistory } from './history';
 import { loadRunHistory } from './runHistory';
 import type { RunRecord } from '../runner/runStore';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
+import { SubAgentLayer } from './SubAgentLayer';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
@@ -749,6 +750,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.6} />
             <Controls />
             <MiniMap pannable zoomable />
+            <SubAgentLayer subAgents={run.children} />
           </ReactFlow>
           {isEmpty && (
             <div className="flow-empty" data-testid="flow-empty">
