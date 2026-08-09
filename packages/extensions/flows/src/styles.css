@@ -220,6 +220,109 @@
   font-size: 10px;
 }
 
+/* A closed node is a diagram label, not a form: one sentence plus whatever was
+   deliberately configured. The editor only appears once the node is selected. */
+/* An opened node stays a predictable size: a long prompt or a full tool list
+   scrolls inside the card rather than growing it into its neighbours and the
+   canvas controls. */
+.flow-node-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.flow-node-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-node-summary-text {
+  margin: 0;
+  color: var(--flow-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.flow-node-label-static {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.flow-node-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.flow-node-badge-config {
+  padding: 1px 7px;
+  border: 1px solid var(--flow-border);
+  border-radius: 999px;
+  color: var(--flow-text-faint);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.flow-node-expand {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--flow-text-faint);
+  cursor: pointer;
+}
+
+.flow-node-expand:hover {
+  background: var(--flow-surface-hover);
+  color: var(--flow-text);
+}
+
+.flow-node-expand .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.flow-node-advanced > summary {
+  cursor: pointer;
+  color: var(--flow-text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  list-style: none;
+  padding: 2px 0;
+}
+
+.flow-node-advanced > summary::marker,
+.flow-node-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.flow-node-advanced > summary::before {
+  content: 'chevron_right';
+  font-family: 'Material Symbols Outlined';
+  font-size: 13px;
+  vertical-align: -3px;
+  text-transform: none;
+}
+
+.flow-node-advanced[open] > summary::before {
+  content: 'expand_more';
+}
+
+.flow-node-advanced[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .flow-node-field {
   display: block;
   margin-top: 6px;

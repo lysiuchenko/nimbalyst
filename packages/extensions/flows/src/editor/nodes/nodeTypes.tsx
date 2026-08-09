@@ -1,11 +1,12 @@
 import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { AgentNode, FanOutNode, FlowNode, NodeType } from '../../schema/types';
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useNodeStatus } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
+import { configBadges, summarize } from './summarize';
 
 /** How each node type presents its one essential field. */
 interface NodeChrome {
@@ -100,6 +101,13 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const agent = node.type === 'agent' ? (node as AgentNode) : undefined;
   const fanOut = node.type === 'fan-out' ? (node as FanOutNode) : undefined;
   const children = useNodeChildren(id);
+  const badges = configBadges(node);
+
+  // Open on its own only when there is nothing to read: a node just dropped on
+  // the canvas is unfinished, and asking for one more click before typing is
+  // friction. A node loaded from a file starts closed, however deep its
+  // configuration, because the canvas is there to be read first.
+  const [open, setOpen] = useState(() => fieldValue.trim() === '');
 
   return (
     <div
@@ -112,20 +120,41 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
     >
       <Handle type="target" position={Position.Left} className="flow-node-handle" />
 
-      <header className="flow-node-header">
+      <header className="flow-node-header" onDoubleClick={() => setOpen((wasOpen) => !wasOpen)}>
         <span className="flow-node-icon material-symbols-outlined">{chrome.icon}</span>
-        <input
-          className="flow-node-label"
-          aria-label="Node label"
-          value={node.label ?? ''}
-          placeholder={id}
-          onChange={(event) => patch({ label: event.target.value || undefined })}
-        />
+        {/* A name is content, not configuration, but an always-editable input
+            makes a card look like a form. Read as text, edit once opened. */}
+        {open ? (
+          <input
+            className="flow-node-label"
+            aria-label="Node label"
+            value={node.label ?? ''}
+            placeholder={id}
+            onChange={(event) => patch({ label: event.target.value || undefined })}
+          />
+        ) : (
+          <span className="flow-node-label flow-node-label-static">{node.label ?? id}</span>
+        )}
+        {/* The type is already carried by the icon and, closed, by the summary
+            sentence — spelling it out again costs the label the room it needs. */}
         {status ? (
           <span className={`flow-node-badge flow-node-badge-${status}`}>{status}</span>
         ) : (
-          <span className="flow-node-type">{node.type}</span>
+          open && <span className="flow-node-type">{node.type}</span>
         )}
+        <button
+          type="button"
+          className="flow-node-expand"
+          data-expand={id}
+          aria-expanded={open}
+          title={open ? 'Close this step' : 'Open this step'}
+          aria-label={`${open ? 'Close' : 'Open'} ${node.label ?? id}`}
+          onClick={() => setOpen((wasOpen) => !wasOpen)}
+        >
+          <span className="material-symbols-outlined">
+            {open ? 'expand_more' : 'chevron_right'}
+          </span>
+        </button>
         <button
           type="button"
           className="flow-node-duplicate"
@@ -138,6 +167,25 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </button>
       </header>
 
+      {/* Closed, a node is something to read: what this step does, plus the
+          settings someone chose. Opening it is what asks for the editor. */}
+      {!open && (
+        <div className="flow-node-summary" data-testid={`flow-summary-${id}`}>
+          <p className="flow-node-summary-text">{summarize(node)}</p>
+          {badges.length > 0 && (
+            <div className="flow-node-badges">
+              {badges.map((badge) => (
+                <span key={badge.label} className="flow-node-badge-config" title={badge.title}>
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <div className="flow-node-body">
       {chrome.input === 'pick' ? (
         <CatalogPicker
           label={chrome.fieldLabel}
@@ -228,61 +276,70 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </label>
       )}
 
-      {(agent || fanOut) && (
-        <>
-          <label className="flow-node-field">
-            <span className="flow-node-field-label">Model</span>
-            <select
-              className="flow-node-input"
-              aria-label="Model"
-              value={(agent ?? fanOut)?.model ?? ''}
-              onChange={(event) => patch({ model: event.target.value || null })}
-            >
-              <option value="">Host default</option>
-              {catalog.models.map((model) => (
-                <option key={model.value} value={model.value}>
-                  {model.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ToolPicker
-            value={(agent ?? fanOut)?.tools}
-            choices={catalog.tools}
-            onChange={(tools) => patch({ tools })}
-          />
-          {/* Sub-agents run at the same time, so for a fan-out this is the
-              difference between parallel work and workers overwriting each
-              other in one checkout. */}
-          <label className="flow-node-toggle">
-            <input
-              type="checkbox"
-              aria-label={fanOut ? 'Isolate each sub-agent' : 'Run in its own worktree'}
-              checked={(agent ?? fanOut)?.worktree === true}
-              onChange={(event) => patch({ worktree: event.target.checked || undefined })}
-            />
-            <span>
-              {fanOut ? 'Give each sub-agent its own worktree' : 'Run in its own worktree'}
-            </span>
-          </label>
-        </>
-      )}
-
       <ReferenceChips
         references={references}
         onInsert={(token) => patch({ [chrome.field]: `${fieldValue}${token}` })}
       />
 
-      <label className="flow-node-field">
-        <span className="flow-node-field-label">Output port</span>
-        <input
-          className="flow-node-input"
-          aria-label="Output port"
-          value={node.output ?? ''}
-          placeholder="(none — downstream nodes get no data)"
-          onChange={(event) => patch({ output: event.target.value || undefined })}
-        />
-      </label>
+      {/* Everything below decides how the step runs rather than what it does.
+          Folded away by default: someone reading or writing a flow needs the
+          work described first, and defaults are right for most nodes. */}
+      <details className="flow-node-advanced">
+        <summary>Advanced</summary>
+
+        {(agent || fanOut) && (
+          <>
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">Model</span>
+              <select
+                className="flow-node-input"
+                aria-label="Model"
+                value={(agent ?? fanOut)?.model ?? ''}
+                onChange={(event) => patch({ model: event.target.value || null })}
+              >
+                <option value="">Host default</option>
+                {catalog.models.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <ToolPicker
+              value={(agent ?? fanOut)?.tools}
+              choices={catalog.tools}
+              onChange={(tools) => patch({ tools })}
+            />
+            {/* Sub-agents run at the same time, so for a fan-out this is the
+                difference between parallel work and workers overwriting each
+                other in one checkout. */}
+            <label className="flow-node-toggle">
+              <input
+                type="checkbox"
+                aria-label={fanOut ? 'Isolate each sub-agent' : 'Run in its own worktree'}
+                checked={(agent ?? fanOut)?.worktree === true}
+                onChange={(event) => patch({ worktree: event.target.checked || undefined })}
+              />
+              <span>
+                {fanOut ? 'Give each sub-agent its own worktree' : 'Run in its own worktree'}
+              </span>
+            </label>
+          </>
+        )}
+
+        <label className="flow-node-field">
+          <span className="flow-node-field-label">Output port</span>
+          <input
+            className="flow-node-input"
+            aria-label="Output port"
+            value={node.output ?? ''}
+            placeholder="(none — downstream nodes get no data)"
+            onChange={(event) => patch({ output: event.target.value || undefined })}
+          />
+        </label>
+      </details>
+        </div>
+      )}
 
       {issues.length > 0 && (
         <ul className="flow-node-issues" data-testid={`flow-node-issues-${id}`}>

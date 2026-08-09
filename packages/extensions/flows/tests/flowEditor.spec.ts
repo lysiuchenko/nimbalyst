@@ -38,6 +38,7 @@ test.describe('flow editor', () => {
   test('edits made on the canvas reach the file', async () => {
     await flows.page.locator('[data-add-node="shell"]').click();
     const shell = flows.page.locator('.flow-node[data-node-type="shell"]');
+    // A node with nothing in it yet opens on its own — no click to start typing.
     await shell.getByLabel('Run').fill('npm test');
     await shell.getByLabel('Node label').fill('Verify');
 
@@ -60,10 +61,8 @@ test.describe('flow editor', () => {
   test('refuses to save a flow that could not be reopened', async () => {
     const before = JSON.stringify(flows.readFlow('review.flow.json'));
 
-    await flows.page
-      .locator('.flow-node[data-node-type="shell"]')
-      .getByLabel('Run')
-      .fill('');
+    const shell = flows.page.locator('.flow-node[data-node-type="shell"]');
+    await shell.getByLabel('Run').fill('');
     await flows.save();
 
     const banner = flows.page.locator('[data-testid="flow-save-error"]');
@@ -130,14 +129,30 @@ test.describe('canvas actions', () => {
     await openFlow(flows.page, 'actions.flow.json');
     await flows.page.locator('[data-duplicate="plan"]').click();
 
-    await expect(flows.page.locator('.flow-node[data-node-id="plan-2"]')).toBeVisible();
+    const copy = flows.page.locator('.flow-node[data-node-id="plan-2"]');
+    await expect(copy).toBeVisible();
+
     // The copy keeps the prompt but drops the output port, which cannot be shared.
-    await expect(
-      flows.page.locator('.flow-node[data-node-id="plan-2"]').getByLabel('Prompt')
-    ).toHaveValue('Plan it');
-    await expect(
-      flows.page.locator('.flow-node[data-node-id="plan-2"]').getByLabel('Output port')
-    ).toHaveValue('');
+    await copy.locator('[data-expand="plan-2"]').click();
+    await expect(copy.getByLabel('Prompt')).toHaveValue('Plan it');
+    await copy.locator('.flow-node-advanced > summary').click();
+    await expect(copy.getByLabel('Output port')).toHaveValue('');
+  });
+
+  test('a node reads as a sentence until you open it', async () => {
+    const gate = flows.page.locator('.flow-node[data-node-type="human-gate"]');
+
+    // Closed: what the step does, in words, with no form controls in the way.
+    await expect(gate.locator('.flow-node-summary-text')).toHaveText(
+      'Waits for a person: Approve the plan?'
+    );
+    await expect(gate.getByLabel('Message')).toHaveCount(0);
+
+    // Open: the editor, with the plumbing folded away behind Advanced.
+    await gate.locator('.flow-node-expand').click();
+    await expect(gate.getByLabel('Message')).toBeVisible();
+    await expect(gate.locator('.flow-node-summary-text')).toHaveCount(0);
+    await expect(gate.getByLabel('Output port')).toBeHidden();
   });
 
   test('every toolbar control stays reachable in a narrow pane', async () => {
@@ -243,6 +258,16 @@ test.describe('canvas actions', () => {
     const saved = flows.readFlow('actions.flow.json') as { variables: Record<string, string> };
     expect(saved.variables).toMatchObject({ input: 'src/' });
   });
+
+  test('a closed node still shows the settings someone chose', async () => {
+    const plan = flows.page.locator('.flow-node[data-node-id="plan"]');
+    await plan.locator('[data-expand="plan"]').click();
+    await plan.locator('.flow-node-advanced > summary').click();
+    await plan.getByLabel('Run in its own worktree').check();
+
+    await plan.locator('[data-expand="plan"]').click();
+    await expect(plan.locator('.flow-node-badge-config')).toHaveText(['Isolated']);
+  });
 });
 
 test.describe('fan-out sub-agents', () => {
@@ -287,6 +312,10 @@ test.describe('fan-out sub-agents', () => {
 
     const card = flows.page.locator('.flow-node[data-node-type="fan-out"]');
     await expect(card).toBeVisible();
+    // Closed, the list is part of the sentence the card reads as.
+    await expect(card.locator('.flow-node-summary-text')).toContainText('For each item in');
+
+    await card.locator('.flow-node-expand').click();
     await expect(card.getByLabel('Fan out over')).toHaveValue('alpha\nbeta\ngamma');
     // Nothing is wrong with it: {{item}} is a real input inside a fan-out.
     await expect(flows.page.locator('.flow-node-invalid')).toHaveCount(0);
@@ -313,12 +342,15 @@ test.describe('fan-out sub-agents', () => {
   });
 
   test('a fan-out can be told to isolate its sub-agents without editing source', async () => {
-    const toggle = flows.page
-      .locator('.flow-node[data-node-type="fan-out"]')
-      .getByLabel('Isolate each sub-agent');
+    const card = flows.page.locator('.flow-node[data-node-type="fan-out"]');
+    await card.locator('.flow-node-advanced > summary').click();
+    const toggle = card.getByLabel('Isolate each sub-agent');
 
     await expect(toggle).not.toBeChecked();
-    await toggle.check();
+    // Driven from the keyboard: the canvas controls overlay the bottom-left of
+    // the pane, and this also proves the control is reachable without a mouse.
+    await toggle.focus();
+    await flows.page.keyboard.press('Space');
     await expect(toggle).toBeChecked();
   });
 });

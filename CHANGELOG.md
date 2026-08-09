@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GlobalLogic and GlobalLogic Dark app themes, selectable from View > Theme
 - Extensions can run a prompt in an existing git worktree, so flow nodes marked for isolation edit their own checkout
 - Flow sub-agents appear as their own cards on the canvas, and a fan-out can give each one its own worktree
+- Flow nodes read as a plain sentence until you open them, with advanced settings folded away
 
 ### Changed
 <!-- Changes to existing functionality go here -->

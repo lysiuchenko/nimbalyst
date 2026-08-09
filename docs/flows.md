@@ -86,6 +86,24 @@ important control, rather than sprayed across the chrome. Neutrals between the
 sourced values are tints of `#181a24`. All of it lives in one marked block in
 `src/styles.css`.
 
+## Reading a flow
+
+A node is closed by default and reads as one sentence — *"Waits for a person:
+Does this plan look right?"*, *"For each item in {{files.list}}: Review
+{{item}}"* — so the canvas can be read as a diagram by someone who did not write
+it. Underneath, small pills show only the settings that were deliberately
+changed (`opus`, `2 tools`, `Isolated`, `2 at a time`); a node left on its
+defaults shows none, so a pill always means someone chose it.
+
+The chevron in a node's header opens its editor (double-clicking the header does
+the same). A node you have just added opens by itself, because there is nothing
+in it to read yet. Several nodes can be open at once, and an open node scrolls
+internally rather than growing over its neighbours.
+
+Inside an open node the content comes first — the prompt, the list, the gate
+message — and everything that decides *how* it runs (model, tools, worktree,
+output port) is folded behind **Advanced**. Most nodes never need it.
+
 ## Working on the canvas
 
 - **Duplicate** a node from its header. The copy keeps the prompt and settings
