@@ -9,7 +9,8 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { runHeadless } from './runHeadless';
 import type { ShellClient } from '../runner/ports';
-import { launchAgentPath, launchAgentPlist, labelFor, logPathFor } from '../schedule/launchAgent';
+import * as os from 'node:os';
+import { installPlanFor, uninstallPlanFor } from '../schedule/installers';
 import type { ScheduleDeps } from './scheduleCommand';
 
 /** Same default as the editor. Override with FLOWS_SHELL_ALLOWLIST. */
@@ -74,10 +75,11 @@ const allowlist = process.env.FLOWS_SHELL_ALLOWLIST
 
 const argv = process.argv.slice(2);
 
-/** `launchctl`, as a promise, so install/uninstall can report what happened. */
-function launchctl(...args: string[]): Promise<{ code: number; output: string }> {
+/** Runs one argv array, resolving with its exit code and combined output. */
+function exec(argv: string[]): Promise<{ code: number; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('launchctl', args, { shell: false });
+    const [command, ...args] = argv;
+    const child = spawn(command, args, { shell: false });
     let output = '';
     child.stdout?.on('data', (chunk) => (output += String(chunk)));
     child.stderr?.on('data', (chunk) => (output += String(chunk)));
@@ -87,6 +89,27 @@ function launchctl(...args: string[]): Promise<{ code: number; output: string }>
 }
 
 const workspace = process.cwd();
+
+/** `${UID}` is a placeholder the plans use so they stay platform-pure. */
+function withUid(argv: string[]): string[] {
+  const uid = String(process.getuid?.() ?? '');
+  return argv.map((part) => part.replace(/\$\{UID\}/g, uid));
+}
+
+function describe(plan: { files: { path: string }[]; commands: string[][] }): string {
+  return [
+    ...plan.files.map((file) => `  write   ${file.path}`),
+    ...plan.commands.map((argv) => `  run     ${withUid(argv).join(' ')}`),
+  ].join('\n');
+}
+
+const installOptions = () => ({
+  workspace,
+  cliPath: process.argv[1],
+  nodePath: process.execPath,
+  everyMinutes: 30,
+  home: os.homedir(),
+});
 
 const schedule: ScheduleDeps = {
   listFlows: async () => {
@@ -105,34 +128,39 @@ const schedule: ScheduleDeps = {
     return code === 0;
   },
 
-  installAgent: async (everyMinutes) => {
-    if (process.platform !== 'darwin') {
-      return 'schedule install only supports macOS launchd for now.';
-    }
-    const target = launchAgentPath(workspace);
-    const plist = launchAgentPlist({
-      workspace,
-      cliPath: process.argv[1],
-      nodePath: process.execPath,
-      everyMinutes,
-    });
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, plist, 'utf-8');
+  installAgent: async (everyMinutes, print) => {
+    const plan = installPlanFor(process.platform, { ...installOptions(), everyMinutes });
+    if (plan.files.length === 0 && plan.commands.length === 0) return plan.summary;
+    if (print) return `Would:\n${describe(plan)}\n\n${plan.summary}`;
 
-    // `bootout` first so re-installing picks up a changed interval.
-    await launchctl('bootout', `gui/${process.getuid?.() ?? ''}/${labelFor(workspace)}`);
-    const loaded = await launchctl('bootstrap', `gui/${process.getuid?.() ?? ''}`, target);
-    if (loaded.code !== 0) {
-      return `Wrote ${target}, but launchctl refused it: ${loaded.output.trim()}`;
+    for (const file of plan.files) {
+      await fs.mkdir(path.dirname(file.path), { recursive: true });
+      await fs.writeFile(file.path, file.content, 'utf-8');
     }
-    return `Scheduled flows will run every ${everyMinutes}m while Nimbalyst is closed.\n  agent: ${target}\n  log:   ${logPathFor(workspace)}`;
+    for (const argv of plan.commands) {
+      const result = await exec(withUid(argv));
+      // The first command of each plan clears a previous install, which fails
+      // harmlessly when there was none.
+      if (result.code !== 0 && argv === plan.commands[plan.commands.length - 1]) {
+        return `Wrote the files, but \`${argv[0]}\` refused: ${result.output.trim()}`;
+      }
+    }
+    return plan.summary;
   },
 
-  uninstallAgent: async () => {
-    const target = launchAgentPath(workspace);
-    await launchctl('bootout', `gui/${process.getuid?.() ?? ''}/${labelFor(workspace)}`);
-    await fs.rm(target, { force: true });
-    return `Removed ${target}.`;
+  uninstallAgent: async (print) => {
+    const plan = uninstallPlanFor(process.platform, installOptions());
+    if (print) {
+      const lines = [
+        ...plan.commands.map((argv) => `  run     ${withUid(argv).join(' ')}`),
+        ...plan.remove.map((file) => `  remove  ${file}`),
+      ].join('\n');
+      return `Would:\n${lines}\n\n${plan.summary}`;
+    }
+
+    for (const argv of plan.commands) await exec(withUid(argv));
+    for (const file of plan.remove) await fs.rm(file, { force: true });
+    return plan.summary;
   },
 
   log: (message) => console.log(message),

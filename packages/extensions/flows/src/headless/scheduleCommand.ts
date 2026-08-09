@@ -11,9 +11,9 @@ export interface ScheduleDeps {
   writeFile(path: string, content: string): Promise<void>;
   /** Runs one flow headlessly and reports whether it worked. */
   runFlow(flowPath: string): Promise<boolean>;
-  /** Writes or removes the OS-level agent. */
-  installAgent(everyMinutes: number): Promise<string>;
-  uninstallAgent(): Promise<string>;
+  /** Writes or removes the OS-level agent. `print` only describes the plan. */
+  installAgent(everyMinutes: number, print: boolean): Promise<string>;
+  uninstallAgent(print: boolean): Promise<string>;
   log(message: string): void;
   now?: () => number;
 }
@@ -53,16 +53,17 @@ async function collect(deps: ScheduleDeps): Promise<ScheduledEntry[]> {
 export async function runScheduleCommand(
   action: ScheduleAction,
   everyMinutes: number,
-  deps: ScheduleDeps
+  deps: ScheduleDeps,
+  print = false
 ): Promise<number> {
   const now = deps.now?.() ?? Date.now();
 
   if (action === 'install') {
-    deps.log(await deps.installAgent(everyMinutes));
+    deps.log(await deps.installAgent(everyMinutes, print));
     return 0;
   }
   if (action === 'uninstall') {
-    deps.log(await deps.uninstallAgent());
+    deps.log(await deps.uninstallAgent(print));
     return 0;
   }
 

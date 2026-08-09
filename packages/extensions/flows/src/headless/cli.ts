@@ -9,7 +9,7 @@ export type ScheduleAction = 'list' | 'run' | 'install' | 'uninstall';
 
 export type CliArgs =
   | { command: 'help' }
-  | { command: 'schedule'; action: ScheduleAction; everyMinutes: number }
+  | { command: 'schedule'; action: ScheduleAction; everyMinutes: number; print: boolean }
   | { command: 'run'; flowPath: string; variables: Record<string, string> }
   | { command: 'compile'; flowPath: string; outPath?: string }
   | { command: 'validate'; flowPath: string };
@@ -23,7 +23,7 @@ export const USAGE = `nimbalyst-flows — run Nimbalyst flows headlessly
   nimbalyst-flows validate <file.flow.json>
   nimbalyst-flows schedule list        what is scheduled here, and when it is next due
   nimbalyst-flows schedule run         run every scheduled flow that is due
-  nimbalyst-flows schedule install [--every <minutes>]   run them while the app is closed
+  nimbalyst-flows schedule install [--every <minutes>] [--print]  run them while the app is closed
   nimbalyst-flows schedule uninstall
 
 Exit codes: 0 success, 1 the flow failed, 2 bad usage or an invalid flow.`;
@@ -51,7 +51,9 @@ export function parseCliArgs(argv: string[]): CliArgs {
     if (!Number.isFinite(every) || every < 1) {
       throw new Error(`--every needs a positive number of minutes\n\n${USAGE}`);
     }
-    return { command, action, everyMinutes: Math.round(every) };
+    // `--print` shows the plan without touching the system, which is also how
+    // another platform's plan can be inspected from this one.
+    return { command, action, everyMinutes: Math.round(every), print: rest.includes('--print') };
   }
 
   const flowPath = positional[0];

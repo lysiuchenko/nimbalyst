@@ -269,6 +269,17 @@ jobs:
         working-directory: packages/extensions/flows
         run: npx playwright test --config=playwright.config.ts tests/flowsCli.spec.ts
 
+      # Proves the Linux install path actually runs on Linux. `--print` only
+      # describes the plan, so CI writes no unit files and loads no timer.
+      - name: Linux schedule plan
+        working-directory: packages/extensions/flows
+        run: |
+          set -euo pipefail
+          plan=$(node dist/nimbalyst-flows.js schedule install --every 15 --print)
+          echo "$plan"
+          echo "$plan" | grep -q 'systemd/user' || { echo 'expected a systemd unit path'; exit 1; }
+          echo "$plan" | grep -q 'systemctl --user enable --now' || { echo 'expected systemctl enable'; exit 1; }
+
       - name: Build the Electron app
         working-directory: packages/electron
         run: npm run build

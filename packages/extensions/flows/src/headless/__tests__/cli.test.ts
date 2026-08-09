@@ -70,6 +70,7 @@ describe('parseCliArgs', () => {
       command: 'schedule',
       action: 'list',
       everyMinutes: 30,
+      print: false,
     });
   });
 
@@ -82,6 +83,10 @@ describe('parseCliArgs', () => {
 
   it('refuses an interval that would spin', () => {
     expect(() => parseCliArgs(['schedule', 'install', '--every', '0'])).toThrow('positive');
+  });
+
+  it('takes --print, which describes the plan instead of applying it', () => {
+    expect(parseCliArgs(['schedule', 'install', '--print'])).toMatchObject({ print: true });
   });
 
   it('refuses an action it does not have', () => {

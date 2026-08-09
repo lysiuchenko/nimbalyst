@@ -142,11 +142,22 @@ nimbalyst-flows schedule install --every 30      keep doing that while the app i
 nimbalyst-flows schedule uninstall
 ```
 
-`install` writes a macOS LaunchAgent under `~/Library/LaunchAgents`, one per
-workspace, and loads it. Output goes to `~/Library/Logs`, so an overnight
-failure can be read in the morning. `RunAtLoad` is deliberately off: loading the
-agent happens at every login, and firing every overdue flow then is the same
-backlog the 12-hour catch-up window exists to avoid.
+`install` registers the scheduler with whatever the operating system provides,
+one registration per workspace:
+
+| OS | What it writes | Where the output goes |
+| --- | --- | --- |
+| macOS | a LaunchAgent in `~/Library/LaunchAgents`, loaded with `launchctl` | `~/Library/Logs/com.nimbalyst.flows.schedule.*.log` |
+| Linux | a `.service` and `.timer` in `~/.config/systemd/user`, enabled with `systemctl --user` | `journalctl --user -u nimbalyst-flows-*.service` |
+| Windows | a `.cmd` wrapper in `~/.nimbalyst-flows`, registered with `schtasks` | the task's own history |
+
+Nothing fires at boot or login — `RunAtLoad` is off on macOS and
+`Persistent=false` on Linux. Firing every overdue flow the moment a machine
+wakes is the same backlog the 12-hour catch-up window exists to avoid.
+
+**`--print` shows the plan without touching anything**, including for a platform
+you are not on. Use it to see exactly which files would be written and which
+commands would run before committing to either.
 
 **Shell and gate flows run; agent flows are reported, not attempted.** Agent
 work goes through the host's Claude Code provider, which owns credentials and

@@ -72,7 +72,7 @@ export async function runHeadless(argv: string[], deps: HeadlessDeps): Promise<n
       deps.log('this build cannot manage schedules');
       return 2;
     }
-    return runScheduleCommand(args.action, args.everyMinutes, deps.schedule);
+    return runScheduleCommand(args.action, args.everyMinutes, deps.schedule, args.print);
   }
 
   const raw = await deps.readFile(args.flowPath);
