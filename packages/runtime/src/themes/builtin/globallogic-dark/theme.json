@@ -1,0 +1,33 @@
+{
+  "id": "globallogic-dark",
+  "name": "GlobalLogic Dark",
+  "version": "1.0.0",
+  "author": "Nimbalyst Flows Fork",
+  "description": "GlobalLogic brand palette on the wordmark's near-black",
+  "license": "MIT",
+  "isDark": true,
+  "colors": {
+    "bg": "#12141c",
+    "bg-secondary": "#181a24",
+    "bg-tertiary": "#23262f",
+    "bg-hover": "rgba(255, 95, 45, 0.12)",
+    "bg-selected": "rgba(255, 95, 45, 0.20)",
+    "bg-active": "#2b2e39",
+    "text": "#f2f2f4",
+    "text-muted": "#b6b8c2",
+    "text-faint": "#83858f",
+    "text-disabled": "#63656f",
+    "border": "#32353f",
+    "border-focus": "#ff5f2d",
+    "primary": "#ff5f2d",
+    "primary-hover": "#ff7f55",
+    "link": "#ff7f55",
+    "link-hover": "#ffa383",
+    "success": "#35b57e",
+    "warning": "#e78903",
+    "error": "#ff6a4a",
+    "info": "#e78903",
+    "purple": "#a78bfa"
+  },
+  "tags": ["dark", "orange", "brand"]
+}

@@ -64,6 +64,7 @@ import {
 import { ensureExtensionSDKDocsTrusted, getExtensionSDKDocsPath } from '../utils/workspaceDetection';
 import { database } from '../database/PGLiteDatabaseWorker';
 import { getRegisteredWalkthroughs, getRegisteredTips } from '../ipc/WalkthroughHandlers';
+import { buildBrandThemeMenuItems } from './themeMenuItems';
 
 // Create window list menu items
 function createWindowListMenu(): any[] {
@@ -979,7 +980,24 @@ export async function createApplicationMenu() {
                                     isFirstChange,
                                 });
                             }
-                        }
+                        },
+                        { type: 'separator' },
+                        ...buildBrandThemeMenuItems(currentTheme, async (themeId, isDark) => {
+                            const fromTheme = currentTheme;
+                            setTheme(themeId, isDark);
+                            updateNativeTheme();
+                            BrowserWindow.getAllWindows().forEach(window => {
+                                window.webContents.send('theme-change', themeId);
+                            });
+                            updateWindowTitleBars();
+                            await createApplicationMenu();
+
+                            AnalyticsService.getInstance().sendEvent('theme_changed', {
+                                fromTheme,
+                                toTheme: themeId,
+                                isFirstChange: false,
+                            });
+                        })
                     ]
                 },
                 { type: 'separator' },

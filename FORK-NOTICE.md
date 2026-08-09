@@ -109,6 +109,12 @@ These are additions by this fork, not edits to upstream files:
 - `FORK-NOTICE.md` (this file)
 - `docs/editorhost-notes.md` (extension contract notes, Goal 1.2)
 - `docs/flows.md`, `docs/flows-security.md` (Goal 5)
+- `packages/runtime/src/themes/builtin/globallogic/theme.json` and
+  `packages/runtime/src/themes/builtin/globallogic-dark/theme.json` — the brand
+  app themes, in the format the host's own theme loader already discovers
+- `packages/electron/src/main/menu/themeMenuItems.ts` (+ its test) — the brand
+  entries for the Theme submenu, kept out of `ApplicationMenu.ts` so the edit
+  to that upstream file stays at one import and one spread
 
 ## Core deviations
 
@@ -120,6 +126,7 @@ a core change, it is made and recorded here, so every
 | --- | --- | --- |
 | `packages/electron/src/main/utils/store.ts` | `shouldShowCommunityPopup()` returns `false` unconditionally | This build never shows the community / Discord popup. Chosen as the single gate both surfaces flow through (`shouldShowDiscordInvitation` delegates to it), so the diff is one line. Requested 2026-08-08. |
 | `packages/electron/src/main/utils/store.ts` | `getOnboardingState()` reports `onboardingCompleted` / `unifiedOnboardingCompleted` as always true | This build never shows the startup Standard/Developer mode chooser. That state object is the single gate the renderer reads. Requested 2026-08-08. |
+| `packages/electron/src/main/menu/ApplicationMenu.ts` | The View > Theme submenu gains a separator and the two brand entries, appended via `buildBrandThemeMenuItems()` | The submenu hardcodes one ~30-line block per theme and only covers light / dark / crystal-dark / system, so file-based themes are discoverable via `theme:list` but selectable nowhere in the UI. The four existing blocks are untouched; the new entries live in a separate `menu/themeMenuItems.ts` module so the rebase surface is one import plus one spread. Requested 2026-08-08. |
 | `packages/runtime/src/ai/server/providers/__tests__/OpenAICodexProvider.test.ts` | `uses SDK-provided model discovery when available` gets a 60s per-test timeout instead of the suite-wide 20s | The test is load-sensitive: it passes in isolation but times out when the full ~9.4k-test run saturates the machine, and it blocked three pushes on 2026-08-08 via the pre-push gate. Given a longer budget rather than skipped, so it still catches a real regression. Requested 2026-08-08. |
 
 ### The one sanctioned edit to a core file
