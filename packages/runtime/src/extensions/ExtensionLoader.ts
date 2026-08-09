@@ -1040,6 +1040,7 @@ function createExtensionContext(
         sessionName?: string;
         provider?: 'claude-code' | 'claude' | 'openai' | 'openai-codex';
         model?: string;
+        mode?: 'planning' | 'agent' | 'auto';
         worktreeId?: string;
       }): Promise<{ sessionId: string; response: string }> => {
         const electronAPI = (window as any).electronAPI;

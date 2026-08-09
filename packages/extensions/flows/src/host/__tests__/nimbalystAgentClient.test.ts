@@ -27,8 +27,46 @@ describe('NimbalystAgentClient', () => {
       prompt: 'Plan the change',
       sessionName: 'Flow: Draft plan',
       provider: 'claude-code',
+      mode: 'agent',
     });
     expect(result).toEqual({ sessionId: 'session-3', response: 'done' });
+  });
+
+  it('asks for a mode the host can actually persist', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(request, new AbortController().signal);
+
+    // `auto` is derived from workspace trust and fails the session table's
+    // CHECK constraint; requesting it broke every node.
+    expect(ai.sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ mode: 'agent' }));
+  });
+
+  it('explains a step that stalled on a permission prompt instead of returning nothing', async () => {
+    const ai = aiService({ sendPrompt: vi.fn(async () => ({ sessionId: 's1', response: '' })) });
+    const sessions = {
+      getTokenUsage: vi.fn(async () => undefined),
+      hasPendingPermission: vi.fn(async () => true),
+    };
+
+    await expect(
+      new NimbalystAgentClient(ai, sessions).run(request, new AbortController().signal)
+    ).rejects.toThrow(/permission/i);
+  });
+
+  it('leaves an empty answer alone when nothing was blocking', async () => {
+    const ai = aiService({ sendPrompt: vi.fn(async () => ({ sessionId: 's1', response: '' })) });
+    const sessions = {
+      getTokenUsage: vi.fn(async () => undefined),
+      hasPendingPermission: vi.fn(async () => false),
+    };
+
+    const result = await new NimbalystAgentClient(ai, sessions).run(
+      request,
+      new AbortController().signal
+    );
+
+    expect(result.response).toBe('');
   });
 
   it('passes an explicit node model through', async () => {

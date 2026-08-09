@@ -20,6 +20,8 @@ export interface SessionUsageReader {
   getTokenUsage(
     sessionId: string
   ): Promise<{ inputTokens: number; outputTokens: number } | undefined>;
+  /** Whether the session is sitting on a tool-permission prompt. */
+  hasPendingPermission?(sessionId: string): Promise<boolean>;
 }
 
 export interface NodeWorktreeCreator {
@@ -60,12 +62,37 @@ export class NimbalystAgentClient implements AgentClient {
       prompt: request.prompt,
       sessionName: `Flow: ${request.sessionName}`,
       provider: 'claude-code',
+      // Sessions persist `planning` or `agent` only; `auto` is an *effective*
+      // mode the host derives from workspace trust, so a flow cannot request it
+      // — and should not, since that would decide permissions on the user's
+      // behalf. Flows inherit the project's trust level.
+      mode: 'agent',
       ...(request.model ? { model: request.model } : {}),
       ...(worktree ? { worktreeId: worktree.id } : {}),
     });
 
+    // An empty answer is the shape a blocked step takes: the agent asked for
+    // tool permission, nobody was there to answer, and the turn ended with no
+    // text. Reporting that as success publishes "" to every downstream node.
+    if (response.trim() === '' && (await this.blockedOnPermission(sessionId))) {
+      throw new Error(
+        `node ${JSON.stringify(request.nodeId)} is waiting for tool permission and nothing answered it. ` +
+          `Trust this project (Settings > project trust) so its steps can run unattended, ` +
+          `or run the flow with the session open so you can approve.`
+      );
+    }
+
     const usage = await this.readUsage(sessionId);
     return usage ? { sessionId, response, usage } : { sessionId, response };
+  }
+
+  private async blockedOnPermission(sessionId: string): Promise<boolean> {
+    try {
+      return (await this.sessions?.hasPendingPermission?.(sessionId)) === true;
+    } catch {
+      // Never turn a diagnostic lookup into the reason a node failed.
+      return false;
+    }
   }
 
   /**

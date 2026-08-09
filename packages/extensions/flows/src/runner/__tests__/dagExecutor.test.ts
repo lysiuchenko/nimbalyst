@@ -304,4 +304,15 @@ describe('DagFlowRunner — cancellation', () => {
     expect(state.status).toBe('cancelled');
     expect(state.nodes.b.status).toBe('skipped');
   });
+
+  it('flags a node that declared an output but published nothing', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: async () => ({ output: '   ' }) });
+
+    const state = await runner.run(flowOf([agent('a', { output: 'text' })], []));
+
+    // The node worked; what it published did not, and downstream nodes would
+    // otherwise interpolate an empty string with no sign anything was wrong.
+    expect(state.nodes.a.status).toBe('done');
+    expect(state.nodes.a.warning).toContain('empty text');
+  });
 });

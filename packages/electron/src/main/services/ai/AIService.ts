@@ -43,6 +43,7 @@ import {
   type AIProviderType,
   type AIModel,
   type SessionData,
+  type SessionMode,
   type SessionType,
 } from '@nimbalyst/runtime/ai/server/types';
 // MCP imports removed - no longer using MCP HTTP server
@@ -3935,10 +3936,11 @@ export class AIService {
         sessionName?: string;
         provider?: string;
         model?: string;
+        mode?: SessionMode;
         worktreeId?: string;
       }
     ) => {
-      const { prompt, sessionName, worktreeId } = options;
+      const { prompt, sessionName, worktreeId, mode } = options;
       const provider = (options.provider || 'claude-code') as AIProviderType;
       if (!prompt) {
         throw new Error('prompt is required');
@@ -3995,7 +3997,9 @@ export class AIService {
         providerConfig,
         model,
         'session',
-        undefined, // mode
+        // Interactive by default; an unattended caller passes 'auto' so the SDK
+        // classifies tool use instead of waiting on a prompt nobody sees.
+        mode,
         worktreeId,
         worktree?.worktreePath,
         worktree?.worktreeProjectPath,

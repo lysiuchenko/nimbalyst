@@ -1178,6 +1178,15 @@ export interface ExtensionAIService {
     /** Model ID (e.g. 'claude-code:opus', 'openai-codex:gpt-5.6-sol'). Uses provider default if omitted. */
     model?: string;
     /**
+     * How the agent decides tool permissions.
+     *
+     * Defaults to the interactive behaviour, which prompts for each tool and
+     * waits for a person. An unattended caller — a flow step, a scheduled job —
+     * must pass `'auto'`, or the agent stalls on a prompt nobody will answer
+     * and the turn ends with no output at all.
+     */
+    mode?: 'planning' | 'agent' | 'auto';
+    /**
      * Run the prompt in an existing git worktree instead of the main working
      * tree. Create it first with the `worktree:create` IPC and pass the id back
      * here; the host binds the new session to it, so the agent's edits land in

@@ -548,6 +548,10 @@
   white-space: normal;
 }
 
+.flow-run-warned {
+  color: var(--flow-warning);
+}
+
 .flow-run-steps em {
   color: var(--flow-danger);
   font-style: normal;

@@ -120,4 +120,27 @@ describe('NimbalystSessionHost', () => {
 
     expect(await new NimbalystSessionHost(api, '/repo').getTokenUsage('session-1')).toBeUndefined();
   });
+
+  it('spots a session parked on a permission prompt', async () => {
+    const { api } = electronApi({
+      'transcript:get-tail-messages': [
+        { type: 'user_message', text: '/changelog' },
+        { type: 'tool_call', toolCall: { toolName: 'Bash', status: 'running' } },
+        { type: 'tool_call', toolCall: { toolName: 'ToolPermission', status: 'running' } },
+      ],
+    });
+
+    expect(await new NimbalystSessionHost(api, '/repo').hasPendingPermission('s1')).toBe(true);
+  });
+
+  it('does not mistake a finished permission call for a block', async () => {
+    const { api } = electronApi({
+      'transcript:get-tail-messages': [
+        { type: 'tool_call', toolCall: { toolName: 'ToolPermission', status: 'completed' } },
+        { type: 'assistant_message', text: 'done' },
+      ],
+    });
+
+    expect(await new NimbalystSessionHost(api, '/repo').hasPendingPermission('s1')).toBe(false);
+  });
 });

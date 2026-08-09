@@ -53,6 +53,12 @@ export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecuto
 export interface NodeExecution {
   nodeId: string;
   status: NodeStatus;
+  /**
+   * Something worth knowing about a node that still succeeded — chiefly a
+   * declared output that came back empty, which downstream nodes would
+   * otherwise interpolate as an empty string without anyone noticing.
+   */
+  warning?: string;
   /** Sessions this node's sub-agents ran in. */
   childSessionIds?: string[];
   /** Sub-agents spawned by this node, when it fans out. */

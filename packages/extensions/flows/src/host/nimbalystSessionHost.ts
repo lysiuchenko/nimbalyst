@@ -107,6 +107,28 @@ export class NimbalystSessionHost implements SessionUsageReader {
     });
   }
 
+  /**
+   * Whether the session is parked on a tool-permission prompt.
+   *
+   * A blocked step looks exactly like a successful one from `sendPrompt` — it
+   * returns an empty answer either way. The transcript is what tells them
+   * apart: a stalled turn ends on a `ToolPermission` call still running.
+   */
+  async hasPendingPermission(sessionId: string): Promise<boolean> {
+    const tail = (await this.ipc.invoke('transcript:get-tail-messages', sessionId, 10)) as
+      | { type?: string; toolCall?: { toolName?: string; status?: string } }[]
+      | undefined;
+
+    return (
+      Array.isArray(tail) &&
+      tail.some(
+        (message) =>
+          message?.toolCall?.toolName === 'ToolPermission' &&
+          message.toolCall.status === 'running'
+      )
+    );
+  }
+
   async getTokenUsage(
     sessionId: string
   ): Promise<{ inputTokens: number; outputTokens: number } | undefined> {

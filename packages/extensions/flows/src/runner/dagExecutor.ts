@@ -135,6 +135,11 @@ export class DagFlowRunner implements FlowRunner {
         addUsage(state.usage, result.usage);
 
         if (node.output !== undefined && result.output !== undefined) {
+          if (result.output.trim() === '') {
+            execution.warning =
+              `published an empty ${node.output} — downstream nodes will read "" from ` +
+              `{{${nodeId}.${node.output}}}`;
+          }
           state.outputs[nodeId] = { ...state.outputs[nodeId], [node.output]: result.output };
         }
 

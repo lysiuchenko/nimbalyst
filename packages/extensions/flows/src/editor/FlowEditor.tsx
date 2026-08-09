@@ -607,6 +607,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                   </span>
                                   <strong>{node.nodeId}</strong>
                                   {node.error && <em>{node.error}</em>}
+                                  {!node.error && node.warning && (
+                                    <em className="flow-run-warned">{node.warning}</em>
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -750,9 +753,13 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                         : undefined
                     )}
                   </td>
-                  <td className="flow-run-result" title={node.error ?? node.output ?? ''}>
+                  <td className="flow-run-result" title={node.error ?? node.warning ?? node.output ?? ''}>
                     {node.error ? (
                       <span className="flow-run-failed">{previewOf(node.error)}</span>
+                    ) : node.warning ? (
+                      <span className="flow-run-warned" data-run-warning={node.nodeId}>
+                        {node.warning}
+                      </span>
                     ) : (
                       previewOf(node.output)
                     )}
