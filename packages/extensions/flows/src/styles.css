@@ -45,7 +45,8 @@
  * starting point and correct them against the official palette. They live in
  * this one block precisely so that correction is a one-place edit.
  */
-.flow-editor[data-flow-theme='globallogic'] {
+.flow-editor[data-flow-theme='globallogic'],
+.flows-dashboard[data-flow-theme='globallogic'] {
   /*
    * Sourced from GlobalLogic's own brand assets, not guessed:
    *   #ff5f2d  aiarrow.svg and aiglyph.svg  — the brand orange
@@ -82,7 +83,9 @@
 
 /* Dark app themes need a dark brand surface, not a white one. */
 [data-theme='dark'] .flow-editor[data-flow-theme='globallogic'],
-[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'] {
+[data-theme='crystal-dark'] .flow-editor[data-flow-theme='globallogic'],
+[data-theme='dark'] .flows-dashboard[data-flow-theme='globallogic'],
+[data-theme='crystal-dark'] .flows-dashboard[data-flow-theme='globallogic'] {
   /* The wordmark's #181a24 becomes the surface family on dark. */
   --flow-bg: #12141c;
   --flow-surface: #181a24;

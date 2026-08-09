@@ -146,7 +146,8 @@ The **Flows** button in the gutter opens a workspace-wide view of every run in
 | Tokens | `—` until the host records usage; see below |
 
 Plus a per-flow breakdown, so one flow failing repeatedly is visible without
-opening it.
+opening it. The panel follows whichever canvas theme the workspace is on — it
+reads the same stored key the editor writes, so the two never disagree.
 
 There is deliberately no "hours saved" figure. Nothing in a run record knows how
 long the work would have taken by hand, and inventing a multiplier would make

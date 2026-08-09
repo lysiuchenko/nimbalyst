@@ -513,6 +513,10 @@ test.describe('running a flow', () => {
     expect(painted.heading).not.toBe('rgb(0, 0, 0)');
     expect(painted.radius).not.toBe('0px');
 
+    // The canvas theme is a per-workspace choice; the panel reads the same key
+    // through host.storage, so the two surfaces cannot disagree.
+    expect(await dash.getAttribute('data-flow-theme')).not.toBeNull();
+
     // Leave the app where it was found, so the next test still has an editor.
     await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
     await expect(dash).toBeHidden();

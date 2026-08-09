@@ -4,9 +4,17 @@ import { getHostServices } from '../host/hostServices';
 import { loadAllRuns } from './loadAllRuns';
 import { summariseRuns, type RunsSummary } from './metrics';
 import { asDuration } from './asDuration';
+import { readTheme, type FlowThemeId } from '../editor/theme';
 
-export function FlowsDashboard(_props: PanelHostProps) {
+export function FlowsDashboard({ host }: PanelHostProps) {
   const [summary, setSummary] = useState<RunsSummary | null>(null);
+  // The canvas theme is a per-workspace choice the editor stores; the panel
+  // reads the same key so the two surfaces do not disagree.
+  const [theme, setTheme] = useState<FlowThemeId>(() => readTheme(host.storage));
+
+  useEffect(() => {
+    setTheme(readTheme(host.storage));
+  }, [host.storage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -18,12 +26,16 @@ export function FlowsDashboard(_props: PanelHostProps) {
     };
   }, []);
 
-  if (!summary) return <div className="flows-dashboard" data-testid="flows-dashboard" />;
+  if (!summary) {
+    return (
+      <div className="flows-dashboard" data-flow-theme={theme} data-testid="flows-dashboard" />
+    );
+  }
 
   const { totals } = summary;
 
   return (
-    <div className="flows-dashboard" data-testid="flows-dashboard">
+    <div className="flows-dashboard" data-flow-theme={theme} data-testid="flows-dashboard">
       <header className="flows-dashboard-header">
         <h1>Flows</h1>
         <p>
