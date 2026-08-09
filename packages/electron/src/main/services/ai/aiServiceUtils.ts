@@ -244,6 +244,38 @@ export function extensionPromptRequiresConfiguredApiKey(provider: AIProviderType
 }
 
 /**
+ * Resolve the paths a worktree-bound session must be created with.
+ *
+ * A `worktreeId` alone is not enough for `SessionManager.createSession` — it
+ * also needs the checkout path (the agent's cwd) and the project path (used for
+ * permission lookups). Both come from the worktree store, and the directory is
+ * re-checked because a worktree deleted by hand outside the app leaves its row
+ * behind; without this the session would silently run in the main working tree.
+ *
+ * The store lookup and the existence check are injected so this stays a pure
+ * function: callers pass the real `WorktreeStore.get` and `fs.existsSync`.
+ */
+export async function resolveWorktreePathsForSession(
+  worktreeId: string,
+  getWorktree: (id: string) => Promise<{ path: string; projectPath: string } | null | undefined>,
+  directoryExists: (path: string) => boolean
+): Promise<{ worktreePath: string; worktreeProjectPath: string }> {
+  const worktree = await getWorktree(worktreeId);
+  if (!worktree) {
+    throw new Error(`Worktree ${worktreeId} not found in database`);
+  }
+
+  if (!directoryExists(worktree.path)) {
+    throw new Error(
+      `Worktree directory does not exist: ${worktree.path}\n` +
+        `The worktree may have been deleted manually. Please remove the worktree from the UI and create a new one.`
+    );
+  }
+
+  return { worktreePath: worktree.path, worktreeProjectPath: worktree.projectPath };
+}
+
+/**
  * Extract the model part from a full model ID for passing to provider APIs.
  * For claude-code, returns the full model (with suffix if any).
  * For other providers, strips the provider prefix.

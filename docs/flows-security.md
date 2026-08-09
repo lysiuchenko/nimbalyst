@@ -57,19 +57,23 @@ Enforced at `resolveCwd` in `src/backend/index.ts`.
 
 ## 4. Capabilities are never silently downgraded
 
-`worktree: true` and `tools: [...]` are safety properties. The host cannot
-honor either through `services.ai.sendPrompt`, so a node that asks for them
-**fails** rather than running without them:
+`worktree: true` and `tools: [...]` are safety properties, so a node that asks
+for one the host cannot honor **fails** rather than running without it:
 
 ```
-node "plan" asks for worktree isolation, which this host cannot provide;
-it would otherwise run in the main working tree
+node "plan" restricts tools to Read, Write, which this host cannot enforce;
+it would otherwise run with every tool available
 ```
 
 Running anyway would tell the author the node succeeded while it edited the main
 tree with every tool available. Enforced at `assertCapableFor` in
 `src/runner/executors.ts`; a client that can deliver these declares
 `capabilities` and the same nodes run.
+
+`worktree: true` is honored: `services.ai.sendPrompt` takes a `worktreeId`, and
+`NimbalystAgentClient` creates the checkout *before* sending the prompt, so a
+worktree that cannot be created or resolved fails the node instead of leaving it
+loose in the main tree. `tools` has no equivalent and still fails.
 
 ## 5. The extension runs no agent of its own
 

@@ -3,6 +3,7 @@ import type { EditorHost } from '@nimbalyst/extension-sdk';
 import { BackendShellClient } from '../host/backendShellClient';
 import { getHostServices } from '../host/hostServices';
 import { NimbalystAgentClient } from '../host/nimbalystAgentClient';
+import { NimbalystSessionHost, type HostIpc } from '../host/nimbalystSessionHost';
 import type { Flow } from '../schema/types';
 import { runFlow } from '../runner/flowRun';
 import type { GateDecision } from '../runner/ports';
@@ -74,12 +75,21 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
       // own notifications rather than only rendering in the editor.
       const notify = services.ui;
 
+      // Gives isolated nodes their own checkout and reads token usage back off
+      // the sessions the run creates. Absent only if the host exposes no IPC,
+      // in which case a `worktree: true` node fails instead of running loose.
+      const ipc = (window as unknown as { electronAPI?: HostIpc }).electronAPI;
+      const workspacePath =
+        host.workspaceId ?? host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
+      const sessionHost =
+        ipc && workspacePath ? new NimbalystSessionHost(ipc, workspacePath) : undefined;
+
       try {
         const record = await runFlow(
           flow,
           host.filePath,
           {
-            agent: new NimbalystAgentClient(services.ai!),
+            agent: new NimbalystAgentClient(services.ai!, sessionHost, sessionHost),
             shell: new BackendShellClient(services.ai!, SHELL_ALLOWLIST),
             gate: {
               requestApproval: (request) =>

@@ -230,7 +230,7 @@ reachable through it:
 | --- | --- |
 | Per-node token usage / cost | **Solved by an adapter.** `sendPrompt` returns none, but `sessions:get` returns the session record and `AISession.tokenUsage` (`packages/runtime/src/ai/server/types.ts:383`) carries cumulative `inputTokens` / `outputTokens`. Since each node gets its own session, that is the node's usage. `NimbalystAgentClient` reads it back through a `SessionUsageReader`. |
 | Per-node tool allowlist (`node.tools`) | **Still missing.** The call takes no tool list. |
-| Per-node worktree isolation (`node.worktree`) | **Still missing.** See below. |
+| Per-node worktree isolation (`node.worktree`) | **Solved by a one-parameter core change.** `sendPrompt` now takes an optional `worktreeId`; see below. |
 
 ### Worktree isolation — solved without a core change
 
@@ -275,15 +275,26 @@ logic, and a copy inside this extension would not inherit the host's future fixe
 
 **What we do instead:** `AgentClient` declares `capabilities`, and
 `createAgentExecutor` fails any node whose `worktree` or `tools` the client
-cannot honor. `NimbalystAgentClient` declares both `false`. Silently running a
-node that asked for isolation is the genuinely dangerous option — the author is
-told it succeeded and has neither the worktree nor the tool restriction.
+cannot honor. Silently running a node that asked for isolation is the genuinely
+dangerous option — the author is told it succeeded and has neither the worktree
+nor the tool restriction. `NimbalystAgentClient` still declares `tools: false`.
 
-**The minimal core change that would unlock it safely:** have
-`extensions:ai-send-prompt` (`AIService.ts:3955`) accept an optional `cwd` or
-`worktreeId` and forward it to `buildSdkOptions`, which already takes a `cwd`.
-The host keeps owning credentials; the extension gains isolation. That is one
-parameter, versus several hundred lines of duplicated credential handling.
+**The core change that unlocked worktrees** (requested 2026-08-09, one
+parameter, no duplicated credential handling): `sendPrompt` takes an optional
+`worktreeId`, and `extensions:ai-send-prompt` resolves it through the same
+`resolveWorktreePathsForSession` helper `sessions:create` uses, then binds the
+session it creates to that worktree. The host keeps owning credentials; the
+extension gains isolation.
+
+`NimbalystAgentClient` therefore reports `worktree: true` whenever it is given a
+`NodeWorktreeCreator`, and a `worktree: true` node gets its checkout created
+*before* the prompt is sent — an id that cannot be resolved fails the node
+rather than letting it edit the main tree. Measured against the running app:
+
+| Check | Result |
+| --- | --- |
+| unknown id | `Error: Worktree no-such-worktree not found in database`, thrown before any session is created |
+| real run writing a file | landed in `…_worktrees/iso-proof-…/iso-proof.txt` (`ISOLATED`); absent from the main working tree |
 
 ## 5c. Shell nodes — solved by the flows backend module
 

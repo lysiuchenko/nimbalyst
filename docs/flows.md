@@ -227,8 +227,7 @@ command your own authenticated Claude Code CLI runs. Both are explained in
 
 | Limit | Why |
 | --- | --- |
-| `worktree: true` fails instead of isolating | `sendPrompt` takes no worktree; flows refuse rather than silently run in the main tree. |
-| `tools: [...]` fails instead of restricting | Same call takes no tool allowlist. |
+| `tools: [...]` fails instead of restricting | `sendPrompt` takes no tool allowlist. |
 | Clicking a node does not open its session | No SDK method, IPC channel, or deep-link route can open a session from an extension. The run panel shows session ids as selectable text instead. |
 | Agent nodes are app-only | The extension runs no agent of its own; see `editorhost-notes.md` §5b. |
 

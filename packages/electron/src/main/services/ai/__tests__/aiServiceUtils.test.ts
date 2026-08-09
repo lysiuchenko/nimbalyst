@@ -75,6 +75,7 @@ import {
   previewForLog,
   LOG_PREVIEW_LENGTH,
   extensionPromptRequiresConfiguredApiKey,
+  resolveWorktreePathsForSession,
 } from '../aiServiceUtils';
 
 describe('aiServiceUtils', () => {
@@ -437,6 +438,35 @@ describe('aiServiceUtils', () => {
 
     it('respects an explicit max', () => {
       expect(previewForLog('abcdefghij', 4)).toBe('abcd…');
+    });
+  });
+
+  describe('resolveWorktreePathsForSession', () => {
+    const worktree = { path: '/repo/.worktrees/plan', projectPath: '/repo' };
+
+    it('returns the worktree paths a session must be created with', async () => {
+      const paths = await resolveWorktreePathsForSession(
+        'wt-1',
+        async () => worktree,
+        () => true
+      );
+
+      expect(paths).toEqual({
+        worktreePath: '/repo/.worktrees/plan',
+        worktreeProjectPath: '/repo',
+      });
+    });
+
+    it('refuses a worktree id the database does not know', async () => {
+      await expect(
+        resolveWorktreePathsForSession('wt-gone', async () => null, () => true)
+      ).rejects.toThrow('Worktree wt-gone not found in database');
+    });
+
+    it('refuses a worktree whose directory was deleted behind the database', async () => {
+      await expect(
+        resolveWorktreePathsForSession('wt-1', async () => worktree, () => false)
+      ).rejects.toThrow('/repo/.worktrees/plan');
     });
   });
 });

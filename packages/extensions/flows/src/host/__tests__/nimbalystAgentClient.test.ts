@@ -86,6 +86,50 @@ describe('NimbalystAgentClient', () => {
     expect(result.response).toBe('done');
   });
 
+  it('cannot isolate a node without a worktree host', () => {
+    expect(new NimbalystAgentClient(aiService()).capabilities.worktree).toBe(false);
+  });
+
+  it('runs an isolated node in a worktree of its own', async () => {
+    const ai = aiService();
+    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/repo/.worktrees/plan' })) };
+
+    const client = new NimbalystAgentClient(ai, undefined, worktrees);
+    expect(client.capabilities.worktree).toBe(true);
+
+    await client.run({ ...request, worktree: true }, new AbortController().signal);
+
+    expect(worktrees.createWorktree).toHaveBeenCalledWith('plan');
+    expect(ai.sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ worktreeId: 'wt-7' }));
+  });
+
+  it('leaves a node that did not ask for isolation in the main working tree', async () => {
+    const ai = aiService();
+    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/wt' })) };
+
+    await new NimbalystAgentClient(ai, undefined, worktrees).run(request, new AbortController().signal);
+
+    expect(worktrees.createWorktree).not.toHaveBeenCalled();
+    expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).not.toHaveProperty('worktreeId');
+  });
+
+  it('fails an isolated node rather than running it in the main tree', async () => {
+    const ai = aiService();
+    const worktrees = {
+      createWorktree: vi.fn(async () => {
+        throw new Error('worktree:create refused');
+      }),
+    };
+
+    await expect(
+      new NimbalystAgentClient(ai, undefined, worktrees).run(
+        { ...request, worktree: true },
+        new AbortController().signal
+      )
+    ).rejects.toThrow('worktree:create refused');
+    expect(ai.sendPrompt).not.toHaveBeenCalled();
+  });
+
   it('does not start a session for a run that was already cancelled', async () => {
     const ai = aiService();
     const controller = new AbortController();

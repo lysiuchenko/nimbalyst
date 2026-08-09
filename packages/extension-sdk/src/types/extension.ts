@@ -1177,6 +1177,17 @@ export interface ExtensionAIService {
     provider?: 'claude-code' | 'claude' | 'openai' | 'openai-codex';
     /** Model ID (e.g. 'claude-code:opus', 'openai-codex:gpt-5.6-sol'). Uses provider default if omitted. */
     model?: string;
+    /**
+     * Run the prompt in an existing git worktree instead of the main working
+     * tree. Create it first with the `worktree:create` IPC and pass the id back
+     * here; the host binds the new session to it, so the agent's edits land in
+     * that checkout and stay reviewable as a diff.
+     *
+     * Without this, every prompt an extension sends shares one working tree,
+     * which makes concurrent runs unsafe. Throws if the id is unknown or its
+     * directory has been removed — never silently falls back to the main tree.
+     */
+    worktreeId?: string;
   }): Promise<{
     sessionId: string;
     response: string;

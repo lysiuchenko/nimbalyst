@@ -113,6 +113,7 @@ import {
   safeSend,
   getFileExtensionForAnalytics,
   extensionPromptRequiresConfiguredApiKey,
+  resolveWorktreePathsForSession,
   extractModelForProvider,
   detectNimbalystSlashCommand,
   extractFileMentions,
@@ -1928,32 +1929,9 @@ export class AIService {
       // });
 
       // If worktreeId is provided, fetch the worktree data to get its path and project path
-      let worktreePath: string | undefined;
-      let worktreeProjectPath: string | undefined;
-      if (worktreeId) {
-        const { getDatabase } = await import('../../database/initialize');
-        const { createWorktreeStore } = await import('../WorktreeStore');
-        const db = getDatabase();
-        if (!db) {
-          throw new Error('Database not initialized');
-        }
-        const worktreeStore = createWorktreeStore(db);
-        const worktree = await worktreeStore.get(worktreeId);
-        if (!worktree) {
-          throw new Error(`Worktree ${worktreeId} not found in database`);
-        }
-
-        // Validate that the worktree directory actually exists
-        if (!fs.existsSync(worktree.path)) {
-          throw new Error(
-            `Worktree directory does not exist: ${worktree.path}\n` +
-            `The worktree may have been deleted manually. Please remove the worktree from the UI and create a new one.`
-          );
-        }
-
-        worktreePath = worktree.path;
-        worktreeProjectPath = worktree.projectPath;  // Store for permission lookups
-      }
+      const resolvedWorktree = worktreeId ? await this.resolveWorktreePaths(worktreeId) : undefined;
+      const worktreePath = resolvedWorktree?.worktreePath;
+      const worktreeProjectPath = resolvedWorktree?.worktreeProjectPath;
 
       // Check if provider is enabled for this workspace (considers project overrides)
       if (!this.isProviderEnabledForWorkspace(provider, workspacePath)) {
@@ -3952,9 +3930,15 @@ export class AIService {
     // Extension SDK: Send a prompt and wait for the full response
     safeHandle('extensions:ai-send-prompt', async (
       event,
-      options: { prompt: string; sessionName?: string; provider?: string; model?: string }
+      options: {
+        prompt: string;
+        sessionName?: string;
+        provider?: string;
+        model?: string;
+        worktreeId?: string;
+      }
     ) => {
-      const { prompt, sessionName } = options;
+      const { prompt, sessionName, worktreeId } = options;
       const provider = (options.provider || 'claude-code') as AIProviderType;
       if (!prompt) {
         throw new Error('prompt is required');
@@ -3999,6 +3983,11 @@ export class AIService {
         }
       }
 
+      // A node that asked for isolation must get it or fail: resolving the
+      // worktree before the session exists means a bad id cannot leave a
+      // half-created session pointed at the main working tree.
+      const worktree = worktreeId ? await this.resolveWorktreePaths(worktreeId) : undefined;
+
       const session = await this.sessionManager.createSession(
         provider,
         undefined, // no document context
@@ -4006,6 +3995,10 @@ export class AIService {
         providerConfig,
         model,
         'session',
+        undefined, // mode
+        worktreeId,
+        worktree?.worktreePath,
+        worktree?.worktreeProjectPath,
       );
 
       // Set session title
@@ -4319,6 +4312,28 @@ export class AIService {
 
   private inferWorktreePathFromCommand(command: string | undefined, workspacePath: string): string | null {
     return inferWorktreePathFromCommand(command, workspacePath);
+  }
+
+  /**
+   * Look up the checkout and project paths a worktree-bound session needs.
+   * Shared by `sessions:create` and the extension `sendPrompt` bridge so both
+   * reject an unknown id or a hand-deleted directory the same way.
+   */
+  private async resolveWorktreePaths(
+    worktreeId: string
+  ): Promise<{ worktreePath: string; worktreeProjectPath: string }> {
+    const { getDatabase } = await import('../../database/initialize');
+    const { createWorktreeStore } = await import('../WorktreeStore');
+    const db = getDatabase();
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+    const worktreeStore = createWorktreeStore(db);
+    return resolveWorktreePathsForSession(
+      worktreeId,
+      (id) => worktreeStore.get(id),
+      (path) => fs.existsSync(path)
+    );
   }
 
   /**
