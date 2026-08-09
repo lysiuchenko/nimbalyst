@@ -482,4 +482,17 @@ test.describe('running a flow', () => {
     await expect(panel.locator('[data-run-node="first"]')).toContainText('done');
     await expect(panel.locator('[data-run-node="second"]')).toContainText('done');
   });
+
+  test('the dashboard counts the time a person spent at the gates', async () => {
+    await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+    await expect(dash).toBeVisible({ timeout: 30_000 });
+
+    // The run just approved had two gates, so human time is real and non-zero.
+    const human = dash.locator('[data-metric="human-time"] .flows-dashboard-value');
+    await expect(human).not.toHaveText('0s');
+    // Nothing recorded usage, and the panel says so rather than claiming zero.
+    await expect(dash.locator('[data-metric="tokens"] .flows-dashboard-value')).toHaveText('—');
+    await expect(dash.locator('[data-dashboard-flow="approvals"]')).toBeVisible();
+  });
 });

@@ -48,6 +48,14 @@
           "purpose": "Run the shell commands your flows declare, restricted to the commands you allowlist."
         }
       }
+    ],
+    "panels": [
+      {
+        "id": "dashboard",
+        "title": "Flows",
+        "icon": "monitoring",
+        "placement": "fullscreen"
+      }
     ]
   }
 }

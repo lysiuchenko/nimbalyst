@@ -63,7 +63,10 @@ export class DagFlowRunner implements FlowRunner {
       status: 'running',
       startedAt,
       nodes: Object.fromEntries(
-        resolvedFlow.nodes.map((node) => [node.id, { nodeId: node.id, status: 'queued' } as NodeExecution])
+        resolvedFlow.nodes.map((node) => [
+          node.id,
+          { nodeId: node.id, type: node.type, status: 'queued' } as NodeExecution,
+        ])
       ),
       outputs: {},
       usage: { inputTokens: 0, outputTokens: 0 },

@@ -52,6 +52,14 @@ export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecuto
 
 export interface NodeExecution {
   nodeId: string;
+  /**
+   * What kind of node this was.
+   *
+   * Recorded because a run record outlives the flow that produced it: telling
+   * agent time from time a person spent at a gate needs the type, and reading
+   * it back off the flow file would be wrong the moment the flow is edited.
+   */
+  type?: NodeType;
   status: NodeStatus;
   /**
    * Something worth knowing about a node that still succeeded — chiefly a

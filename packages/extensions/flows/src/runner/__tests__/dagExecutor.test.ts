@@ -315,4 +315,14 @@ describe('DagFlowRunner — cancellation', () => {
     expect(state.nodes.a.status).toBe('done');
     expect(state.nodes.a.warning).toContain('empty text');
   });
+
+  it('records what kind of node each step was', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: async () => ({ output: 'x' }) });
+
+    const state = await runner.run(flowOf([agent('a')], []));
+
+    // Without this a run record cannot tell agent time from time a person spent
+    // at a gate, and reading it off the flow would be wrong once it is edited.
+    expect(state.nodes.a.type).toBe('agent');
+  });
 });

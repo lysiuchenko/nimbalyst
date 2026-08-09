@@ -133,6 +133,29 @@ Two rules worth knowing:
 Schedules fire while Nimbalyst is running. Headless mode cannot run agent nodes
 (`runHeadless.ts`), so an agent flow has to be scheduled inside the app.
 
+## The dashboard
+
+The **Flows** button in the gutter opens a workspace-wide view of every run in
+`.flow-runs/`:
+
+| Figure | What it is |
+| --- | --- |
+| Agent time | how long the steps took, gates excluded |
+| Human time | how long people spent at approval gates — measured, not estimated |
+| Sub-agents | how many a fan-out spawned |
+| Tokens | `—` until the host records usage; see below |
+
+Plus a per-flow breakdown, so one flow failing repeatedly is visible without
+opening it.
+
+There is deliberately no "hours saved" figure. Nothing in a run record knows how
+long the work would have taken by hand, and inventing a multiplier would make
+the measured numbers untrustworthy too.
+
+**Tokens read `—`, not `0`.** The host leaves `tokenUsage` null on the session
+path extensions use, so a run that spent real money totals zero. Reporting that
+as free is worse than admitting we do not know.
+
 ## Working on the canvas
 
 - **Duplicate** a node from its header. The copy keeps the prompt and settings

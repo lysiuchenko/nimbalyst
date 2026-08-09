@@ -1,5 +1,6 @@
 import type { ExtensionContext } from '@nimbalyst/extension-sdk';
 import { FlowEditor } from './editor/FlowEditor';
+import { FlowsDashboard } from './dashboard/FlowsDashboard';
 import { rememberHostServices } from './host/hostServices';
 import { startScheduler } from './schedule/startScheduler';
 import type { FlowScheduler } from './schedule/FlowScheduler';
@@ -26,6 +27,11 @@ export async function deactivate(): Promise<void> {
 
 export const components = {
   FlowEditor,
+};
+
+/** Full-screen dashboard, reached from its own gutter button. */
+export const panels = {
+  dashboard: { component: FlowsDashboard },
 };
 
 export type { Flow, FlowEdge, FlowNode, NodeType } from './schema/types';
