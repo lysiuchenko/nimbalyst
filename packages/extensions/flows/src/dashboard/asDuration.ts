@@ -5,6 +5,9 @@
  * printing "0.0s" for a step that failed instantly.
  */
 export function asDuration(ms: number): string {
+  // A record can be hand-edited, half-written, or written by an older version.
+  // "NaNm" on a headline figure is worse than admitting the gap.
+  if (!Number.isFinite(ms)) return '—';
   if (ms <= 0) return '0s';
   if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))}s`;
 

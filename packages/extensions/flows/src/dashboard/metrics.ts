@@ -8,6 +8,10 @@ export interface FlowMetrics {
   failed: number;
   agentMs: number;
   humanMs: number;
+  /** When this flow last started. Zero only when it has no runs at all. */
+  lastRunAt: number;
+  /** How that last run ended, which is what a reader scans the list for. */
+  lastStatus: RunRecord['status'];
 }
 
 export interface RunsSummary {
@@ -34,8 +38,8 @@ export interface RunsSummary {
 }
 
 function durationOf(node: NodeExecution): number {
-  if (node.startedAt === undefined || node.finishedAt === undefined) return 0;
-  return Math.max(0, node.finishedAt - node.startedAt);
+  if (!Number.isFinite(node.startedAt) || !Number.isFinite(node.finishedAt)) return 0;
+  return Math.max(0, (node.finishedAt as number) - (node.startedAt as number));
 }
 
 /** A gate's duration is a person deciding; everything else is the machine. */
@@ -74,9 +78,18 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
       failed: 0,
       agentMs: 0,
       humanMs: 0,
+      lastRunAt: 0,
+      lastStatus: record.status,
     };
     flow.runs += 1;
     if (record.status === 'failed') flow.failed += 1;
+
+    // Records arrive newest-first but nothing guarantees it, so the latest wins
+    // on its own timestamp rather than on arrival order.
+    if (Number.isFinite(record.startedAt) && record.startedAt >= flow.lastRunAt) {
+      flow.lastRunAt = record.startedAt;
+      flow.lastStatus = record.status;
+    }
 
     for (const node of Object.values(record.nodes ?? {})) {
       const typed = node as NodeExecution & { type?: string };

@@ -17,4 +17,11 @@ describe('asDuration', () => {
   it('says nothing happened only when nothing did', () => {
     expect(asDuration(0)).toBe('0s');
   });
+
+  // A hand-edited or half-written run record reached the panel and rendered
+  // "NaNm" across every headline figure.
+  it('admits it does not know rather than printing NaN', () => {
+    expect(asDuration(Number.NaN)).toBe('—');
+    expect(asDuration(Number.POSITIVE_INFINITY)).toBe('—');
+  });
 });

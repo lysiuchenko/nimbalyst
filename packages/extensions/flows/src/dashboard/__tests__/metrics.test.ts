@@ -158,4 +158,28 @@ describe('summariseRuns', () => {
 
     expect(summary.savedMs).toBe(0);
   });
+
+  // Timestamps that are not numbers reached the tiles as NaN, which then
+  // poisoned every total it was added to.
+  it('ignores a node whose timestamps are not numbers', () => {
+    const summary = summariseRuns([
+      record({
+        nodes: {
+          a: node({ nodeId: 'a', startedAt: '2026-08-10T00:00:00Z', finishedAt: 'later' }),
+          b: node({ nodeId: 'b', startedAt: 0, finishedAt: 5_000 }),
+        } as unknown as RunRecord['nodes'],
+      }),
+    ]);
+
+    expect(summary.agentMs).toBe(5_000);
+  });
+
+  it('records when each flow last ran and how it ended', () => {
+    const summary = summariseRuns([
+      record({ runId: 'r1', startedAt: 1_000, finishedAt: 2_000, status: 'failed' }),
+      record({ runId: 'r2', startedAt: 500, finishedAt: 900, status: 'done' }),
+    ]);
+
+    expect(summary.byFlow[0]).toMatchObject({ lastRunAt: 1_000, lastStatus: 'failed' });
+  });
 });

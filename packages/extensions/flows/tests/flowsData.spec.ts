@@ -126,6 +126,9 @@ const warned = record({
 function workspaceWithRuns(): string {
   const workspace = createWorkspace({
     'seeded.flow.json': flow,
+    // Never run, so it exists only as a file — the case the panel could not
+    // represent when it derived its list from run records alone.
+    'quiet.flow.json': { ...flow, name: 'quiet' },
     '.flow-runs/run-finished.json': finished,
     '.flow-runs/run-failed.json': failed,
     '.flow-runs/run-stranded.json': stranded,
@@ -282,8 +285,30 @@ test.describe('the dashboard, from seeded records', () => {
     const row = flows.page.locator('[data-dashboard-flow="seeded"]');
 
     await expect(row).toBeVisible();
-    await expect(row.locator('td').nth(1)).toHaveText('4');
-    await expect(row.locator('td').nth(2)).toHaveText('1');
+    await expect(row.locator('.flows-dashboard-row-stat').first()).toHaveText('4 runs');
+    await expect(row.locator('[data-failed="true"]')).toHaveText('1 failed');
+  });
+
+  test('lists a flow that has never run, which run records alone cannot show', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="quiet"]');
+
+    await expect(row).toHaveAttribute('data-flow-state', 'never-run');
+    await expect(row).toContainText('Never run');
+  });
+
+  test('a flow whose last run failed is called out', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="seeded"]');
+
+    await expect(row).toHaveAttribute('data-flow-state', 'failing');
+  });
+
+  // Last in this block: it navigates away from the panel.
+  test('a row opens its flow', async () => {
+    await flows.page.locator('[data-dashboard-flow="quiet"]').click();
+
+    await expect(flows.page.locator('[data-testid="flow-editor"]')).toBeVisible({
+      timeout: 30_000,
+    });
   });
 });
 
