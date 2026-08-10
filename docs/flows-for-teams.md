@@ -19,7 +19,10 @@ Open one with the chevron to edit; model, tools and isolation sit behind
 **Advanced** because most steps never need them.
 
 Skills and slash commands are **picked from what your repo actually has**, not
-typed. Variables, undo/redo and duplicate are on the toolbar.
+typed — the extension reads `.claude/skills`, `.agents/skills` and
+`.claude/commands` itself, so project-local entries appear even though the host
+does not report them by default. Each option shows where it came from
+(`project` / `user` / `plugin`). Variables, undo/redo and duplicate are on the toolbar.
 
 ## 2. Run many agents at once, each in its own checkout
 
@@ -80,14 +83,20 @@ never silently becomes a no-op in CI.
 
 ## What to know before you rely on it
 
-- **A step's `tools:` list is enforced; a `worktree:` request is honoured.** If
-  either cannot be delivered the step **fails** rather than running with more
-  access than asked for.
+- **A step's `tools:` list is passed to the agent** as the session's allowlist,
+  where it overrides the app-wide one; the agent runtime is what enforces it.
+  A **`worktree:` request is honoured** — the checkout is created before the
+  prompt is sent. If either cannot be delivered the step **fails** rather than
+  running with more access than was asked for.
 - **Shell steps are allowlisted** (`npm npx node git echo ls pwd cat`), run with
   no shell, and cannot escape the workspace.
 - **Flow files must carry no secrets** — the validator rejects credential-shaped
   strings. Use `${env:NAME}`.
-- **`.flow-runs/` holds step outputs.** It is gitignored by default; treat it
-  like build output.
-- Scheduling with the app closed is verified on macOS and Linux. The Windows
-  path is unit-tested but has not been watched to fire.
+- **`.flow-runs/` holds step outputs.** The directory writes its own
+  `.gitignore`, so records stay local even in a repository whose ignore file you
+  do not control. Treat it like build output.
+- **Scheduling with the app closed:** on macOS a scheduled flow has been watched
+  to run end to end with no app process alive. On Linux and Windows, CI installs
+  a real systemd timer / scheduled task, confirms the OS registered it, and
+  removes it again — registration is proven, a firing on those two has not been
+  observed.

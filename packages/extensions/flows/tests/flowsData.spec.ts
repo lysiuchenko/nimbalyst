@@ -354,3 +354,62 @@ test.describe('nodes link in both directions', () => {
     await expect(node.locator('.flow-node-handle')).toHaveCount(4);
   });
 });
+
+test.describe('pickers offer what the repository actually has', () => {
+  let flows: FlowsApp;
+
+  const skillFlow = {
+    version: 1,
+    name: 'uses-a-skill',
+    // A valid flow: the schema requires a skill name, so the step starts on one
+    // and the test changes it through the picker.
+    nodes: [{ id: 'review', type: 'skill', skill: 'placeholder', position: { x: 0, y: 0 } }],
+    edges: [],
+    variables: {},
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'skilled.flow.json': skillFlow,
+        // A project skill the host's own scan does not report; flows finds it by
+        // reading the workspace directly.
+        '.claude/skills/release-notes/SKILL.md':
+          '---\nname: release-notes\ndescription: Draft release notes from the git log\n---\n\nDo it.\n',
+      })
+    );
+    await openFlow(flows.page, 'skilled.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('a skill step lists a skill from this repo, rather than asking you to type it', async () => {
+    const node = flows.page.locator('.flow-node[data-node-type="skill"]');
+    await node.locator('[data-expand="review"]').click();
+
+    // The step names a skill the workspace does not have, so the field starts in
+    // "type it" mode; this is the toggle back to choosing from the workspace.
+    // The catalog is fetched after mount; give it a moment to arrive.
+    await flows.page.waitForTimeout(3_000);
+
+    await node.locator('button[title="Choose from this workspace"]').click();
+    // Now showing the current choice; this opens the search over the catalog.
+    await node.getByLabel('Change Skill').click();
+
+    const list = node.locator('.flow-picker-list button');
+    await expect.poll(() => list.count(), { timeout: 30_000 }).toBeGreaterThan(0);
+    await node.locator('.flow-picker input').fill('release-notes');
+
+    // Read out of the workspace by the extension's own scan — the host does not
+    // report project skills unless a compatibility flag is on.
+    const option = node.locator('.flow-picker-list button', { hasText: 'release-notes' }).first();
+    await expect(option).toBeVisible({ timeout: 30_000 });
+    // Sourced from this repository, not from the host's own list.
+    await expect(option).toContainText('project');
+
+    await option.click();
+    await expect(node.locator('.flow-picker-value')).toContainText('release-notes');
+  });
+});
