@@ -1017,7 +1017,13 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                 grey that all but disappears on a light brand surface. */}
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.6} />
             <Controls />
-            <MiniMap pannable zoomable />
+            {/* Typed so the map carries the same colour key as the canvas;
+                the colours themselves stay in CSS, next to the node rules. */}
+            <MiniMap
+              pannable
+              zoomable
+              nodeClassName={(node) => `flow-minimap-node flow-minimap-${node.type}`}
+            />
             <SubAgentLayer subAgents={run.children} onOpenSession={showSession} />
           </ReactFlow>
           {isEmpty && (

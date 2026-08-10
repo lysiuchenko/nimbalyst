@@ -237,8 +237,10 @@
 }
 
 .flow-node {
+  position: relative;
   width: 220px;
-  padding: 8px;
+  /* Extra left padding clears the type stripe drawn by ::before. */
+  padding: 8px 8px 8px 12px;
   border: 1px solid var(--flow-border);
   border-radius: var(--flow-radius);
   background: var(--flow-surface);
@@ -257,10 +259,56 @@
   margin-bottom: 6px;
 }
 
+/*
+ * One colour per step type.
+ *
+ * Every node used to be the same grey card with a small grey glyph, so telling
+ * an agent step from a shell step meant reading each one. On a twelve-step flow
+ * that is the difference between scanning and studying. The accent stays
+ * reserved for selection and run state, so these never compete with it.
+ */
+.flow-editor {
+  --flow-type-agent: #7c6ce0;
+  --flow-type-fan-out: #2fa8b8;
+  --flow-type-slash-command: #3f8ae0;
+  --flow-type-skill: #d99b2b;
+  --flow-type-shell: #4aa15e;
+  --flow-type-human-gate: #d6699b;
+}
+
 .flow-node-icon {
   font-size: 16px;
-  color: var(--flow-text-muted);
+  color: var(--flow-node-hue, var(--flow-text-muted));
 }
+
+.flow-node[data-node-type='agent'] { --flow-node-hue: var(--flow-type-agent); }
+.flow-node[data-node-type='fan-out'] { --flow-node-hue: var(--flow-type-fan-out); }
+.flow-node[data-node-type='slash-command'] { --flow-node-hue: var(--flow-type-slash-command); }
+.flow-node[data-node-type='skill'] { --flow-node-hue: var(--flow-type-skill); }
+.flow-node[data-node-type='shell'] { --flow-node-hue: var(--flow-type-shell); }
+.flow-node[data-node-type='human-gate'] { --flow-node-hue: var(--flow-type-human-gate); }
+
+/* A left edge rather than a tinted card: readable at any zoom, and it leaves
+   the node's own background free to carry status. */
+.flow-node[data-node-type]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  border-radius: var(--flow-radius) 0 0 var(--flow-radius);
+  background: var(--flow-node-hue);
+}
+
+/* The same key in the toolbar, so "add a shell step" and the green-edged card
+   on the canvas are visibly the same thing. */
+.flow-toolbar-icon[data-add-node='agent'] { color: var(--flow-type-agent); }
+.flow-toolbar-icon[data-add-node='fan-out'] { color: var(--flow-type-fan-out); }
+.flow-toolbar-icon[data-add-node='slash-command'] { color: var(--flow-type-slash-command); }
+.flow-toolbar-icon[data-add-node='skill'] { color: var(--flow-type-skill); }
+.flow-toolbar-icon[data-add-node='shell'] { color: var(--flow-type-shell); }
+.flow-toolbar-icon[data-add-node='human-gate'] { color: var(--flow-type-human-gate); }
 
 .flow-node-label {
   flex: 1;
@@ -1119,10 +1167,23 @@
  * The minimap ships with a light mask, which on a dark canvas is a bright slab
  * in the corner. Styled here rather than through props so it follows the theme.
  */
-.react-flow__minimap {
+/* Scoped to the editor so it outranks react-flow's own `.react-flow__panel`
+   margin, which otherwise pins the map into the corner it was overflowing. */
+.flow-editor .react-flow__minimap {
+  /* Sized and lifted clear of the attribution it used to sit on top of. */
+  width: 168px;
+  height: 112px;
+  margin: 0 14px 30px 0;
   background: var(--flow-surface);
   border: 1px solid var(--flow-border);
   border-radius: var(--flow-radius);
+  /* An overview is worth less than the canvas under it, until it is wanted. */
+  opacity: 0.55;
+  transition: opacity 140ms ease;
+}
+
+.flow-editor .react-flow__minimap:hover {
+  opacity: 1;
 }
 
 .react-flow__minimap-mask {
@@ -1130,9 +1191,17 @@
 }
 
 .react-flow__minimap-node {
-  fill: var(--flow-accent);
+  fill: var(--flow-text-faint);
   stroke: none;
 }
+
+/* The canvas key, at map scale: shape of the flow *and* what is in it. */
+.flow-minimap-agent { fill: var(--flow-type-agent); }
+.flow-minimap-fan-out { fill: var(--flow-type-fan-out); }
+.flow-minimap-slash-command { fill: var(--flow-type-slash-command); }
+.flow-minimap-skill { fill: var(--flow-type-skill); }
+.flow-minimap-shell { fill: var(--flow-type-shell); }
+.flow-minimap-human-gate { fill: var(--flow-type-human-gate); }
 
 /* Cards have to read as cards: a surface lift plus a shadow, not just a hue. */
 .flow-node {
@@ -1403,19 +1472,6 @@
 
 .flows-dashboard-empty-how {
   color: var(--flow-text);
-}
-
-/* The minimap sat on top of whatever was in the bottom-right corner. Smaller,
-   and see-through until it is wanted. */
-.react-flow__minimap {
-  width: 130px;
-  height: 90px;
-  opacity: 0.55;
-  transition: opacity 120ms ease;
-}
-
-.react-flow__minimap:hover {
-  opacity: 1;
 }
 
 /* A run's sessions are the work itself; they should be reachable, not just
