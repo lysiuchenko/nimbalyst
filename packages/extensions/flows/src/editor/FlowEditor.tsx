@@ -14,7 +14,6 @@ import {
 } from '@xyflow/react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES, type Flow, type NodeType } from '../schema/types';
-import { parseFlowFile } from '../schema/validate';
 import {
   flowToGraph,
   graphToFlow,
@@ -46,8 +45,8 @@ import { getHostServices } from '../host/hostServices';
 import { NodeChildrenContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
+import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 
-const EMPTY_FLOW: Flow = { version: 1, name: 'untitled', nodes: [], edges: [], variables: {} };
 
 /** Changes that mean the user edited the document, as opposed to the canvas measuring itself. */
 function isUserChange(change: NodeChange | EdgeChange): boolean {
@@ -170,14 +169,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   }, [host, readGraph]);
 
   const { isLoading, error, markDirty, isDirty } = useEditorLifecycle<Flow>(host, {
-    parse: (raw) => {
-      const parsed = parseFlowFile(raw.trim() === '' ? JSON.stringify(EMPTY_FLOW) : raw);
-      if (!parsed.valid) {
-        const [first] = parsed.errors;
-        throw new Error(first.path ? `${first.path}: ${first.message}` : first.message);
-      }
-      return parsed.flow;
-    },
+    parse: parseFlowOrThrow,
     applyContent,
     getCurrentContent: () => graphToFlow(baseRef.current, readGraph()),
     onSave,
@@ -476,15 +468,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   }, [readGraph, run]);
 
   if (error) {
-    return (
-      <div className="flow-editor-error" role="alert">
-        <span className="material-symbols-outlined">error</span>
-        <div>
-          <strong>This flow could not be opened.</strong>
-          <p>{error.message}</p>
-        </div>
-      </div>
-    );
+    return <FlowLoadError error={error} onEditAsText={host.toggleSourceMode} />;
   }
 
   return (
@@ -1069,6 +1053,63 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           </NodeIssuesContext.Provider>
           </ReferencesContext.Provider>
           </CatalogContext.Provider>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What a flow that will not open looks like.
+ *
+ * Two things the previous screen got wrong: it showed one problem at a time,
+ * so repairing a flow meant a reload per mistake; and it was a dead end, with
+ * the file right there and no way to touch it. The editor declares
+ * `supportsSourceMode`, so the way out is one call away.
+ */
+function FlowLoadError({
+  error,
+  onEditAsText,
+}: {
+  error: Error;
+  onEditAsText?: () => void;
+}) {
+  const problems = flowErrorsOf(error);
+
+  return (
+    <div className="flow-editor-error" role="alert" data-testid="flow-load-error">
+      <span className="material-symbols-outlined" aria-hidden="true">
+        error
+      </span>
+      <div className="flow-editor-error-body">
+        <strong>
+          {problems && problems.length > 1
+            ? `This flow has ${problems.length} problems to fix.`
+            : 'This flow could not be opened.'}
+        </strong>
+
+        {problems ? (
+          <ul className="flow-editor-error-list">
+            {problems.map((problem) => (
+              <li key={`${problem.path}:${problem.message}`}>
+                {problem.path && <code>{problem.path}</code>}
+                <span>{problem.message}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{error.message}</p>
+        )}
+
+        {onEditAsText && (
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-edit-as-text"
+            onClick={onEditAsText}
+          >
+            Edit as text
+          </button>
         )}
       </div>
     </div>

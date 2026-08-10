@@ -312,6 +312,55 @@ test.describe('the dashboard, from seeded records', () => {
   });
 });
 
+test.describe('a flow that will not open', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        // Two mistakes on purpose: the editor used to report only the first,
+        // so repairing a flow cost one reload per problem.
+        'broken.flow.json': {
+          version: 1,
+          name: 'broken',
+          nodes: [
+            { id: 'a', type: 'shell' },
+            { id: 'b', type: 'human-gate' },
+          ],
+          edges: [],
+        },
+      })
+    );
+    // Not `openFlow`: that waits for the canvas, and a flow this broken never
+    // renders one — the error screen stands in its place.
+    await flows.page.getByText('broken.flow.json', { exact: false }).first().click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('lists every problem at once, not just the first', async () => {
+    const error = flows.page.locator('[data-testid="flow-load-error"]');
+
+    await expect(error).toBeVisible({ timeout: 30_000 });
+    await expect(error).toContainText('2 problems');
+    await expect(error.locator('li')).toHaveCount(2);
+    await expect(error).toContainText('nodes[0].run');
+    await expect(error).toContainText('nodes[1].message');
+  });
+
+  test('offers a way into the file rather than being a dead end', async () => {
+    await flows.page.locator('[data-testid="flow-edit-as-text"]').click();
+
+    // Source mode hands the file to the host's text editor, so the flow's own
+    // error screen stands down.
+    await expect(flows.page.locator('[data-testid="flow-load-error"]')).toBeHidden({
+      timeout: 30_000,
+    });
+  });
+});
+
 test.describe('guards that only fire in the editor', () => {
   let flows: FlowsApp;
 

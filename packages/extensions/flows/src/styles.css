@@ -13,7 +13,10 @@
  * the panel paints itself black-on-transparent with square corners.
  */
 .flow-editor,
-.flows-dashboard {
+.flows-dashboard,
+/* The load-error screen replaces `.flow-editor` rather than sitting inside it,
+   so it has to carry the tokens itself or every colour resolves to nothing. */
+.flow-editor-error {
   --flow-bg: var(--nim-bg);
   --flow-surface: var(--nim-bg-secondary);
   --flow-surface-strong: var(--nim-bg-tertiary);
@@ -183,9 +186,54 @@
 
 .flow-editor-error {
   display: flex;
-  gap: 10px;
-  padding: 16px;
+  gap: 12px;
+  /* Centred and capped: a full-width wall of red starting at the top-left
+     corner reads as a crash, not as a list of things to fix. */
+  max-width: 620px;
+  margin: 48px auto;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--flow-danger) 35%, transparent);
+  border-radius: var(--flow-radius);
+  background: color-mix(in srgb, var(--flow-danger) 7%, var(--flow-surface));
   color: var(--flow-danger);
+}
+
+.flow-editor-error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.flow-editor-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--flow-text);
+  font-size: 12px;
+}
+
+.flow-editor-error-list li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+/* The path is the part you act on, so it leads and stays scannable. */
+.flow-editor-error-list code {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--flow-danger) 14%, transparent);
+  color: var(--flow-danger);
+  font-size: 11px;
+}
+
+.flow-editor-error .flow-toolbar-button {
+  align-self: flex-start;
 }
 
 .flow-node {
