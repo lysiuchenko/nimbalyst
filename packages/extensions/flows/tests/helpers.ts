@@ -94,7 +94,10 @@ export async function launchFlowsApp(workspace: string): Promise<FlowsApp> {
     readFlow: (name) => JSON.parse(fs.readFileSync(path.join(workspace, name), 'utf-8')),
     runRecords: () => {
       const dir = path.join(workspace, '.flow-runs');
-      return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+      if (!fs.existsSync(dir)) return [];
+      // Records only: the directory also holds the `.gitignore` that keeps them
+      // out of the repository, and schedule state.
+      return fs.readdirSync(dir).filter((name) => name.startsWith('run-') && name.endsWith('.json'));
     },
     close: async () => {
       await app.close();

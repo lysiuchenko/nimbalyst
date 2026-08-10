@@ -21,6 +21,13 @@ function workspace(files: Record<string, unknown>): string {
   return dir;
 }
 
+/** Records only: the directory also holds the `.gitignore` that keeps them local. */
+function runRecords(dir: string): string[] {
+  return fs
+    .readdirSync(path.join(dir, '.flow-runs'))
+    .filter((name) => name.startsWith('run-') && name.endsWith('.json'));
+}
+
 function run(args: string[], cwd: string): { status: number; out: string } {
   try {
     const out = execFileSync(process.execPath, [CLI, ...args], {
@@ -67,7 +74,7 @@ test.describe('the headless CLI', () => {
 
     expect(result.status).toBe(0);
     expect(result.out).toContain('done');
-    expect(fs.readdirSync(path.join(dir, '.flow-runs')).length).toBeGreaterThan(0);
+    expect(runRecords(dir).length).toBeGreaterThan(0);
   });
 
   test('substitutes a variable given on the command line', () => {
@@ -75,7 +82,7 @@ test.describe('the headless CLI', () => {
 
     run(['run', 'smoke.flow.json', '--var', 'who=ci'], dir);
 
-    const [name] = fs.readdirSync(path.join(dir, '.flow-runs'));
+    const [name] = runRecords(dir);
     const record = JSON.parse(fs.readFileSync(path.join(dir, '.flow-runs', name), 'utf8'));
     expect(JSON.stringify(record.outputs)).toContain('hello-ci');
   });
