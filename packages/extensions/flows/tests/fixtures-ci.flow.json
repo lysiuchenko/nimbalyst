@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "name": "ci-nightly",
+  "nodes": [{ "id": "list", "type": "shell", "run": "ls", "output": "files" }],
+  "edges": [],
+  "variables": {},
+  "schedule": { "type": "interval", "intervalMinutes": 60, "enabled": true }
+}

@@ -91,12 +91,13 @@ describe('runFlow', () => {
 
     await runFlow(flow, '/repo/review.flow.json', d, { runId: 'run-1' });
 
-    expect(written.length).toBeGreaterThan(1);
-    expect(new Set(written.map((entry) => entry.path))).toEqual(
+    const records = written.filter((entry) => entry.path.endsWith('run-1.json'));
+    expect(records.length).toBeGreaterThan(1);
+    expect(new Set(records.map((entry) => entry.path))).toEqual(
       new Set(['/repo/.flow-runs/run-1.json'])
     );
-    expect(JSON.parse(written[0].content).status).toBe('running');
-    expect(JSON.parse(written[written.length - 1].content).status).toBe('done');
+    expect(JSON.parse(records[0].content).status).toBe('running');
+    expect(JSON.parse(records[records.length - 1].content).status).toBe('done');
   });
 
   it('leaves a complete record when a node fails midway', async () => {

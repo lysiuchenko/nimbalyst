@@ -280,6 +280,23 @@ jobs:
           echo "$plan" | grep -q 'systemd/user' || { echo 'expected a systemd unit path'; exit 1; }
           echo "$plan" | grep -q 'systemctl --user enable --now' || { echo 'expected systemctl enable'; exit 1; }
 
+      # Not a dry run: writes the units, enables the timer, then checks systemd
+      # actually has it. Proves the Linux path, not just the plan it prints.
+      - name: Linux schedule install (real)
+        working-directory: packages/extensions/flows
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cp tests/fixtures-ci.flow.json "$work/nightly.flow.json"
+          cd "$work"
+          node "$GITHUB_WORKSPACE/packages/extensions/flows/dist/nimbalyst-flows.js" schedule install --every 15
+          systemctl --user list-timers --all | grep -q nimbalyst-flows || {
+            echo 'timer was not registered'; systemctl --user list-timers --all; exit 1; }
+          node "$GITHUB_WORKSPACE/packages/extensions/flows/dist/nimbalyst-flows.js" schedule uninstall
+          ! systemctl --user list-timers --all | grep -q nimbalyst-flows || {
+            echo 'timer survived uninstall'; exit 1; }
+          echo 'systemd timer installed and removed'
+
       - name: Build the Electron app
         working-directory: packages/electron
         run: npm run build
@@ -298,3 +315,48 @@ jobs:
           name: flows-e2e-results
           path: packages/extensions/flows/test-results
           retention-days: 7
+
+  flows-schedule-windows:
+    name: Flows Schedule (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build extension-sdk
+        working-directory: packages/extension-sdk
+        run: npm run build
+
+      - name: Build the flows extension
+        working-directory: packages/extensions/flows
+        run: npm run build
+
+      # Registers a real scheduled task, asks Windows whether it exists, then
+      # removes it. The Windows path was previously only unit-tested.
+      - name: Schedule install and query
+        shell: pwsh
+        working-directory: packages/extensions/flows
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'flows-schedule'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          Copy-Item tests/fixtures-ci.flow.json (Join-Path $work 'nightly.flow.json')
+          $cli = Join-Path $PWD 'dist/nimbalyst-flows.js'
+          Push-Location $work
+          node $cli schedule install --every 15
+          $found = schtasks /Query /FO LIST | Select-String 'nimbalyst-flows'
+          if (-not $found) { throw 'task was not registered' }
+          Write-Host "registered: $found"
+          node $cli schedule uninstall
+          $stillThere = schtasks /Query /FO LIST | Select-String 'nimbalyst-flows'
+          if ($stillThere) { throw 'task survived uninstall' }
+          Write-Host 'scheduled task installed and removed'
+          Pop-Location

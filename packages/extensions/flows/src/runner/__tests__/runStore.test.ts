@@ -103,12 +103,13 @@ describe('RunStore', () => {
     await store.save({ ...state, status: 'running', finishedAt: undefined });
     await store.save(state);
 
-    expect(target.written.map((entry) => entry.path)).toEqual([
+    const records = target.written.filter((entry) => entry.path.endsWith('run-7.json'));
+    expect(records.map((entry) => entry.path)).toEqual([
       '/repo/.flow-runs/run-7.json',
       '/repo/.flow-runs/run-7.json',
     ]);
-    expect(JSON.parse(target.written[0].content).status).toBe('running');
-    expect(JSON.parse(target.written[1].content).status).toBe('done');
+    expect(JSON.parse(records[0].content).status).toBe('running');
+    expect(JSON.parse(records[1].content).status).toBe('done');
   });
 
   it('writes readable JSON ending in a newline', async () => {
@@ -126,5 +127,45 @@ describe('RunStore', () => {
     await new RunStore(target, 'review.flow.json').save(state);
 
     expect(target.written[0].path).toBe('.flow-runs/run-7.json');
+  });
+
+  it('makes the run directory ignore itself, so outputs are never committed', async () => {
+    const written: Record<string, string> = {};
+    const store = new RunStore(
+      { write: async (path, content) => void (written[path] = content) },
+      'flows/release.flow.json'
+    );
+
+    await store.save({
+      runId: 'r1',
+      flowName: 'release',
+      status: 'done',
+      startedAt: 0,
+      nodes: {},
+      outputs: {},
+      usage: { inputTokens: 0, outputTokens: 0 },
+    } as never);
+
+    // Records carry step output, so they inherit whatever a flow touched.
+    expect(written['flows/.flow-runs/.gitignore']).toContain('*');
+  });
+
+  it('writes the ignore file once, not on every save', async () => {
+    const writes: string[] = [];
+    const store = new RunStore({ write: async (path) => void writes.push(path) }, 'a.flow.json');
+    const state = {
+      runId: 'r1',
+      flowName: 'a',
+      status: 'running',
+      startedAt: 0,
+      nodes: {},
+      outputs: {},
+      usage: { inputTokens: 0, outputTokens: 0 },
+    } as never;
+
+    await store.save(state);
+    await store.save(state);
+
+    expect(writes.filter((path) => path.endsWith('.gitignore'))).toHaveLength(1);
   });
 });

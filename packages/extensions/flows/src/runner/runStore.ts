@@ -40,15 +40,42 @@ const RUNS_DIRECTORY = '.flow-runs';
  * leaves a record of how far it got and which sessions it created.
  */
 export class RunStore {
+  private ignoreWritten = false;
+
   constructor(
     private readonly writer: RunFileWriter,
     private readonly flowPath: string,
     private readonly manualBaselineMinutes?: number
   ) {}
 
+  /**
+   * Make the run directory ignore itself.
+   *
+   * Records carry step output, so they inherit the sensitivity of whatever the
+   * flow touched — they are local history, like build output. A `.gitignore`
+   * holding `*` inside the directory needs no change to the repository's own
+   * ignore file, so it works in a repo the flow author does not control.
+   */
+  private async ensureIgnored(): Promise<void> {
+    if (this.ignoreWritten) return;
+    this.ignoreWritten = true;
+    const directory = this.flowPath.slice(0, Math.max(this.flowPath.lastIndexOf('/'), 0));
+    const prefix = directory ? `${directory}/` : '';
+    try {
+      await this.writer.write(
+        `${prefix}${RUNS_DIRECTORY}/.gitignore`,
+        '# Run records carry step output; they are local history, not source.\n*\n'
+      );
+    } catch {
+      // A read-only workspace must not cost the user their run record.
+    }
+  }
+
   async save(state: RunState): Promise<RunRecord> {
     const record = toRecord(state, this.flowPath, this.manualBaselineMinutes);
     await this.writer.write(this.pathFor(state.runId), `${JSON.stringify(record, null, 2)}\n`);
+    // After the record, so a failed write leaves nothing behind.
+    await this.ensureIgnored();
     return record;
   }
 
