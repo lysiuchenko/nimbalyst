@@ -1,5 +1,9 @@
 # What is missing at the app level
 
+> **Status, 2026-08-10.** Items **1.1**, **2.1**, **2.2** and **2.3** have since
+> shipped — see the "Fixed" notes inline and
+> `docs/superpowers/specs/2026-08-10-flows-home-design.md`. The rest stands.
+
 Written after driving the **built** app (not the dev server) with Playwright and
 photographing every flows surface a new user can reach. Each finding below cites
 either a screenshot I took or a file and line. Nothing here is inferred from
@@ -46,6 +50,11 @@ openable, plus a "new flow from template" affordance. The templates already
 exist (`FLOW_TEMPLATES`, `templates.ts:30`) but are reachable *only from inside
 an already-created flow file* (`FlowEditor.tsx:1046`), which is exactly
 backwards.
+
+> **Fixed.** The panel now lists every `*.flow.json`, whether or not it has run,
+> with its schedule, last outcome and how long ago; rows open their flow; and
+> the empty state says where a flow comes from. Running a flow *from* the panel
+> is still open, as is surfacing the templates outside the editor.
 
 ### 1.2 A flow can only be run from its own open tab
 
@@ -101,6 +110,11 @@ Two things are wrong here, and the second is self-inflicted:
 The stated audience includes business analysts. `nodes[2].message` is not a
 sentence for them, and there is no repair path for anyone.
 
+> **Fixed.** Every problem is listed at once, each with the path to fix, and an
+> **Edit as text** button drops into source mode. The wording of an individual
+> message is still the validator's, so the business-analyst half of that point
+> stands.
+
 ### 2.2 Rename a flow and its history vanishes
 
 Run records are matched to a flow by **exact string equality on the path**:
@@ -118,6 +132,12 @@ file tree beside it and the dashboard counted the runs. Two surfaces of the same
 data disagreeing on screen at the same moment is the fastest way to lose a
 viewer's confidence.
 
+> **Half fixed.** The panel now joins on a workspace-relative path, so a flow
+> run from the editor (absolute) and from the headless CLI (relative) is one row
+> rather than two — a split that was reachable without renaming anything.
+> Reattaching a genuinely *renamed* flow to its history is still open; its runs
+> now show as an **Archived** row instead of vanishing.
+
 ### 2.3 The dashboard prints `NaNm`
 
 A run record whose timestamps are not numbers renders **`NaNm`** in all three
@@ -129,6 +149,11 @@ unchecked. I have the screenshot.
 at it, so hand-edited, half-written, or older-format records are reachable in
 normal use. A dashboard that says `NaN` about your own work is worse than one
 that says nothing.
+
+> **Fixed.** `asDuration` and `durationOf` both guard on `Number.isFinite`, so a
+> record like that degrades to `—` and no longer poisons the totals it is added
+> to. The test asserts the exact string that shipped: `expected 'NaNm' to be
+> '—'`.
 
 ---
 
@@ -190,14 +215,20 @@ it reads as raw: there is a lot of working machinery and almost no surface.
 
 ## Recommendation
 
-Build **1.1 and 1.2 together** — a Flows home that lists every flow with its
-schedule and last outcome, where each row runs and opens, plus command
-contributions so a flow can be launched from the palette. That single change
-converts flows from a file type into a feature of the app, and it is the only
-item on this list that changes the first impression.
+**1.1** shipped: the panel is a Flows home that lists every flow with its
+schedule and last outcome, and each row opens its flow. **2.1**, **2.2** and
+**2.3** shipped alongside it. A visual pass shipped too, which was not on this
+list: each step type now carries a colour on the canvas, in the add-step
+toolbar and in the minimap, so a twelve-step flow is scannable rather than six
+identical grey cards.
 
-Then **2.1** (show every validation error, and fall back to source mode instead
-of a dead end), which is a small diff against an already-correct validator.
+What is left, in order:
 
-Then **3.1** — an artifact node — because it is what makes a demo end with
-something in your hand rather than a green tick.
+1. **1.2 — command contributions**, so a flow can be launched from the palette
+   or the file tree rather than only from its own open tab. The other half of
+   turning flows from a file type into a feature of the app.
+2. **Run a flow from the Flows home.** The rows are there; the button is not.
+3. **3.1 — an artifact node**, because it is what makes a demo end with
+   something in your hand rather than a green tick.
+4. **3.2 — a worktree review surface.** Fan-out's isolated branches are still
+   invisible the moment a run finishes.
