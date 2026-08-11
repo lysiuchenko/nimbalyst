@@ -1,0 +1,90 @@
+name: Windows (unsigned)
+
+# A Windows installer for this fork, built on a real Windows runner.
+#
+# Why this exists rather than a change to electron-build.yml:
+#
+#   1. A Windows build cannot be produced on macOS. The app bundles
+#      better-sqlite3 and node-pty, no prebuilt win32 binary exists for this
+#      Electron version, and node-gyp refuses to cross-compile from source.
+#      (wine does not help -- that covers NSIS/rcedit, not the C++ toolchain.)
+#   2. This fork holds no DigiCert secrets, so build/sign-windows.js throws
+#      when CI=true and DIGICERT_KEYPAIR_ALIAS is unset. Setting
+#      ALLOW_UNSIGNED_WINDOWS_BUILD makes it skip signing instead.
+#
+# Keeping it in its own file means upstream's release workflow is untouched, so
+# this cannot conflict on a rebase and cannot affect the real release path.
+#
+# The installer is UNSIGNED: Windows SmartScreen warns on first run. Fine for
+# internal testing, not for distribution.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Upgrade npm to 11.x
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        shell: bash
+        env:
+          # @vscode/ripgrep's postinstall downloads rg from a GitHub release;
+          # unauthenticated runners hit 403 rate limits.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm ci
+
+      - name: Build extension-sdk
+        working-directory: packages/extension-sdk
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Build runtime package (for theme assets)
+        working-directory: packages/runtime
+        env:
+          NODE_ENV: production
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm run build
+
+      # `build:win` itself runs the electron-vite build, build:extensions (which
+      # walks every directory under packages/extensions, flows included), both
+      # validators, and then electron-builder.
+      - name: Build Windows installer
+        working-directory: packages/electron
+        shell: bash
+        env:
+          NODE_ENV: production
+          ALLOW_UNSIGNED_WINDOWS_BUILD: 'true'
+          # CSC_* is a shared electron-builder fallback; make sure no stray
+          # certificate is picked up and half-signs the payload.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win -- --publish never
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: nimbalyst-windows-x64-unsigned
+          path: |
+            packages/electron/release/*.exe
+            packages/electron/release/*.blockmap
+          if-no-files-found: error
+          retention-days: 14
