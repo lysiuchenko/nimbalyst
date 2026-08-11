@@ -192,6 +192,14 @@ A DAG with no `if`. There is no conditional edge, no retry, no "if the tests
 fail, do this instead". Every real pipeline needs branching within its first
 week of use, and today the answer is to write a `shell` node and hope.
 
+> **Partly addressed.** A failed, interrupted or cancelled run can now be
+> **resumed**: "Retry failed steps" re-runs only what did not finish, reusing
+> finished steps' outputs (`planResume` — reuse requires the recorded node to be
+> done, its definition unchanged, and all parents reused; an edit cascades
+> downstream, cosmetic moves invalidate nothing). Reused steps carry no
+> timings or usage, so the dashboard does not double-count. Conditional
+> *edges* remain open.
+
 ### 3.4 A run has no trace view
 
 A run is one row in a table that expands to a list of node statuses. There is no

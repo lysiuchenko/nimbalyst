@@ -11,6 +11,7 @@ import {
 } from './executors';
 import type { AgentClient, GateController, ShellClient } from './ports';
 import { RunStore, type RunFileWriter, type RunRecord } from './runStore';
+import { planResume } from './resume';
 import type { RunOptions } from './types';
 
 export interface FlowRunDependencies {
@@ -41,9 +42,20 @@ export async function runFlow(
   flow: Flow,
   flowPath: string,
   dependencies: FlowRunDependencies,
-  options: RunOptions = {}
+  options: RunOptions & { resumeFrom?: RunRecord } = {}
 ): Promise<RunRecord> {
   const store = new RunStore(dependencies.writer, flowPath, flow.manualBaselineMinutes);
+
+  // A resumed run carries the failed run's finished steps in as pre-completed
+  // seeds; `planResume` decides which of them are still trustworthy.
+  const { resumeFrom, ...runOptions } = options;
+  const seed = resumeFrom
+    ? (({ reused, outputs, resumedFrom }) => ({
+        executions: Object.fromEntries(reused),
+        outputs,
+        resumedFrom,
+      }))(planResume(flow, resumeFrom))
+    : undefined;
   const runner = new DagFlowRunner({
     executors: {
       agent: createAgentExecutor(dependencies.agent),
@@ -72,7 +84,8 @@ export async function runFlow(
   };
 
   const state = await runner.run(flow, {
-    ...options,
+    ...runOptions,
+    ...(seed ? { seed } : {}),
     onStateChange: (current) => {
       persist(current);
       options.onStateChange?.(current);

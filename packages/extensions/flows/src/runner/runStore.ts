@@ -26,6 +26,8 @@ export interface RunRecord {
   manualBaselineMinutes?: number;
   nodes: Record<string, NodeExecution>;
   outputs: Record<string, Record<string, string>>;
+  /** The failed run whose finished steps this one reused. */
+  resumedFrom?: string;
   usage: TokenUsage;
   /** Sessions this run created, in node order — the UI jumps to these. */
   sessionIds: string[];
@@ -107,6 +109,7 @@ function toRecord(
     status: state.status,
     startedAt: state.startedAt,
     ...(state.finishedAt !== undefined ? { finishedAt: state.finishedAt } : {}),
+    ...(state.resumedFrom !== undefined ? { resumedFrom: state.resumedFrom } : {}),
     nodes: state.nodes,
     outputs: state.outputs,
     usage: state.usage,

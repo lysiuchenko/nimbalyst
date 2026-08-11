@@ -326,3 +326,61 @@ describe('DagFlowRunner — cancellation', () => {
     expect(state.nodes.a.type).toBe('agent');
   });
 });
+
+describe('DagFlowRunner — resuming from a seed', () => {
+  const seeded = (): import('../types').ResumeSeed => ({
+    resumedFrom: 'run-old',
+    executions: {
+      a: { nodeId: 'a', type: 'agent', status: 'done', output: 'a-old', reused: true },
+    },
+    outputs: { a: { out: 'a-old' } },
+  });
+
+  it('does not execute a seeded node', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: recordingExecutor(order) });
+
+    const state = await runner.run(chain, { seed: seeded() });
+
+    expect(order).not.toContain('a:start');
+    expect(order).toContain('b:start');
+    expect(state.nodes.a).toMatchObject({ status: 'done', output: 'a-old', reused: true });
+    expect(state.status).toBe('done');
+  });
+
+  it('interpolates a seeded output into the nodes that do run', async () => {
+    let seen = '';
+    const runner = new DagFlowRunner({
+      defaultExecutor: async (ctx) => {
+        if (ctx.node.id === 'b') seen = ctx.resolved.prompt;
+        return { output: 'x' };
+      },
+    });
+    const wired = flowOf(
+      [agent('a', { output: 'out' }), agent('b', { prompt: 'use {{a.out}}' })],
+      [{ from: 'a', to: 'b' }]
+    );
+
+    await runner.run(wired, { seed: seeded() });
+
+    expect(seen).toBe('use a-old');
+  });
+
+  it('carries the resumed-from id onto the state', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: async () => ({ output: 'x' }) });
+
+    const state = await runner.run(chain, { seed: seeded() });
+
+    expect(state.resumedFrom).toBe('run-old');
+  });
+
+  it('stamps a definition hash on every executed node', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: async () => ({ output: 'x' }) });
+
+    const state = await runner.run(chain);
+
+    for (const execution of Object.values(state.nodes)) {
+      expect(execution.definitionHash).toMatch(/^[0-9a-f]{8}$/);
+    }
+  });
+});

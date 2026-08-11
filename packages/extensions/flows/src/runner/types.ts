@@ -53,6 +53,17 @@ export type NodeExecutor = (context: NodeExecutorContext) => Promise<NodeExecuto
 export interface NodeExecution {
   nodeId: string;
   /**
+   * Fingerprint of the node definition that produced this result, so a later
+   * resume can tell a still-valid result from one the author has edited past.
+   */
+  definitionHash?: string;
+  /**
+   * Carried over from an earlier run rather than executed in this one.
+   * Reused executions keep their output but not their timings or usage —
+   * the work cost this run nothing.
+   */
+  reused?: boolean;
+  /**
    * What kind of node this was.
    *
    * Recorded because a run record outlives the flow that produced it: telling
@@ -89,6 +100,8 @@ export interface RunState {
   /** Published outputs, keyed by node id then port name. */
   outputs: Record<string, Record<string, string>>;
   usage: TokenUsage;
+  /** Set when this run reused results from an earlier, failed run. */
+  resumedFrom?: string;
 }
 
 export type RunEvent =
@@ -98,9 +111,18 @@ export type RunEvent =
   | { type: 'node-failed'; runId: string; nodeId: string; at: number; error: string }
   | { type: 'run-finished'; runId: string; status: RunStatus; at: number };
 
+/** Results carried in from an earlier run instead of being re-executed. */
+export interface ResumeSeed {
+  resumedFrom: string;
+  executions: Record<string, NodeExecution>;
+  outputs: Record<string, Record<string, string>>;
+}
+
 export interface RunOptions {
   /** Merged over the flow's own `variables`. */
   variables?: Record<string, string>;
+  /** Pre-completed nodes from a failed run; see `planResume`. */
+  seed?: ResumeSeed;
   concurrency?: number;
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;

@@ -595,3 +595,70 @@ test.describe('a flow that produces a file', () => {
     await expect(card.locator('.flow-node-summary-text')).toContainText('Saves to');
   });
 });
+
+/**
+ * Resuming a failed run must reuse finished work, not repeat it.
+ *
+ * The proof is on disk: the write-file step succeeds in run 1, the gate after
+ * it is rejected, and the written file is then deleted by hand. If "Retry
+ * failed steps" re-executed the write-file step, the file would come back.
+ */
+test.describe('resuming a failed run', () => {
+  let flows: FlowsApp;
+
+  const resumable = {
+    version: 1,
+    name: 'resume-me',
+    variables: { text: 'the-artifact' },
+    nodes: [
+      { id: 'save', type: 'write-file', path: 'artifact.md', content: '{{text}}' },
+      { id: 'gate', type: 'human-gate', message: 'Keep it?' },
+    ],
+    edges: [{ from: 'save', to: 'gate' }],
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'resume.flow.json': resumable }));
+    await openFlow(flows.page, 'resume.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('a rejected gate fails the run and offers a retry', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await flows.page.locator('[data-testid="flow-gate-reject"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.gate), { timeout: 60_000 })
+      .toBe('failed');
+    expect(fs.existsSync(path.join(flows.workspace, 'artifact.md'))).toBe(true);
+
+    await expect(flows.page.locator('[data-testid="flow-retry"]')).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('retry re-asks only the gate; the finished step is not re-executed', async () => {
+    // If retry re-ran the write-file step, this file would reappear.
+    fs.rmSync(path.join(flows.workspace, 'artifact.md'));
+
+    await flows.page.locator('[data-testid="flow-retry"]').click();
+    await flows.page.locator('[data-testid="flow-gate-approve"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.gate), { timeout: 60_000 })
+      .toBe('done');
+
+    expect(fs.existsSync(path.join(flows.workspace, 'artifact.md'))).toBe(false);
+
+    // The new record says what happened: the step was reused, and from where.
+    const records = flows
+      .runRecords()
+      .map((name) => JSON.parse(fs.readFileSync(path.join(flows.workspace, '.flow-runs', name), 'utf8')))
+      .sort((a, b) => b.startedAt - a.startedAt);
+    expect(records[0].resumedFrom).toBe(records[1].runId);
+    expect(records[0].nodes.save).toMatchObject({ status: 'done', reused: true });
+  });
+});

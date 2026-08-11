@@ -1,5 +1,6 @@
 import type { Flow, FlowNode, NodeType } from '../schema/types';
 import { validateFlow } from '../schema/validate';
+import { nodeDefinitionHash } from './resume';
 import { interpolate, listReferences, UnresolvedReferenceError } from './interpolate';
 import type {
   DagFlowRunnerConfig,
@@ -59,6 +60,9 @@ export class DagFlowRunner implements FlowRunner {
 
     const startedAt = now();
     const runId = options.runId ?? `run-${crypto.randomUUID()}`;
+    // Nodes carried in from a failed run start finished; see `planResume` for
+    // the rule that decides which results are still trustworthy.
+    const seed = options.seed;
     const state: RunState = {
       runId,
       flowName: resolvedFlow.name,
@@ -67,11 +71,20 @@ export class DagFlowRunner implements FlowRunner {
       nodes: Object.fromEntries(
         resolvedFlow.nodes.map((node) => [
           node.id,
-          { nodeId: node.id, type: node.type, status: 'queued' } as NodeExecution,
+          seed?.executions[node.id] ??
+            ({
+              nodeId: node.id,
+              type: node.type,
+              status: 'queued',
+              // Stamped now so a future resume can tell whether this node has
+              // been edited since it produced its result.
+              definitionHash: nodeDefinitionHash(node),
+            } as NodeExecution),
         ])
       ),
-      outputs: {},
+      outputs: { ...seed?.outputs },
       usage: { inputTokens: 0, outputTokens: 0 },
+      ...(seed ? { resumedFrom: seed.resumedFrom } : {}),
     };
 
     const notifyState = () => options.onStateChange?.(state);
@@ -91,7 +104,18 @@ export class DagFlowRunner implements FlowRunner {
       pending.set(edge.to, (pending.get(edge.to) ?? 0) + 1);
     }
 
-    const ready = resolvedFlow.nodes.filter((node) => pending.get(node.id) === 0).map((node) => node.id);
+    // A seeded node is already finished: release its children before the loop
+    // starts, exactly as if it had just completed.
+    for (const node of resolvedFlow.nodes) {
+      if (!seed?.executions[node.id]) continue;
+      for (const child of children.get(node.id) ?? []) {
+        pending.set(child, (pending.get(child) ?? 1) - 1);
+      }
+    }
+
+    const ready = resolvedFlow.nodes
+      .filter((node) => pending.get(node.id) === 0 && !seed?.executions[node.id])
+      .map((node) => node.id);
     const running = new Map<string, Promise<void>>();
     let failed = false;
 

@@ -467,6 +467,27 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     void run.start(prepared.flow);
   }, [readGraph, run]);
 
+  // A run that did not finish cleanly can be resumed: its finished steps are
+  // carried over (planResume decides which are still trustworthy), so agents
+  // do not re-bill and gates do not re-ask for work that already succeeded.
+  const resumable =
+    !run.isRunning &&
+    pastRuns.length > 0 &&
+    ['failed', 'interrupted', 'cancelled'].includes(pastRuns[0].status)
+      ? pastRuns[0]
+      : null;
+
+  const retryRun = useCallback(() => {
+    if (!resumable) return;
+    const prepared = prepareSave(baseRef.current, readGraph());
+    if (!prepared.ok) {
+      setSaveErrors(prepared.summary.replace('was not saved', 'cannot be run'));
+      return;
+    }
+    setSaveErrors(null);
+    void run.start(prepared.flow, resumable);
+  }, [readGraph, resumable, run]);
+
   if (error) {
     return <FlowLoadError error={error} onEditAsText={host.toggleSourceMode} />;
   }
@@ -571,6 +592,20 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           </span>
           {isDirty ? 'Unsaved changes' : 'Saved'}
         </span>
+        {resumable && (
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-retry"
+            title="Re-run only the steps that did not finish; finished steps are reused"
+            onClick={retryRun}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              replay
+            </span>
+            Retry failed steps
+          </button>
+        )}
         <button
           type="button"
           className="flow-toolbar-run"

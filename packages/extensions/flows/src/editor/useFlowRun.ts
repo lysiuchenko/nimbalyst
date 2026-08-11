@@ -7,7 +7,7 @@ import { NimbalystSessionHost, type HostIpc } from '../host/nimbalystSessionHost
 import type { Flow } from '../schema/types';
 import { runFlow } from '../runner/flowRun';
 import type { GateDecision } from '../runner/ports';
-import type { RunFileWriter } from '../runner/runStore';
+import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeStatus, RunState } from '../runner/types';
 
 export interface PendingGate {
@@ -24,7 +24,12 @@ export interface FlowRunControls {
   runState: RunState | null;
   runError: string | null;
   pendingGate: PendingGate | null;
-  start(flow: Flow): Promise<void>;
+  /**
+   * Run the flow. With `resumeFrom`, a failed run's finished steps are carried
+   * over instead of re-executed — agents do not re-bill and gates do not
+   * re-ask for work that already succeeded.
+   */
+  start(flow: Flow, resumeFrom?: RunRecord): Promise<void>;
   cancel(): void;
 }
 
@@ -56,7 +61,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   }, []);
 
   const start = useCallback(
-    async (flow: Flow) => {
+    async (flow: Flow, resumeFrom?: RunRecord) => {
       const services = getHostServices();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -109,6 +114,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
             allowlist: SHELL_ALLOWLIST,
           },
           {
+            ...(resumeFrom ? { resumeFrom } : {}),
             signal: controller.signal,
             onStateChange: (state) => {
               setStatuses(
