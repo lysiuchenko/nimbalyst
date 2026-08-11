@@ -22,6 +22,10 @@ const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly strin
   skill: { required: 'skill', optional: ['input'] },
   shell: { required: 'run', optional: ['cwd'] },
   'human-gate': { required: 'message', optional: [] },
+  // `content` is listed as optional here only because the table's `required`
+  // means "non-empty", and an empty file is a legitimate outcome. Its own
+  // presence check lives in `validateWriteFile`.
+  'write-file': { required: 'path', optional: ['content'] },
 };
 
 /**
@@ -235,6 +239,13 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
       `${path}.${required}`,
       `slash command must start with "/", got ${JSON.stringify(requiredValue)}`
     );
+  }
+
+  // Distinct from the `required` rule above, which means "non-empty": an empty
+  // string is a legitimate file, but an *absent* content would silently
+  // truncate whatever the path points at.
+  if (type === 'write-file' && typeof entry.content !== 'string') {
+    fail(`${path}.content`, 'write-file node requires content (an empty string is allowed)');
   }
 
   for (const [key, value] of Object.entries(entry)) {

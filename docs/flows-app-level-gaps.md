@@ -170,6 +170,13 @@ There is no "write this to `RELEASE_NOTES.md`", no "open a PR", no "post it".
 The ROI story ends in a file nobody opens. One `write-file` node type would
 close it.
 
+> **Fixed.** A `write-file` node writes into the workspace, resolving `{{…}}`
+> references in both its path and its content, guarded by `safeWorkspacePath`
+> (absolute paths, `..` escapes, post-normalisation escapes and `.git` all
+> refused — `docs/flows-security.md` §3b). The release-notes template now ends
+> by saving `RELEASE_NOTES.md`, after the approval gate. Opening a PR and
+> posting elsewhere remain open.
+
 ### 3.2 Fan-out builds worktrees nobody can review
 
 Per-sub-agent worktree isolation shipped, and it works — each sub-agent gets its

@@ -1,6 +1,8 @@
 import type { AgentNode, FanOutNode, FlowNode, ShellNode } from '../schema/types';
 import type { AgentClient, GateController, ShellClient } from './ports';
 import type { ChildProgress, NodeExecutor, NodeExecutorContext, TokenUsage } from './types';
+import type { RunFileWriter } from './runStore';
+import { safeWorkspacePath } from './safeWorkspacePath';
 
 /** Operators that would let one allowlisted command pull in another. */
 const CHAINING = ['&&', '||', ';', '|', '$(', '`', '>', '<', '&', '\n'];
@@ -301,5 +303,29 @@ export function createHumanGateExecutor(gate: GateController): NodeExecutor {
     }
 
     return { output: decision };
+  };
+}
+
+/**
+ * Write a node's content to a file in the workspace.
+ *
+ * The node type that makes a flow produce something. Every other type ends by
+ * handing text to the next node; without this, that text's last stop is the run
+ * record, which is build output nobody opens.
+ *
+ * Reuses `RunFileWriter` — the channel the run record already writes through —
+ * so this needs no new host surface and no new permission. The path guard is
+ * the real substance here; see `safeWorkspacePath`.
+ */
+export function createWriteFileExecutor(writer: RunFileWriter): NodeExecutor {
+  return async (context: NodeExecutorContext) => {
+    // Throws on an escape, so a refused path fails the node instead of quietly
+    // writing somewhere else or reporting a success that never happened.
+    const target = safeWorkspacePath(context.resolved.path ?? '');
+    const content = context.resolved.content ?? '';
+
+    await writer.write(target, content);
+
+    return { output: `wrote ${target} (${content.length} characters)` };
   };
 }

@@ -221,11 +221,23 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
           message: 'Release notes are drafted. Approve them?',
           position: { x: COLUMN * 3, y: 0 },
         },
+        // The point of the flow: approved notes end up in a file, not in a run
+        // record. Deliberately after the gate, so nothing is written until a
+        // person has read it.
+        {
+          id: 'save',
+          type: 'write-file',
+          label: 'Save the notes',
+          path: 'RELEASE_NOTES.md',
+          content: '{{draft.notes}}',
+          position: { x: COLUMN * 4, y: 0 },
+        },
       ],
       edges: [
         { from: 'gate', to: 'log' },
         { from: 'log', to: 'draft', port: 'log' },
         { from: 'draft', to: 'approve' },
+        { from: 'approve', to: 'save' },
       ],
       variables: {},
     }),

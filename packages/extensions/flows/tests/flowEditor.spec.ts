@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { createWorkspace, launchFlowsApp, nodeStatuses, openFlow, type FlowsApp } from './helpers';
 
@@ -534,5 +536,62 @@ test.describe('running a flow', () => {
     await history.locator('[data-forget-run]').first().click();
 
     await expect(rows).toHaveCount(before - 1);
+  });
+});
+
+/**
+ * The point of a flow is that it leaves something behind.
+ *
+ * Every other node type ends by handing text to the next one; without
+ * `write-file` a run's result never leaves `.flow-runs/`, which is build output
+ * nobody opens. So this asserts the *file on disk*, not the run record.
+ */
+test.describe('a flow that produces a file', () => {
+  let flows: FlowsApp;
+
+  const saving = {
+    version: 1,
+    name: 'saves-a-file',
+    // A variable rather than an upstream node: this is a test of write-file,
+    // and a shell or agent step would make it fail for unrelated reasons.
+    variables: { slug: 'hello-from-a-flow' },
+    nodes: [
+      // A directory that does not exist yet, and a reference in both fields --
+      // the two things most likely to be broken.
+      {
+        id: 'save',
+        type: 'write-file',
+        path: 'out/{{slug}}.md',
+        content: '# Notes\n\n{{slug}}\n',
+      },
+    ],
+    edges: [],
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'saving.flow.json': saving }));
+    await openFlow(flows.page, 'saving.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('writes the file, with references resolved in path and content', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.save), { timeout: 90_000 })
+      .toBe('done');
+
+    const written = path.join(flows.workspace, 'out', 'hello-from-a-flow.md');
+    expect(fs.existsSync(written)).toBe(true);
+    expect(fs.readFileSync(written, 'utf8')).toBe('# Notes\n\nhello-from-a-flow\n');
+  });
+
+  test('says where the work went, rather than dumping the content', async () => {
+    const card = flows.page.locator('.flow-node[data-node-id="save"]');
+
+    await expect(card.locator('.flow-node-summary-text')).toContainText('Saves to');
   });
 });

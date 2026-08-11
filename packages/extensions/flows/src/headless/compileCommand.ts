@@ -89,6 +89,11 @@ function instructionFor(node: FlowNode): string {
       // Outside the app there is no gate card, so the only safe translation of
       // "wait for a human" is to stop and ask.
       return `**Stop and ask the user before continuing:** ${node.message}`;
+    case 'write-file':
+      // Compiled output is run by the user's own CLI, which has its own file
+      // tools -- so this becomes an instruction rather than a shell redirect,
+      // which would mangle any content containing quotes or backticks.
+      return `Write the following to \`${node.path}\`, replacing whatever is there:\n\n${node.content}`;
   }
 }
 

@@ -21,6 +21,8 @@ const TEXT_FIELDS: Record<NodeType, readonly string[]> = {
   skill: ['skill', 'input'],
   shell: ['run', 'cwd'],
   'human-gate': ['message'],
+  // The path is resolved too, so a flow can compute where it writes.
+  'write-file': ['path', 'content'],
 };
 
 const DEFAULT_CONCURRENCY = 4;

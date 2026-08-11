@@ -164,7 +164,7 @@ describe('validateFlow — nodes', () => {
     const flow = { ...minimalFlow(), nodes: [{ id: 'a', type: 'wizard', prompt: 'p' }] };
 
     expect(messagesFor(flow, 'nodes[0].type')).toEqual([
-      'unknown node type "wizard", expected one of: agent, fan-out, slash-command, skill, shell, human-gate',
+      'unknown node type "wizard", expected one of: agent, fan-out, slash-command, skill, shell, human-gate, write-file',
     ]);
   });
 

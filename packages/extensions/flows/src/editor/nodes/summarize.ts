@@ -31,6 +31,9 @@ function describe(node: FlowNode): string {
       return node.args ? `${node.command} ${node.args}` : node.command;
     case 'shell':
       return node.run;
+    case 'write-file':
+      // The path is the point of this node; the content is whatever flowed in.
+      return node.path ? `Saves to ${node.path}` : '';
   }
 }
 

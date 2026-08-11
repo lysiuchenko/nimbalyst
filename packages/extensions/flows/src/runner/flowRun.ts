@@ -5,6 +5,7 @@ import {
   createFanOutExecutor,
   createHumanGateExecutor,
   createShellExecutor,
+  createWriteFileExecutor,
   createSkillExecutor,
   createSlashCommandExecutor,
 } from './executors';
@@ -53,6 +54,9 @@ export async function runFlow(
         allowlist: dependencies.allowlist ?? [],
       }),
       'human-gate': createHumanGateExecutor(dependencies.gate),
+      // Same writer the run record uses: a flow that can record itself can
+      // already write a file, so this needs no extra host capability.
+      'write-file': createWriteFileExecutor(dependencies.writer),
     },
     defaultExecutor: async ({ node }) => {
       throw new Error(`no executor for node type ${JSON.stringify(node.type)}`);

@@ -15,6 +15,7 @@ export const NODE_TYPES = [
   'skill',
   'shell',
   'human-gate',
+  'write-file',
 ] as const;
 
 export type NodeType = (typeof NODE_TYPES)[number];
@@ -95,13 +96,26 @@ export interface HumanGateNode extends FlowNodeCommon {
   message: string;
 }
 
+/**
+ * Write a file into the workspace — the step that makes a flow produce
+ * something rather than leaving its result in a run record.
+ */
+export interface WriteFileNode extends FlowNodeCommon {
+  type: 'write-file';
+  /** Workspace-relative. Absolute paths, `..` escapes and `.git` are rejected. */
+  path: string;
+  /** Usually a `{{reference}}`. An empty string writes an empty file. */
+  content: string;
+}
+
 export type FlowNode =
   | AgentNode
   | FanOutNode
   | SlashCommandNode
   | SkillNode
   | ShellNode
-  | HumanGateNode;
+  | HumanGateNode
+  | WriteFileNode;
 
 export interface FlowEdge {
   from: string;

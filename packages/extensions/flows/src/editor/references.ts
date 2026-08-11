@@ -10,6 +10,7 @@ const TEXT_FIELDS: Record<NodeType, readonly string[]> = {
   skill: ['skill', 'input'],
   'human-gate': ['message'],
   shell: ['run', 'cwd'],
+  'write-file': ['path', 'content'],
 };
 
 /** Every node id that can run before `nodeId`. */

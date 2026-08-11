@@ -1,6 +1,6 @@
 import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
 import { useCallback, useState } from 'react';
-import type { AgentNode, FanOutNode, FlowNode, NodeType } from '../../schema/types';
+import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '../../schema/types';
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
@@ -56,6 +56,16 @@ const CHROME: Record<NodeType, NodeChrome> = {
     catalog: 'skills',
     hint: 'No skills found in .claude/skills or .agents/skills.',
   },
+  'write-file': {
+    icon: 'save',
+    // The path leads: it is what the node is *for*, and the content is usually
+    // a single `{{reference}}` carried in from the step before.
+    field: 'path',
+    fieldLabel: 'Save to',
+    placeholder: 'RELEASE_NOTES.md',
+    input: 'text',
+    hint: 'A path inside this workspace.',
+  },
   'human-gate': {
     icon: 'front_hand',
     field: 'message',
@@ -100,6 +110,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const fieldValue = String(fields[chrome.field] ?? '');
   const agent = node.type === 'agent' ? (node as AgentNode) : undefined;
   const fanOut = node.type === 'fan-out' ? (node as FanOutNode) : undefined;
+  const writeFile = node.type === 'write-file' ? (node as WriteFileNode) : undefined;
   const children = useNodeChildren(id);
   const badges = configBadges(node);
 
@@ -224,6 +235,25 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
               onChange={(event) => patch({ [chrome.field]: event.target.value })}
             />
           )}
+        </label>
+      )}
+
+      {writeFile && (
+        <label className="flow-node-field">
+          <span className="flow-node-field-label">
+            Content
+            <span className="flow-node-hint-inline">usually a reference</span>
+          </span>
+          {/* A textarea because the content is a document: an input would strip
+              the newlines out of whatever the previous step produced. */}
+          <textarea
+            className="flow-node-input"
+            aria-label="Content"
+            rows={3}
+            value={writeFile.content ?? ''}
+            placeholder="{{draft.notes}}"
+            onChange={(event) => patch({ content: event.target.value })}
+          />
         </label>
       )}
 
@@ -401,6 +431,7 @@ export const NODE_TYPE_LABELS: Record<NodeType, string> = {
   skill: 'Skill',
   shell: 'Shell',
   'human-gate': 'Human gate',
+  'write-file': 'Write file',
 };
 
 export const NODE_TYPE_ICONS: Record<NodeType, string> = Object.fromEntries(

@@ -55,6 +55,42 @@ A node's `cwd` is resolved against the workspace and rejected if it lands
 outside it, so `cwd: "../.."` fails instead of running in the parent directory.
 Enforced at `resolveCwd` in `src/backend/index.ts`.
 
+## 3b. `write-file` nodes cannot escape the workspace either
+
+A `write-file` node writes to a path the flow author chose, which makes its path
+guard the whole of its risk surface. Unlike a shell command, the write never
+reaches the backend module — it goes through `RunFileWriter`, the same channel
+the run record uses — so there is no second boundary behind this one and the
+renderer-side check is the boundary.
+
+`safeWorkspacePath` (`src/runner/safeWorkspacePath.ts`) normalises first, then
+judges, and refuses:
+
+| Rejected | Example |
+| --- | --- |
+| absolute paths, in any dialect | `/etc/passwd`, `C:\Windows\…`, `\\server\share` |
+| upward escapes | `../secrets` |
+| escapes that only appear after normalising | `notes/../../outside.md` |
+| anything under `.git` | `.git/config`, `nested/.git/hooks/pre-commit` |
+| an empty path | `""` |
+
+Normalising first is the point: a check against the front of the string accepts
+`notes/../../outside.md`, which escapes just as surely as `../outside.md`.
+`.gitignore` is a normal file and stays writable; only a `.git` **segment** is
+refused.
+
+A refused path **fails the node**. Writing elsewhere, or reporting success
+having written nothing, are both worse than stopping — the same reasoning as
+`assertCapableFor` in §4.
+
+The node needs no permission beyond what the extension already holds: a flow
+that can record a run can already write a file. It follows that `write-file`
+inherits the workspace's trust level and nothing about it is a new grant.
+
+Tests: `src/runner/__tests__/safeWorkspacePath.test.ts` (22 cases) and
+`writeFileExecutor.test.ts`, plus an end-to-end test that asserts the file
+exists **on disk** rather than trusting the run record.
+
 ## 4. Capabilities are never silently downgraded
 
 `worktree: true` and `tools: [...]` are safety properties. Both are honored:
