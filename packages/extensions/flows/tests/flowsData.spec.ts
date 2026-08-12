@@ -746,3 +746,48 @@ test.describe('opening Flows from anywhere', () => {
     await expect(dash).toBeHidden({ timeout: 30_000 });
   });
 });
+
+/**
+ * A gate exists so a person reviews work before it proceeds — so the approval
+ * card must show that work. Blind approval is the thing gates are against.
+ */
+test.describe('the gate shows the work it gates', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'gated.flow.json': {
+          version: 1,
+          name: 'gated',
+          variables: { body: 'The quarterly report body' },
+          nodes: [
+            { id: 'save', type: 'write-file', label: 'Draft the file', path: 'report.md', content: '{{body}}' },
+            { id: 'approve', type: 'human-gate', message: 'Ship the report?' },
+          ],
+          edges: [{ from: 'save', to: 'approve' }],
+        },
+      })
+    );
+    await openFlow(flows.page, 'gated.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the pending gate presents the upstream output, then honors the decision', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+
+    const work = flows.page.locator('[data-gate-work="save"]');
+    await expect(work).toBeVisible({ timeout: 60_000 });
+    // The parent's label heads the panel; its live output fills it.
+    await expect(work.locator('summary')).toHaveText('Draft the file');
+    await expect(work).toContainText('wrote report.md');
+
+    await flows.page.locator('[data-testid="flow-gate-approve"]').click();
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.approve), { timeout: 60_000 })
+      .toBe('done');
+  });
+});

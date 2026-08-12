@@ -48,6 +48,7 @@ import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { WorktreeChip } from './WorktreeChip';
+import { gateContext } from './gateContext';
 
 
 /** Changes that mean the user edited the document, as opposed to the canvas measuring itself. */
@@ -967,6 +968,19 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <div className="flow-gate-body">
             <strong>{run.pendingGate.nodeId}</strong>
             <p>{run.pendingGate.message}</p>
+            {/* The work being gated, so the decision is made looking at it
+                rather than on faith. Direct parents' outputs, live. */}
+            {gateContext(graphToFlow(baseRef.current, readGraph()), run.pendingGate.nodeId, run.liveNodes).map((entry) => (
+              <details
+                key={entry.nodeId}
+                className="flow-gate-work"
+                data-gate-work={entry.nodeId}
+                open
+              >
+                <summary>{entry.label}</summary>
+                <pre>{entry.output}</pre>
+              </details>
+            ))}
           </div>
           <button
             type="button"

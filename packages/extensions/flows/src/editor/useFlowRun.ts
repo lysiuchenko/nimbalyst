@@ -8,7 +8,7 @@ import type { Flow } from '../schema/types';
 import { runFlow } from '../runner/flowRun';
 import type { GateDecision } from '../runner/ports';
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
-import type { ChildProgress, NodeStatus, RunState } from '../runner/types';
+import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
 
 export interface PendingGate {
   nodeId: string;
@@ -19,6 +19,12 @@ export interface PendingGate {
 export interface FlowRunControls {
   isRunning: boolean;
   statuses: Record<string, NodeStatus>;
+  /**
+   * The run's node executions as they happen, output included — what lets a
+   * pending gate show the work it is gating instead of asking for blind
+   * approval.
+   */
+  liveNodes: Record<string, NodeExecution>;
   /** Live sub-agents, keyed by the fan-out node that spawned them. */
   children: Record<string, ChildProgress[]>;
   runState: RunState | null;
@@ -46,6 +52,7 @@ const SHELL_ALLOWLIST = ['npm', 'npx', 'node', 'git', 'echo', 'ls', 'pwd', 'cat'
 export function useFlowRun(host: EditorHost): FlowRunControls {
   const [isRunning, setIsRunning] = useState(false);
   const [statuses, setStatuses] = useState<Record<string, NodeStatus>>({});
+  const [liveNodes, setLiveNodes] = useState<Record<string, NodeExecution>>({});
   const [children, setChildren] = useState<Record<string, ChildProgress[]>>({});
   const [runState, setRunState] = useState<RunState | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
@@ -69,6 +76,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
       setIsRunning(true);
       setRunError(null);
       setStatuses(Object.fromEntries(flow.nodes.map((node) => [node.id, 'queued' as NodeStatus])));
+      setLiveNodes({});
       setChildren({});
 
       const writer: RunFileWriter = {
@@ -122,6 +130,13 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
                   Object.values(state.nodes).map((node) => [node.nodeId, node.status])
                 )
               );
+              // Shallow copies: the runner mutates its state object in place,
+              // and React must see a fresh reference to re-render.
+              setLiveNodes(
+                Object.fromEntries(
+                  Object.values(state.nodes).map((node) => [node.nodeId, { ...node }])
+                )
+              );
               setChildren(
                 Object.fromEntries(
                   Object.values(state.nodes)
@@ -154,5 +169,5 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
     [host]
   );
 
-  return { isRunning, statuses, children, runState, runError, pendingGate, start, cancel };
+  return { isRunning, statuses, liveNodes, children, runState, runError, pendingGate, start, cancel };
 }

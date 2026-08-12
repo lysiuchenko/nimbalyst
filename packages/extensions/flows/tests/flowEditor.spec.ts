@@ -628,6 +628,13 @@ test.describe('resuming a failed run', () => {
 
   test('a rejected gate fails the run and offers a retry', async () => {
     await flows.page.locator('[data-testid="flow-run"]').click();
+
+    // Before deciding, the gate shows the work it is gating — the upstream
+    // step's output, live — so nobody approves blind.
+    const work = flows.page.locator('[data-gate-work="save"]');
+    await expect(work).toBeVisible({ timeout: 30_000 });
+    await expect(work).toContainText('wrote artifact.md');
+
     await flows.page.locator('[data-testid="flow-gate-reject"]').click();
 
     await expect
