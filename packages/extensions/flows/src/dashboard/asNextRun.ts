@@ -25,7 +25,10 @@ export function asNextRun(at: number | null, now: number = Date.now()): string {
   const difference = at - now;
   const target = new Date(at);
   const current = new Date(now);
-  if (sameLocalDay(target, current)) {
+  // Imminence beats the calendar: at 23:35, a run due in thirty minutes must
+  // read "in 30m", not "Tomorrow at 00:05" — CI caught that live near
+  // midnight. Calendar phrasing is for runs genuinely far away.
+  if (sameLocalDay(target, current) || difference < 6 * HOUR) {
     const minutes = Math.max(1, Math.ceil(difference / MINUTE));
     if (minutes < 60) return `in ${minutes}m`;
     const hours = Math.floor(minutes / 60);

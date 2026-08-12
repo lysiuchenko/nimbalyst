@@ -25,3 +25,22 @@ describe('asNextRun', () => {
     expect(asNextRun(Number.NaN, now)).toBe('Not scheduled');
   });
 });
+
+describe('near midnight', () => {
+  // CI caught this live: at 23:35, a run due in 30 minutes crossed the date
+  // line and read "Tomorrow at 00:05" — technically the calendar day, and
+  // exactly the wrong thing to tell someone about an imminent run.
+  const LATE = new Date(2026, 7, 13, 23, 35, 0).getTime();
+
+  it('an imminent run is imminent, whatever the calendar says', () => {
+    expect(asNextRun(LATE + 30 * 60_000, LATE)).toBe('in 30m');
+  });
+
+  it('a couple of hours across midnight still reads as hours', () => {
+    expect(asNextRun(LATE + 2 * 3_600_000, LATE)).toBe('in 2h');
+  });
+
+  it('a genuinely tomorrow run keeps the calendar phrasing', () => {
+    expect(asNextRun(LATE + 11 * 3_600_000, LATE)).toMatch(/^Tomorrow at /);
+  });
+});
