@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T21:02:05.862Z",
+  "generatedAt": "2026-08-11T10:54:34.333Z",
   "scope": {
     "workspaceRoots": [
       "packages/electron",
@@ -15,6 +15,7 @@
       "packages/extensions/excalidraw",
       "packages/extensions/extension-dev-kit",
       "packages/extensions/feedback",
+      "packages/extensions/flows",
       "packages/extensions/gemini-antigravity",
       "packages/extensions/git",
       "packages/extensions/github-issues-importer",
@@ -33,7 +34,7 @@
     "description": "Production dependencies reachable from Electron, runtime, and built-in extension workspaces."
   },
   "summary": {
-    "packageCount": 905,
+    "packageCount": 906,
     "reviewRequiredCount": 0,
     "approvedExceptionCount": 3,
     "licenseCounts": {
@@ -46,7 +47,7 @@
       "EPL-2.0": 1,
       "ISC": 59,
       "LGPL-3.0": 1,
-      "MIT": 782,
+      "MIT": 783,
       "Python-2.0": 1,
       "SEE LICENSE IN README.md": 1,
       "Unlicense": 2
@@ -55,7 +56,7 @@
     "approvedExceptions": [
       {
         "name": "@anthropic-ai/claude-agent-sdk",
-        "version": "0.3.220",
+        "version": "0.3.221",
         "license": "Anthropic Commercial",
         "reason": "Anthropic commercial license (https://code.claude.com/docs/en/legal-and-compliance). Permits use by developers writing code locally, which is exactly how Nimbalyst integrates the SDK. Used unmodified."
       },
@@ -125,9 +126,9 @@
       "noticeFiles": []
     },
     {
-      "id": "@anthropic-ai/claude-agent-sdk@0.3.220",
+      "id": "@anthropic-ai/claude-agent-sdk@0.3.221",
       "name": "@anthropic-ai/claude-agent-sdk",
-      "version": "0.3.220",
+      "version": "0.3.221",
       "rawLicense": "SEE LICENSE IN README.md",
       "selectedLicense": null,
       "reviewRequired": false,
@@ -139,7 +140,7 @@
       "installPaths": [
         "node_modules/@anthropic-ai/claude-agent-sdk"
       ],
-      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.220.tgz",
+      "resolved": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.221.tgz",
       "licenseFiles": [
         {
           "fileName": "LICENSE.md",
@@ -4946,9 +4947,9 @@
       "noticeFiles": []
     },
     {
-      "id": "@types/react@19.2.17",
+      "id": "@types/react@19.2.18",
       "name": "@types/react",
-      "version": "19.2.17",
+      "version": "19.2.18",
       "rawLicense": "MIT",
       "selectedLicense": "MIT",
       "reviewRequired": false,
@@ -4960,7 +4961,7 @@
       "installPaths": [
         "node_modules/@types/react"
       ],
-      "resolved": "https://registry.npmjs.org/@types/react/-/react-19.2.17.tgz",
+      "resolved": "https://registry.npmjs.org/@types/react/-/react-19.2.18.tgz",
       "licenseFiles": [
         {
           "fileName": "LICENSE",
@@ -13069,6 +13070,31 @@
           "fileName": "LICENSE",
           "relativePath": "node_modules/jotai/LICENSE",
           "text": "MIT License\n\nCopyright (c) 2020 Poimandres\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+        }
+      ],
+      "noticeFiles": []
+    },
+    {
+      "id": "jotai-family@1.1.0",
+      "name": "jotai-family",
+      "version": "1.1.0",
+      "rawLicense": "MIT",
+      "selectedLicense": "MIT",
+      "reviewRequired": false,
+      "reviewReasons": [],
+      "approved": false,
+      "approvalReason": null,
+      "approvalLicense": null,
+      "issues": [],
+      "installPaths": [
+        "node_modules/jotai-family"
+      ],
+      "resolved": "https://registry.npmjs.org/jotai-family/-/jotai-family-1.1.0.tgz",
+      "licenseFiles": [
+        {
+          "fileName": "LICENSE",
+          "relativePath": "node_modules/jotai-family/LICENSE",
+          "text": "MIT License\n\nCopyright (c) 2025 Poimandres\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
         }
       ],
       "noticeFiles": []
