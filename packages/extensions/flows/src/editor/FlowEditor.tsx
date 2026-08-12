@@ -47,6 +47,7 @@ import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
+import { WorktreeChip } from './WorktreeChip';
 
 
 /** Changes that mean the user edited the document, as opposed to the canvas measuring itself. */
@@ -733,6 +734,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                     {node.status}
                                   </span>
                                   <strong>{node.nodeId}</strong>
+                                  {node.worktree && <WorktreeChip worktree={node.worktree} />}
+                                  {(node.children ?? [])
+                                    .filter((child) => child.worktree)
+                                    .map((child) => (
+                                      <WorktreeChip key={child.label} worktree={child.worktree!} />
+                                    ))}
                                   {node.error && <em>{node.error}</em>}
                                   {!node.error && node.warning && (
                                     <em className="flow-run-warned">{node.warning}</em>

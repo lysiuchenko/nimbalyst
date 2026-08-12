@@ -76,7 +76,13 @@ export function createAgentExecutor(client: AgentClient): NodeExecutor {
       context.signal
     );
 
-    return { output: result.response, sessionId: result.sessionId, usage: result.usage };
+    return {
+      output: result.response,
+      sessionId: result.sessionId,
+      usage: result.usage,
+      // The branch is the review surface after the run; see the design note.
+      ...(result.worktree ? { worktree: result.worktree } : {}),
+    };
   };
 }
 
@@ -182,7 +188,13 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
             context.signal
           );
           results[index] = result.response;
-          children[index] = { label: item, status: 'done', sessionId: result.sessionId };
+          children[index] = {
+            label: item,
+            status: 'done',
+            sessionId: result.sessionId,
+            // Each checkout is findable after the run: branch on the record.
+            ...(result.worktree ? { worktree: result.worktree } : {}),
+          };
           if (result.sessionId) childSessionIds[index] = result.sessionId;
           addUsage(usage, result.usage);
         } catch (error) {

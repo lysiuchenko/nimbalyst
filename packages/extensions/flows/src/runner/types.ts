@@ -14,6 +14,13 @@ export interface TokenUsage {
   costUsd?: number;
 }
 
+/** A checkout a node ran in — the review surface after the run. */
+export interface WorktreeRef {
+  id: string;
+  branch: string;
+  path: string;
+}
+
 export interface NodeExecutorResult {
   /** Published under the node's declared `output` port for downstream nodes. */
   output?: string;
@@ -22,6 +29,8 @@ export interface NodeExecutorResult {
   sessionId?: string;
   /** Sessions this node's sub-agents ran in, so a fan-out's work is reachable. */
   childSessionIds?: string[];
+  /** The checkout this node ran in, when it asked for isolation. */
+  worktree?: WorktreeRef;
 }
 
 /** One sub-agent inside a fan-out node, as the canvas shows it. */
@@ -31,6 +40,8 @@ export interface ChildProgress {
   status: 'queued' | 'running' | 'done' | 'failed';
   sessionId?: string;
   error?: string;
+  /** The isolated checkout this sub-agent worked in, when it got one. */
+  worktree?: WorktreeRef;
 }
 
 export interface NodeExecutorContext {
@@ -86,6 +97,8 @@ export interface NodeExecution {
   error?: string;
   sessionId?: string;
   usage?: TokenUsage;
+  /** The isolated checkout this node ran in, when it asked for one. */
+  worktree?: WorktreeRef;
   startedAt?: number;
   finishedAt?: number;
 }

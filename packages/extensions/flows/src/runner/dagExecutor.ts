@@ -182,6 +182,9 @@ export class DagFlowRunner implements FlowRunner {
         execution.sessionId = result.sessionId;
         execution.childSessionIds = result.childSessionIds;
         execution.usage = result.usage;
+        // Onto the record: a checkout that is not written down is unfindable
+        // the moment the run panel closes.
+        if (result.worktree) execution.worktree = result.worktree;
         addUsage(state.usage, result.usage);
 
         if (node.output !== undefined && result.output !== undefined) {

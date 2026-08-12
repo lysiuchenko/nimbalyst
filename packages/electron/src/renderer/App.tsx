@@ -1884,9 +1884,15 @@ export default function App() {
   useEffect(() => {
     const handleTogglePanel = (e: Event) => {
       const panelId = (e as CustomEvent).detail?.panelId;
-      if (typeof panelId === 'string') {
-        setActiveExtensionBottomPanel(prev => prev === panelId ? null : panelId);
+      if (typeof panelId !== 'string') return;
+      // The toggle command is auto-registered for every panel, but this handler
+      // assumed they were all bottom panels — a fullscreen panel's keybinding
+      // silently did nothing. Route by the panel's declared placement.
+      if (getPanelById(panelId)?.placement === 'fullscreen') {
+        setActiveExtensionPanel(prev => prev === panelId ? null : panelId);
+        return;
       }
+      setActiveExtensionBottomPanel(prev => prev === panelId ? null : panelId);
     };
 
     window.addEventListener('nimbalyst:toggle-panel', handleTogglePanel);

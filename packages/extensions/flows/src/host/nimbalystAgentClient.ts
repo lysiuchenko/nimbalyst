@@ -25,7 +25,11 @@ export interface SessionUsageReader {
 }
 
 export interface NodeWorktreeCreator {
-  createWorktree(nodeId: string): Promise<{ id: string }>;
+  /**
+   * The full shape, not just the id: the branch and path are what make the
+   * checkout findable on the run record after the session is gone.
+   */
+  createWorktree(nodeId: string): Promise<{ id: string; branch: string; path: string }>;
 }
 
 export class NimbalystAgentClient implements AgentClient {
@@ -79,7 +83,14 @@ export class NimbalystAgentClient implements AgentClient {
     }
 
     const usage = await this.readUsage(sessionId);
-    return usage ? { sessionId, response, usage } : { sessionId, response };
+    return {
+      sessionId,
+      response,
+      ...(usage ? { usage } : {}),
+      // The branch is how the work is found again after the run; without it the
+      // record never learns the checkout existed.
+      ...(worktree ? { worktree } : {}),
+    };
   }
 
   private async blockedOnPermission(sessionId: string): Promise<boolean> {

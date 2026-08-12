@@ -63,6 +63,23 @@ const finished = record({
       startedAt: base + 420_000,
       finishedAt: base + 480_000,
       childSessionIds: ['child-a', 'child-b'],
+      // Worktree-isolated sub-agents: the branches must survive onto the
+      // record and render as chips. The paths do not exist, which is the
+      // degrade case a reviewer hits once checkouts are cleaned up.
+      children: [
+        {
+          label: 'a',
+          status: 'done',
+          sessionId: 'child-a',
+          worktree: { id: 'wt-a', branch: 'flow/review-0-ab12', path: '/nowhere/wt-a' },
+        },
+        {
+          label: 'b',
+          status: 'done',
+          sessionId: 'child-b',
+          worktree: { id: 'wt-b', branch: 'flow/review-1-cd34', path: '/nowhere/wt-b' },
+        },
+      ],
     },
   },
   usage: { inputTokens: 1_000, outputTokens: 200 },
@@ -666,5 +683,66 @@ test.describe('running a flow from the Flows home', () => {
         { timeout: 15_000 }
       )
       .toBe('launched-from-the-panel');
+  });
+});
+
+/**
+ * Fan-out's isolated branches were invisible the moment a run finished.
+ * The record now carries them, and the run detail names each one.
+ */
+test.describe('worktree branches on the run record', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(workspaceWithRuns());
+    await openFlow(flows.page, 'seeded.flow.json');
+    await flows.page.locator('[data-testid="flow-runs-toggle"]').click();
+    await flows.page.locator('[data-past-run="run-finished"]').click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('each isolated sub-agent shows its branch', async () => {
+    const chips = flows.page.locator('[data-run-detail="run-finished"] .flow-worktree-chip');
+
+    await expect(chips).toHaveCount(2);
+    await expect(chips.first()).toContainText('flow/review-0-ab12');
+    await expect(chips.nth(1)).toContainText('flow/review-1-cd34');
+  });
+
+  test('a checkout that no longer exists says so instead of pretending', async () => {
+    const chip = flows.page
+      .locator('[data-worktree-branch="flow/review-0-ab12"]')
+      .first();
+
+    await chip.click();
+
+    await expect(chip).toContainText('status unavailable', { timeout: 30_000 });
+  });
+});
+
+/** The manifest binds ctrl+shift+l to the Flows panel toggle. */
+test.describe('opening Flows from anywhere', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'plain.flow.json': flow }));
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the keyboard shortcut toggles the panel', async () => {
+    const dash = flows.page.locator('[data-testid="flows-dashboard"]');
+    await expect(dash).toBeHidden();
+
+    await flows.page.keyboard.press('Control+Shift+L');
+    await expect(dash).toBeVisible({ timeout: 30_000 });
+
+    await flows.page.keyboard.press('Control+Shift+L');
+    await expect(dash).toBeHidden({ timeout: 30_000 });
   });
 });

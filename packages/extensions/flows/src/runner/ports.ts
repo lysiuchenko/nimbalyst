@@ -1,4 +1,4 @@
-import type { TokenUsage } from './types';
+import type { TokenUsage, WorktreeRef } from './types';
 
 /**
  * Ports the executors depend on.
@@ -22,10 +22,14 @@ export interface AgentRunRequest {
   worktree?: boolean;
 }
 
+export type { WorktreeRef } from './types';
+
 export interface AgentRunResult {
   sessionId: string;
   response: string;
   usage?: TokenUsage;
+  /** Present when the node asked for isolation and got it. */
+  worktree?: WorktreeRef;
 }
 
 /**

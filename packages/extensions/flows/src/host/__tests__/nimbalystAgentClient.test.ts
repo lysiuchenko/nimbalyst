@@ -151,7 +151,7 @@ describe('NimbalystAgentClient', () => {
 
   it('runs an isolated node in a worktree of its own', async () => {
     const ai = aiService();
-    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/repo/.worktrees/plan' })) };
+    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/repo/.worktrees/plan', branch: 'flow/plan' })) };
 
     const client = new NimbalystAgentClient(ai, undefined, worktrees);
     expect(client.capabilities.worktree).toBe(true);
@@ -162,9 +162,33 @@ describe('NimbalystAgentClient', () => {
     expect(ai.sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ worktreeId: 'wt-7' }));
   });
 
+  // The branch is the review surface: without it on the result, the record
+  // never learns the checkout existed and the work is unfindable after the run.
+  it('reports the worktree it created, so the record can carry it', async () => {
+    const worktrees = {
+      createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/wt/plan', branch: 'flow/plan-ab12' })),
+    };
+    const client = new NimbalystAgentClient(aiService(), undefined, worktrees);
+
+    const result = await client.run({ ...request, worktree: true }, new AbortController().signal);
+
+    expect(result.worktree).toEqual({ id: 'wt-7', path: '/wt/plan', branch: 'flow/plan-ab12' });
+  });
+
+  it('reports no worktree when none was asked for', async () => {
+    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'w', path: '/w', branch: 'b' })) };
+
+    const result = await new NimbalystAgentClient(aiService(), undefined, worktrees).run(
+      request,
+      new AbortController().signal
+    );
+
+    expect(result.worktree).toBeUndefined();
+  });
+
   it('leaves a node that did not ask for isolation in the main working tree', async () => {
     const ai = aiService();
-    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/wt' })) };
+    const worktrees = { createWorktree: vi.fn(async () => ({ id: 'wt-7', path: '/wt', branch: 'flow/plan' })) };
 
     await new NimbalystAgentClient(ai, undefined, worktrees).run(request, new AbortController().signal);
 

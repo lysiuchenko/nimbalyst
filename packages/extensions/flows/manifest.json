@@ -56,6 +56,12 @@
         "icon": "monitoring",
         "placement": "fullscreen"
       }
+    ],
+    "keybindings": [
+      {
+        "key": "ctrl+shift+l",
+        "command": "com.nimbalyst.flows.dashboard.toggle"
+      }
     ]
   }
 }

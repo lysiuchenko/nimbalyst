@@ -652,6 +652,43 @@
   white-space: normal;
 }
 
+/* A branch on the record, findable and inspectable. Status arrives on click. */
+.flow-worktree-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--flow-border);
+  border-radius: 999px;
+  background: var(--flow-surface);
+  color: var(--flow-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.flow-worktree-chip:hover {
+  border-color: var(--flow-accent);
+  color: var(--flow-accent);
+}
+
+.flow-worktree-chip .material-symbols-outlined {
+  font-size: 13px;
+}
+
+.flow-worktree-branch {
+  font-family: var(--nim-font-mono, monospace);
+  font-size: 10px;
+}
+
+.flow-worktree-status {
+  color: var(--flow-text-faint);
+}
+
+.flow-worktree-chip[data-phase='unavailable'] .flow-worktree-status {
+  font-style: italic;
+}
+
 .flow-run-warned {
   color: var(--flow-warning);
 }

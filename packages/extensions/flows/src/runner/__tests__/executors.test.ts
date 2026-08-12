@@ -304,3 +304,26 @@ describe('human-gate executor', () => {
     expect(controller.requestApproval).toHaveBeenCalledWith(expect.anything(), context.signal);
   });
 });
+
+describe('worktrees on the record', () => {
+  const ref = { id: 'wt-1', branch: 'flow/plan-ab12', path: '/wt/plan' };
+
+  // Without this the checkout is unfindable the moment the run ends — the
+  // audit's "most impressive thing the runner does is invisible".
+  it('an agent node carries the worktree it ran in', async () => {
+    const client = { ...agentClient({ worktree: ref }), capabilities: { worktree: true, tools: true } };
+    const node = { id: 'plan', type: 'agent', prompt: 'p', worktree: true } as FlowNode;
+
+    const result = await createAgentExecutor(client)(contextFor(node, { prompt: 'p' }));
+
+    expect(result.worktree).toEqual(ref);
+  });
+
+  it('a node without isolation carries none', async () => {
+    const node = { id: 'plan', type: 'agent', prompt: 'p' } as FlowNode;
+
+    const result = await createAgentExecutor(agentClient())(contextFor(node, { prompt: 'p' }));
+
+    expect(result.worktree).toBeUndefined();
+  });
+});

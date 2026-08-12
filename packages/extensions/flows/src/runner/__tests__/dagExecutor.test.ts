@@ -510,3 +510,22 @@ describe('DagFlowRunner — conditional edges', () => {
     expect(state.nodes.report.status).toBe('skipped');
   });
 });
+
+describe('DagFlowRunner — worktrees on the record', () => {
+  it('copies an executor-reported checkout onto the execution', async () => {
+    const runner = new DagFlowRunner({
+      defaultExecutor: async () => ({
+        output: 'x',
+        worktree: { id: 'wt-1', branch: 'flow/only-ab12', path: '/wt/only' },
+      }),
+    });
+
+    const state = await runner.run(flowOf([agent('only')], []));
+
+    expect(state.nodes.only.worktree).toEqual({
+      id: 'wt-1',
+      branch: 'flow/only-ab12',
+      path: '/wt/only',
+    });
+  });
+});

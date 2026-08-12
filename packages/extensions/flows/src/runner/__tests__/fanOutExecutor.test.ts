@@ -221,3 +221,40 @@ describe('fan-out executor', () => {
     expect(result.childSessionIds).toEqual(['child-1', 'child-2', 'child-3']);
   });
 });
+
+describe('worktrees on sub-agents', () => {
+  it('stamps each child with the checkout it worked in', async () => {
+    const agent = client(
+      async (request) => ({
+        sessionId: `session-${request.nodeId}`,
+        response: 'ok',
+        worktree: { id: `wt-${request.nodeId}`, branch: `flow/${request.nodeId}`, path: `/wt/${request.nodeId}` },
+      }),
+      { worktree: true, tools: true }
+    );
+    const isolated = { ...node, worktree: true } as FlowNode;
+
+    let latest: ChildProgress[] = [];
+    await createFanOutExecutor(agent)(
+      contextFor(isolated, { prompt: 'p', over: 'a\nb' }, (children) => {
+        latest = children;
+      })
+    );
+
+    expect(latest.map((child) => child.worktree?.branch)).toEqual([
+      'flow/review[0]',
+      'flow/review[1]',
+    ]);
+  });
+
+  it('leaves children unstamped when the client made no checkout', async () => {
+    let latest: ChildProgress[] = [];
+    await createFanOutExecutor(client())(
+      contextFor(node, { prompt: 'p', over: 'a\nb' }, (children) => {
+        latest = children;
+      })
+    );
+
+    expect(latest.every((child) => child.worktree === undefined)).toBe(true);
+  });
+});

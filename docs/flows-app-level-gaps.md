@@ -186,6 +186,15 @@ containing the actual work and **no surface in the app that shows them, diffs
 them, merges them, or cleans them up**. The most impressive thing the runner
 does is currently invisible the moment it finishes.
 
+> **Fixed: the branches are on the record.** `createWorktree` returns
+> `{id, branch, path}` and that now travels the whole way: agent client →
+> executor result → fan-out children → the run record. The run detail renders a
+> **branch chip** per isolated node or sub-agent; clicking it asks the host's
+> own `worktree:get-status` and shows commits ahead / uncommitted files /
+> merged, and a checkout deleted since the run degrades to "status
+> unavailable". Deliberately not built: merge and delete buttons — merging is a
+> decision with conflicts and review attached, not a chip action.
+
 ### 3.3 Every flow is unconditional
 
 A DAG with no `if`. There is no conditional edge, no retry, no "if the tests
@@ -247,8 +256,13 @@ identical grey cards.
 
 What is left, in order:
 
-1. **1.2 — command contributions**, so a flow can be launched from the palette
-   or the file tree rather than only from its own open tab.
+1. ~~1.2 — command contributions~~ **Shipped, to the host's actual limit.**
+   `ctrl+shift+l` opens the Flows home from anywhere (the host consumes
+   manifest keybindings; the panel-toggle command is auto-registered), and the
+   home's Run buttons complete the launcher. The host has no command palette
+   for extension commands and no extension-reachable file-tree menu — those
+   remain host gaps, not flows gaps. Required one six-line core fix: the
+   toggle handler assumed every panel was a bottom panel (see FORK-NOTICE).
 2. ~~Run a flow from the Flows home.~~ **Shipped.** Eligible rows (`ok`,
    `failing`, `never-run`) carry a Run button; the panel records a run intent,
    opens the flow, and the editor — which owns gates, statuses and cancel —
