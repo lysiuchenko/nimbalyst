@@ -69,3 +69,52 @@ describe('conditional edges', () => {
     ).toContainEqual(expect.stringContaining('cycle'));
   });
 });
+
+describe('join mode', () => {
+  it('accepts join: any and keeps it on the node', () => {
+    const result = validateFlow(
+      flow([
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'test', to: 'ship' },
+      ])
+    );
+    expect(result.valid).toBe(true);
+
+    const withJoin = validateFlow({
+      version: 1,
+      name: 'joins',
+      nodes: [
+        { id: 'a', type: 'shell', run: 'ls' },
+        { id: 'b', type: 'shell', run: 'ls' },
+        { id: 'meet', type: 'agent', prompt: 'p', join: 'any' },
+      ],
+      edges: [
+        { from: 'a', to: 'meet' },
+        { from: 'b', to: 'meet' },
+      ],
+    });
+    expect(withJoin.valid).toBe(true);
+    expect(withJoin.valid && withJoin.flow.nodes[2]).toMatchObject({ join: 'any' });
+  });
+
+  it('absence means all, so every existing flow is unchanged', () => {
+    const result = validateFlow(flow([{ from: 'test', to: 'ship' }]));
+
+    expect(result.valid).toBe(true);
+    expect(result.valid && result.flow.nodes[0].join).toBeUndefined();
+  });
+
+  it('rejects any other join value', () => {
+    const result = validateFlow({
+      version: 1,
+      name: 'joins',
+      nodes: [{ id: 'a', type: 'agent', prompt: 'p', join: 'most' }],
+      edges: [],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(
+      !result.valid && result.errors.map((error) => error.path)
+    ).toContain('nodes[0].join');
+  });
+});

@@ -106,35 +106,37 @@ export class DagFlowRunner implements FlowRunner {
       pending.set(edge.to, (pending.get(edge.to) ?? 0) + 1);
     }
 
-    // A seeded node is already finished: release its children before the loop
-    // starts, exactly as if it had just completed. Seeds are always successes
-    // (`planResume` reuses only done nodes), so failure edges out of them stay
-    // dead.
-    for (const node of resolvedFlow.nodes) {
-      if (!seed?.executions[node.id]) continue;
-      for (const edge of childEdges.get(node.id) ?? []) {
-        if (edge.on === 'failure') continue;
-        pending.set(edge.to, (pending.get(edge.to) ?? 1) - 1);
-      }
+    // How many incoming edges could still fire, per node. An `all` join dies
+    // with its first dead edge; an `any` join dies only when this hits zero.
+    const liveIncoming = new Map<string, number>();
+    for (const node of resolvedFlow.nodes) liveIncoming.set(node.id, 0);
+    for (const edge of resolvedFlow.edges) {
+      liveIncoming.set(edge.to, (liveIncoming.get(edge.to) ?? 0) + 1);
     }
 
-    const ready = resolvedFlow.nodes
-      .filter((node) => pending.get(node.id) === 0 && !seed?.executions[node.id])
-      .map((node) => node.id);
+    const joinOf = (nodeId: string) => byId.get(nodeId)?.join ?? 'all';
+
+    const ready: string[] = [];
     const running = new Map<string, Promise<void>>();
     let failed = false;
 
-    // A node with a dead incoming edge can never satisfy its AND-join, and a
-    // skipped node can neither succeed nor fail — so every edge out of it is
-    // dead too, whatever its condition.
-    const skipCascade = (startId: string) => {
-      const queue = [startId];
-      while (queue.length > 0) {
-        const id = queue.shift()!;
-        const execution = state.nodes[id];
-        if (execution.status !== 'queued') continue;
-        execution.status = 'skipped';
-        queue.push(...(childEdges.get(id) ?? []).map((edge) => edge.to));
+    // A skipped node can neither succeed nor fail, so every edge out of it is
+    // dead, whatever its condition.
+    const skipNode = (nodeId: string) => {
+      const execution = state.nodes[nodeId];
+      if (execution.status !== 'queued') return;
+      execution.status = 'skipped';
+      for (const edge of childEdges.get(nodeId) ?? []) killEdge(edge.to);
+    };
+
+    /** One incoming edge of `nodeId` can no longer fire. */
+    const killEdge = (nodeId: string) => {
+      liveIncoming.set(nodeId, (liveIncoming.get(nodeId) ?? 1) - 1);
+      if (state.nodes[nodeId].status !== 'queued') return;
+      // An AND-join with a dead edge is unreachable outright; an any-join
+      // survives until its last edge dies.
+      if (joinOf(nodeId) === 'all' || liveIncoming.get(nodeId) === 0) {
+        skipNode(nodeId);
       }
     };
 
@@ -143,13 +145,32 @@ export class DagFlowRunner implements FlowRunner {
       for (const edge of childEdges.get(nodeId) ?? []) {
         const matches = (edge.on ?? 'success') === outcome;
         if (!matches) {
-          skipCascade(edge.to);
+          killEdge(edge.to);
           continue;
         }
         pending.set(edge.to, (pending.get(edge.to) ?? 1) - 1);
-        if (pending.get(edge.to) === 0) ready.push(edge.to);
+        if (state.nodes[edge.to].status !== 'queued') continue;
+        // `any` dispatches on its first live edge; `all` when the last arrives.
+        // The scheduler re-checks status at pop, so a double push cannot run a
+        // node twice.
+        if (joinOf(edge.to) === 'any' || pending.get(edge.to) === 0) {
+          ready.push(edge.to);
+        }
       }
     };
+
+    // A seeded node is already finished: route its completion before the loop
+    // starts, exactly as if it had just run. Seeds are always successes
+    // (`planResume` reuses only done nodes), so their failure edges die here.
+    for (const node of resolvedFlow.nodes) {
+      if (seed?.executions[node.id]) routeCompletion(node.id, 'success');
+    }
+    for (const node of resolvedFlow.nodes) {
+      const hasParents = resolvedFlow.edges.some((edge) => edge.to === node.id);
+      if (!hasParents && !seed?.executions[node.id] && !ready.includes(node.id)) {
+        ready.push(node.id);
+      }
+    }
 
     const runNode = async (nodeId: string): Promise<void> => {
       const node = byId.get(nodeId)!;
@@ -228,6 +249,9 @@ export class DagFlowRunner implements FlowRunner {
 
       while (running.size < concurrency && ready.length > 0) {
         const nodeId = ready.shift()!;
+        // An any-join can be pushed by more than one parent; only the first
+        // dispatch finds it still queued.
+        if (state.nodes[nodeId].status !== 'queued') continue;
         const promise = runNode(nodeId).finally(() => running.delete(nodeId));
         running.set(nodeId, promise);
       }

@@ -529,3 +529,121 @@ describe('DagFlowRunner — worktrees on the record', () => {
     });
   });
 });
+
+describe('DagFlowRunner — any-joins', () => {
+  /** The shape that motivated joins: a conditional fork that meets again. */
+  const rejoined = flowOf(
+    [
+      agent('test', { output: 'out' }),
+      agent('repair', { output: 'out' }),
+      agent('review', {
+        join: 'any',
+        prompt: 'judge {{test.out ?? repair.out}}',
+      }),
+    ],
+    [
+      { from: 'test', to: 'review' },
+      { from: 'test', to: 'repair', on: 'failure' },
+      { from: 'repair', to: 'review' },
+    ]
+  );
+
+  const executorWhere = (failures: string[], order: string[]): NodeExecutor =>
+    async (ctx) => {
+      order.push(ctx.node.id);
+      if (failures.includes(ctx.node.id)) throw new Error(`${ctx.node.id} broke`);
+      return { output: `${ctx.node.id}-output` };
+    };
+
+  it('the success arm reaches the join', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: executorWhere([], order) });
+
+    const state = await runner.run(rejoined);
+
+    expect(order).toEqual(['test', 'review']);
+    expect(state.nodes.repair.status).toBe('skipped');
+    expect(state.nodes.review.status).toBe('done');
+    expect(state.status).toBe('done');
+  });
+
+  it('the failure arm reaches the same join', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: executorWhere(['test'], order) });
+
+    const state = await runner.run(rejoined);
+
+    expect(order).toEqual(['test', 'repair', 'review']);
+    expect(state.nodes.review.status).toBe('done');
+    // The failure was handled by the fork; the run is not lost.
+    expect(state.status).toBe('done');
+  });
+
+  it('hands the join whichever arm actually produced output', async () => {
+    let seen = '';
+    const runner = new DagFlowRunner({
+      defaultExecutor: async (ctx) => {
+        if (ctx.node.id === 'test') throw new Error('red');
+        if (ctx.node.id === 'review') seen = ctx.resolved.prompt;
+        return { output: `${ctx.node.id}-output` };
+      },
+    });
+
+    await runner.run(rejoined);
+
+    expect(seen).toBe('judge repair-output');
+  });
+
+  it('runs an any-join once even when several parents complete live', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: executorWhere([], order) });
+    const diamond = flowOf(
+      [agent('a'), agent('b'), agent('meet', { join: 'any' })],
+      [
+        { from: 'a', to: 'meet' },
+        { from: 'b', to: 'meet' },
+      ]
+    );
+
+    const state = await runner.run(diamond, { concurrency: 1 });
+
+    expect(order.filter((id) => id === 'meet')).toHaveLength(1);
+    expect(state.nodes.meet.status).toBe('done');
+  });
+
+  it('skips an any-join only when every incoming edge is dead', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: executorWhere([], []) });
+    const bothDead = flowOf(
+      [agent('a'), agent('handler', { join: 'any' }), agent('other', { join: 'any' })],
+      [
+        { from: 'a', to: 'handler', on: 'failure' },
+        { from: 'a', to: 'other', on: 'failure' },
+      ]
+    );
+
+    const state = await runner.run(bothDead);
+
+    // a succeeded, so both failure edges are dead — the joins skip.
+    expect(state.nodes.handler.status).toBe('skipped');
+    expect(state.nodes.other.status).toBe('skipped');
+  });
+
+  it('a seeded parent releases an any-join', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: executorWhere([], order) });
+
+    const state = await runner.run(rejoined, {
+      seed: {
+        resumedFrom: 'run-old',
+        executions: {
+          test: { nodeId: 'test', type: 'agent', status: 'done', output: 'old-out', reused: true },
+        },
+        outputs: { test: { out: 'old-out' } },
+      },
+    });
+
+    expect(order).toEqual(['review']);
+    expect(state.nodes.repair.status).toBe('skipped');
+    expect(state.nodes.review.status).toBe('done');
+  });
+});

@@ -64,6 +64,13 @@ export interface ConfigBadge {
  */
 export function configBadges(node: FlowNode): ConfigBadge[] {
   const badges: ConfigBadge[] = [];
+
+  if (node.join === 'any') {
+    badges.push({
+      label: 'any branch',
+      title: 'Runs when the first incoming branch arrives — the arms of a fork can meet here',
+    });
+  }
   // Structural, not `AgentNode & FanOutNode`: intersecting those collapses to
   // `never`, because their `type` literals cannot both hold.
   const configurable = node as Partial<{

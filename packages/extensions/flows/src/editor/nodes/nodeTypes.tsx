@@ -351,6 +351,18 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
       >
         <summary>Advanced</summary>
 
+        {/* Only meaningful with several incoming edges, but always settable:
+            wiring order should not dictate configuration order. */}
+        <label className="flow-node-toggle">
+          <input
+            type="checkbox"
+            aria-label="Run on the first arriving branch"
+            checked={node.join === 'any'}
+            onChange={(event) => patch({ join: event.target.checked ? 'any' : undefined })}
+          />
+          <span>Run on the first arriving branch (any-join)</span>
+        </label>
+
         {(agent || fanOut) && (
           <>
             <label className="flow-node-field">

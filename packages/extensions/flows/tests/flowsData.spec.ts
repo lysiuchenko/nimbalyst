@@ -806,3 +806,69 @@ test.describe('the gate shows the work it gates', () => {
     await expect(strip).toHaveAttribute('data-expanded', 'false');
   });
 });
+
+/**
+ * A conditional fork that meets again — the shape joins exist for.
+ *
+ * The shell backend is absent in these runs, so `test` fails deterministically:
+ * the failure arm repairs, and the any-join takes whichever arm produced
+ * output via a fallback chain. All proven on disk.
+ */
+test.describe('a fork that rejoins at an any-join', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'rejoin.flow.json': {
+          version: 1,
+          name: 'rejoin',
+          variables: {},
+          nodes: [
+            { id: 'test', type: 'shell', run: 'npm test', output: 'out' },
+            {
+              id: 'repair',
+              type: 'write-file',
+              label: 'Repair',
+              path: 'FIX.md',
+              content: 'patched',
+              output: 'note',
+            },
+            {
+              id: 'final',
+              type: 'write-file',
+              join: 'any',
+              path: 'RESULT.md',
+              content: 'came via: {{test.out ?? repair.note}}',
+            },
+          ],
+          edges: [
+            { from: 'test', to: 'final' },
+            { from: 'test', to: 'repair', on: 'failure' },
+            { from: 'repair', to: 'final' },
+          ],
+        },
+      })
+    );
+    await openFlow(flows.page, 'rejoin.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the failure arm repairs, the join runs once, the chain picks the live arm', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.final), { timeout: 60_000 })
+      .toBe('done');
+
+    const statuses = await nodeStatuses(flows.page);
+    expect(statuses.test).toBe('failed');
+    expect(statuses.repair).toBe('done');
+
+    const result = fs.readFileSync(path.join(flows.workspace, 'RESULT.md'), 'utf8');
+    expect(result).toBe('came via: wrote FIX.md (7 characters)');
+  });
+});

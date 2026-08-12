@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { interpolate, listReferences, UnresolvedReferenceError } from '../interpolate';
+import { interpolate, listReferences, referenceArms, UnresolvedReferenceError } from '../interpolate';
 
 const scope = {
   variables: { input: 'src/app.ts', reviewer: 'alice' },
@@ -57,5 +57,45 @@ describe('listReferences', () => {
 
   it('returns nothing for plain text', () => {
     expect(listReferences('plain')).toEqual([]);
+  });
+});
+
+describe('fallback chains', () => {
+  const scope = {
+    variables: { name: 'flows' },
+    outputs: { test: { out: 'tests green' } },
+  };
+
+  it('takes the first arm that resolves', () => {
+    expect(interpolate('{{test.out ?? repair.out}}', scope)).toBe('tests green');
+  });
+
+  it('falls through a dead arm to a live one', () => {
+    expect(interpolate('{{repair.out ?? test.out}}', scope)).toBe('tests green');
+  });
+
+  it('accepts a literal as the last resort', () => {
+    expect(interpolate('{{repair.out ?? "nothing to report"}}', scope)).toBe('nothing to report');
+  });
+
+  it('variables participate in chains too', () => {
+    expect(interpolate('{{missing ?? name}}', scope)).toBe('flows');
+  });
+
+  it('still throws when every arm is dead, naming the whole chain', () => {
+    expect(() => interpolate('{{a.x ?? b.y}}', scope)).toThrow('a.x ?? b.y');
+  });
+
+  it('leaves spaced prose braces alone, as before chains existed', () => {
+    expect(interpolate('a {{ handlebars snippet }} b', scope)).toBe(
+      'a {{ handlebars snippet }} b'
+    );
+  });
+
+  it('lists a chain once, and its arms are recoverable', () => {
+    expect(listReferences('x {{a.b ?? c.d}} y {{name}}')).toEqual(['a.b ?? c.d', 'name']);
+    expect(referenceArms('a.b ?? c.d')).toEqual({ references: ['a.b', 'c.d'], literal: undefined });
+    expect(referenceArms('a.b ?? "fine"')).toEqual({ references: ['a.b'], literal: 'fine' });
+    expect(referenceArms('name')).toEqual({ references: ['name'], literal: undefined });
   });
 });

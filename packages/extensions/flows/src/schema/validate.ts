@@ -248,6 +248,10 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
     fail(`${path}.content`, 'write-file node requires content (an empty string is allowed)');
   }
 
+  if (entry.join !== undefined && entry.join !== 'all' && entry.join !== 'any') {
+    fail(`${path}.join`, `join must be "all" or "any", got ${JSON.stringify(entry.join)}`);
+  }
+
   for (const [key, value] of Object.entries(entry)) {
     if (typeof value !== 'string') continue;
     const credential = credentialIn(value);
@@ -286,7 +290,7 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
   }
 
   const node: Json = { id: entry.id, type };
-  for (const key of ['label', required, ...NODE_SHAPES[type].optional, 'output', 'position']) {
+  for (const key of ['label', required, ...NODE_SHAPES[type].optional, 'output', 'position', 'join']) {
     if (entry[key] !== undefined) node[key] = entry[key];
   }
 

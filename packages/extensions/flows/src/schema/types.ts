@@ -28,6 +28,13 @@ export interface NodePosition {
 interface FlowNodeCommon {
   /** Unique within the flow. Referenced by edges and by `{{id.port}}`. */
   id: string;
+  /**
+   * How incoming edges combine. `all` (the default, and the only meaning
+   * before joins existed): wait for every edge. `any`: run on the first live
+   * edge — what lets the two arms of a conditional fork meet again, since one
+   * arm of a fork is always dead.
+   */
+  join?: 'all' | 'any';
   /** Display name on the canvas. Falls back to `id` when absent. */
   label?: string;
   /** Names this node's result so downstream nodes can read `{{id.output}}`. */

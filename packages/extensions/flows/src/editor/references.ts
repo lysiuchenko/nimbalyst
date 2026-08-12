@@ -1,4 +1,4 @@
-import { listReferences } from '../runner/interpolate';
+import { listReferences, referenceArms } from '../runner/interpolate';
 import type { Flow, FlowNode, NodeType } from '../schema/types';
 import { validateFlow } from '../schema/validate';
 
@@ -93,13 +93,17 @@ export function issuesByNode(flow: Flow): Record<string, string[]> {
       const value = (node as unknown as Record<string, unknown>)[field];
       if (typeof value !== 'string') continue;
 
-      for (const reference of listReferences(value)) {
-        if (available[node.id]?.includes(reference)) continue;
+      for (const expression of listReferences(value)) {
+        // A fallback chain needs only one satisfiable arm — that is the point
+        // of writing one. A literal arm satisfies it outright.
+        const { references: arms, literal } = referenceArms(expression);
+        if (literal !== undefined) continue;
+        if (arms.some((arm) => available[node.id]?.includes(arm))) continue;
         add(
           node.id,
-          reference.includes('.')
-            ? `{{${reference}}} is not available here — that output is not upstream of this node`
-            : `{{${reference}}} is not a flow variable`
+          expression.includes('.')
+            ? `{{${expression}}} is not available here — that output is not upstream of this node`
+            : `{{${expression}}} is not a flow variable`
         );
       }
     }

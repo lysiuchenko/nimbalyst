@@ -154,3 +154,57 @@ describe('failure-edge references', () => {
     expect(issuesByNode(stranger).other?.[0]).toContain('not available');
   });
 });
+
+describe('fallback chains in the checker', () => {
+  const rejoined: Flow = {
+    version: 1,
+    name: 'rejoined',
+    nodes: [
+      { id: 'test', type: 'shell', run: 'npm test', output: 'out' },
+      { id: 'repair', type: 'write-file', path: 'FIX.md', content: 'x', output: 'note' },
+      {
+        id: 'final',
+        type: 'write-file',
+        join: 'any',
+        path: 'RESULT.md',
+        content: '{{test.out ?? repair.note}}',
+      },
+    ],
+    edges: [
+      { from: 'test', to: 'final' },
+      { from: 'test', to: 'repair', on: 'failure' },
+      { from: 'repair', to: 'final' },
+    ],
+    variables: {},
+  } as Flow;
+
+  it('accepts a chain when any arm is a legal reference', () => {
+    expect(issuesByNode(rejoined)).toEqual({});
+  });
+
+  it('still flags a chain none of whose arms could ever resolve', () => {
+    const broken: Flow = {
+      ...rejoined,
+      nodes: rejoined.nodes.map((node) =>
+        node.id === 'final'
+          ? ({ ...node, content: '{{ghost.a ?? phantom.b}}' } as Flow['nodes'][number])
+          : node
+      ),
+    } as Flow;
+
+    expect(issuesByNode(broken).final?.[0]).toContain('not available');
+  });
+
+  it('a literal arm satisfies a chain on its own', () => {
+    const literalOnly: Flow = {
+      ...rejoined,
+      nodes: rejoined.nodes.map((node) =>
+        node.id === 'final'
+          ? ({ ...node, content: '{{ghost.a ?? "nothing to report"}}' } as Flow['nodes'][number])
+          : node
+      ),
+    } as Flow;
+
+    expect(issuesByNode(literalOnly)).toEqual({});
+  });
+});
