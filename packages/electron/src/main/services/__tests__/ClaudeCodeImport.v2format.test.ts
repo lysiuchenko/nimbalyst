@@ -158,9 +158,12 @@ describe('Claude Code v2 sync', () => {
   // doing it inline in the first test made that test bear the full first-time
   // compile cost and flake past the 5s timeout under full-suite load.
   let syncSessions: typeof import('../ClaudeCodeSessionSync').syncSessions;
+  // 60s, not the 20s default: the import compiles the whole runtime graph and
+  // has flaked past 20s when the full ~9.6k-test run saturates the machine
+  // (three pushes on 2026-08-11/12). Same treatment as OpenAICodexProvider.
   beforeAll(async () => {
     ({ syncSessions } = await import('../ClaudeCodeSessionSync'));
-  });
+  }, 60_000);
 
   it('imports follow-up user prompts as input direction even when parentUuid is set', async () => {
     // Repro of the live-import bug: 2.1.x threads parentUuid on every entry

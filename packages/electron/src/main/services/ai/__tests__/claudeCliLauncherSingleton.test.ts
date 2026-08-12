@@ -91,6 +91,8 @@ describe('claudeCliLauncherSingleton', () => {
   // vi.resetModules(), which cold-loads electron/analytics/store + the runtime
   // MCP config chain (~4s). That's fine solo but crosses the 5s default under
   // full-suite parallel CPU contention, so give these a generous timeout.
+  // Raised 20s -> 60s after blocking three pushes on 2026-08-11/12 at load
+  // average ~20; each passes alone in well under a second.
   it('coalesces concurrent ensure calls for the same session', async () => {
     const h = await loadHarness();
     let releaseLaunch: (() => void) | undefined;
@@ -118,7 +120,7 @@ describe('claudeCliLauncherSingleton', () => {
       { success: true },
       { success: true },
     ]);
-  }, 20000);
+  }, 60_000);
 
   it('ends session state when the launched CLI terminal exits', async () => {
     const h = await loadHarness();
@@ -131,7 +133,7 @@ describe('claudeCliLauncherSingleton', () => {
     onExit?.(7);
 
     expect(h.stateManager.endSession).toHaveBeenCalledWith('session-1');
-  }, 20000);
+  }, 60_000);
 
   it('short-circuits without launching when claude is not installed (NIM-852)', async () => {
     const h = await loadHarness({ claudeInstalled: false });
@@ -145,7 +147,7 @@ describe('claudeCliLauncherSingleton', () => {
     });
     expect(h.stateManager.startSession).not.toHaveBeenCalled();
     expect(h.launch).not.toHaveBeenCalled();
-  }, 20000);
+  }, 60_000);
 
   it('spawns a worktree session in its worktree, not the parent workspace (#933)', async () => {
     // A real dir so the existence guard in resolveClaudeCliWorktreeCwd passes.
@@ -161,7 +163,7 @@ describe('claudeCliLauncherSingleton', () => {
       workspacePath: '/project',
       cwd: worktreePath,
     });
-  }, 20000);
+  }, 60_000);
 
   it('leaves the requested cwd unchanged for a non-worktree session', async () => {
     const h = await loadHarness({ worktree: null });
@@ -170,5 +172,5 @@ describe('claudeCliLauncherSingleton', () => {
 
     expect(h.launch).toHaveBeenCalledTimes(1);
     expect(h.launch.mock.calls[0][0]).toMatchObject({ cwd: '/project' });
-  }, 20000);
+  }, 60_000);
 });
