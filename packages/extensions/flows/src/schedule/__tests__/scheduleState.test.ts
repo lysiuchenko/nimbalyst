@@ -12,6 +12,12 @@ describe('statePathFor', () => {
   it('handles a flow at the workspace root', () => {
     expect(statePathFor('release.flow.json')).toBe('.flow-runs/release.flow.json.schedule.json');
   });
+
+  it('normalises Windows separators before placing state beside the flow', () => {
+    expect(statePathFor('C:\\repo\\flows\\release.flow.json')).toBe(
+      'C:/repo/flows/.flow-runs/release.flow.json.schedule.json'
+    );
+  });
 });
 
 describe('readScheduleState', () => {

@@ -1,5 +1,8 @@
 import { parseFlowFile } from '../schema/validate';
 import type { WorkspaceFiles } from '../host/workspaceScan';
+import { dueAt } from '../schedule/nextRun';
+import { readScheduleState } from '../schedule/scheduleState';
+import { flowBasename } from './flowPath';
 import type { FlowFile } from './flowList';
 
 /**
@@ -9,27 +12,41 @@ import type { FlowFile } from './flowList';
  * nothing — the same trap the run-history loader and the scheduler both hit.
  * This is the glob the scheduler already trusts (`startScheduler.ts`).
  */
-export async function loadFlowFiles(files: WorkspaceFiles): Promise<FlowFile[]> {
-  let paths: string[];
-  try {
-    paths = (await files.findFiles('*.flow.json')) ?? [];
-  } catch {
-    return [];
-  }
+export async function loadFlowFiles(
+  files: WorkspaceFiles,
+  now: number = Date.now()
+): Promise<FlowFile[]> {
+  // Failure to scan is not the same as a workspace with no flows. The caller
+  // owns the recoverable error state.
+  const paths = (await files.findFiles('*.flow.json')) ?? [];
 
   const found = await Promise.all(
     paths.map(async (flowPath): Promise<FlowFile> => {
       // A flow that will not parse is still a flow the user has. Listing it
       // under its filename beats hiding it from the one screen that would
       // explain where it went.
-      const fallback: FlowFile = { flowPath, flowName: nameFor(flowPath), schedule: null };
+      const fallback: FlowFile = {
+        flowPath,
+        flowName: flowBasename(flowPath),
+        schedule: null,
+        nextRunAt: null,
+        valid: false,
+        problems: [{ path: '', message: 'This flow file could not be read.' }],
+      };
       try {
         const parsed = parseFlowFile(await files.readFile(flowPath));
-        if (!parsed.valid) return fallback;
+        if (!parsed.valid) return { ...fallback, problems: parsed.errors };
+        const schedule = parsed.flow.schedule ?? null;
+        const scheduleState = schedule?.enabled
+          ? await readScheduleState(files, flowPath)
+          : undefined;
         return {
           flowPath,
           flowName: parsed.flow.name || fallback.flowName,
-          schedule: parsed.flow.schedule ?? null,
+          schedule,
+          nextRunAt: schedule?.enabled ? dueAt(schedule, scheduleState?.dueAt, now) : null,
+          valid: true,
+          problems: [],
         };
       } catch {
         return fallback;
@@ -38,9 +55,4 @@ export async function loadFlowFiles(files: WorkspaceFiles): Promise<FlowFile[]> 
   );
 
   return found;
-}
-
-function nameFor(flowPath: string): string {
-  const base = flowPath.slice(flowPath.lastIndexOf('/') + 1);
-  return base.replace(/\.flow\.json$/, '');
 }

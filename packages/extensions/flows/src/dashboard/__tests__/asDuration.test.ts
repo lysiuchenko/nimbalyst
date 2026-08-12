@@ -14,6 +14,11 @@ describe('asDuration', () => {
     expect(asDuration(3_600_000 + 120_000)).toBe('1h 2m');
   });
 
+  it('carries a rounded sixtieth minute into the next hour', () => {
+    expect(asDuration(3_599_000)).toBe('1h');
+    expect(asDuration(7_199_000)).toBe('2h');
+  });
+
   it('says nothing happened only when nothing did', () => {
     expect(asDuration(0)).toBe('0s');
   });

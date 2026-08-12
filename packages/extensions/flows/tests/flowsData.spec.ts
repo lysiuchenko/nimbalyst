@@ -104,6 +104,31 @@ const stranded = record({
   },
 });
 
+/** A real in-flight run, recent enough that it must not be called abandoned. */
+const active = record({
+  runId: 'run-active',
+  flowName: 'active',
+  status: 'running',
+  startedAt: Date.now() - 30_000,
+  finishedAt: undefined,
+  updatedAt: Date.now(),
+  nodes: {},
+});
+
+const mixedAbsolute = record({
+  runId: 'run-mixed-absolute',
+  flowName: 'mixed',
+  startedAt: base - 2 * HOUR,
+  updatedAt: base - 2 * HOUR,
+});
+
+const mixedRelative = record({
+  runId: 'run-mixed-relative',
+  flowName: 'mixed',
+  startedAt: base - 3 * HOUR,
+  updatedAt: base - 3 * HOUR,
+});
+
 /** A node that finished but published nothing into its declared port. */
 const warned = record({
   runId: 'run-warned',
@@ -124,23 +149,45 @@ const warned = record({
 });
 
 function workspaceWithRuns(): string {
+  const quietDueAt = Date.now() + 30 * 60_000;
   const workspace = createWorkspace({
     'seeded.flow.json': flow,
     // Never run, so it exists only as a file — the case the panel could not
     // represent when it derived its list from run records alone.
-    'quiet.flow.json': { ...flow, name: 'quiet' },
+    'quiet.flow.json': {
+      ...flow,
+      name: 'quiet',
+      schedule: { type: 'interval', intervalMinutes: 30, enabled: true },
+    },
+    'active.flow.json': { ...flow, name: 'active' },
+    'mixed.flow.json': { ...flow, name: 'mixed' },
+    // Kept visible on the dashboard with its validation count, not hidden or
+    // coloured green because an old record happened to succeed.
+    'broken-dashboard.flow.json': '{ not json',
     '.flow-runs/run-finished.json': finished,
     '.flow-runs/run-failed.json': failed,
     '.flow-runs/run-stranded.json': stranded,
     '.flow-runs/run-warned.json': warned,
+    '.flow-runs/run-active.json': active,
+    '.flow-runs/run-mixed-absolute.json': mixedAbsolute,
+    '.flow-runs/run-mixed-relative.json': mixedRelative,
+    '.flow-runs/damaged.json': '{ half written',
+    '.flow-runs/quiet.flow.json.schedule.json': { dueAt: quietDueAt },
   });
 
-  // A record points back at its flow by absolute path; fill that in now that
-  // the temporary workspace has one.
-  const flowPath = path.join(workspace, 'seeded.flow.json');
-  for (const name of fs.readdirSync(path.join(workspace, '.flow-runs'))) {
+  // Most editor records are absolute. Leave one record for the dedicated
+  // mixed-path flow relative to prove the dashboard canonicalises before it
+  // aggregates without changing the open editor's history contract.
+  const runNames = fs
+    .readdirSync(path.join(workspace, '.flow-runs'))
+    .filter((name) => name.startsWith('run-') && name.endsWith('.json'));
+  for (const name of runNames) {
     const file = path.join(workspace, '.flow-runs', name);
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const flowPath =
+      name === 'run-mixed-relative.json'
+        ? 'mixed.flow.json'
+        : path.join(workspace, `${parsed.flowName}.flow.json`);
     fs.writeFileSync(file, JSON.stringify({ ...parsed, flowPath }, null, 2));
   }
   return workspace;
@@ -287,6 +334,14 @@ test.describe('the dashboard, from seeded records', () => {
     await expect(row).toBeVisible();
     await expect(row.locator('.flows-dashboard-row-stat').first()).toHaveText('4 runs');
     await expect(row.locator('[data-failed="true"]')).toHaveText('1 failed');
+    await expect(row.locator('[data-stat="average"]')).toHaveText('46s');
+  });
+
+  test('merges absolute and relative run paths into one flow row', async () => {
+    const rows = flows.page.locator('[data-dashboard-flow="mixed"]');
+
+    await expect(rows).toHaveCount(1);
+    await expect(rows.locator('[data-stat="runs"]')).toHaveText('2 runs');
   });
 
   test('lists a flow that has never run, which run records alone cannot show', async () => {
@@ -300,6 +355,63 @@ test.describe('the dashboard, from seeded records', () => {
     const row = flows.page.locator('[data-dashboard-flow="seeded"]');
 
     await expect(row).toHaveAttribute('data-flow-state', 'failing');
+    await expect(row.locator('.flows-dashboard-status')).toHaveText('Failed');
+  });
+
+  test('a recent in-flight run is called running, never green', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="active"]');
+
+    await expect(row).toHaveAttribute('data-flow-state', 'running');
+    await expect(row.locator('.flows-dashboard-status')).toHaveText('Running');
+  });
+
+  test('shows an actual persisted next due time for a scheduled flow', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="quiet"]');
+
+    await expect(row.locator('[data-pill="schedule"]')).toHaveText(/in (29|30)m/);
+    await expect(row.locator('[data-pill="schedule"]')).toHaveAttribute('title', 'Every 30m');
+  });
+
+  test('keeps an invalid flow visible and explains damaged local history', async () => {
+    const broken = flows.page.locator('[data-dashboard-flow="broken-dashboard"]');
+    const notice = flows.page.locator('.flows-dashboard-notice[data-tone="attention"]');
+
+    await expect(broken).toHaveAttribute('data-flow-state', 'invalid');
+    await expect(broken.locator('.flows-dashboard-status')).toHaveText('Needs repair');
+    await expect(broken.locator('[data-pill="invalid"]')).toHaveText('1 problem');
+    await expect(notice).toContainText('1 invalid flow');
+    await expect(notice).toContainText('1 damaged run record was skipped');
+  });
+
+  test('refresh discovers an on-disk flow without reopening the panel', async () => {
+    fs.writeFileSync(
+      path.join(flows.workspace, 'refreshed.flow.json'),
+      `${JSON.stringify({ ...flow, name: 'refreshed' }, null, 2)}\n`
+    );
+
+    await flows.page.getByRole('button', { name: 'Refresh flows' }).click();
+
+    await expect(flows.page.locator('[data-dashboard-flow="refreshed"]')).toBeVisible();
+    await expect(flows.page.locator('.flows-dashboard-updated')).toContainText('Updated just now');
+  });
+
+  test('compact layout keeps health and action visible', async ({}, testInfo) => {
+    await flows.page.setViewportSize({ width: 620, height: 760 });
+
+    const seeded = flows.page.locator('[data-dashboard-flow="seeded"]');
+    await expect(seeded.locator('.flows-dashboard-status')).toBeVisible();
+    await expect(seeded.locator('[data-pill]')).toBeVisible();
+    await expect(seeded.locator('[data-stat="average"]')).toBeHidden();
+    await flows.page.screenshot({
+      path: testInfo.outputPath('dashboard-compact.png'),
+      fullPage: true,
+    });
+
+    await flows.page.setViewportSize({ width: 1200, height: 800 });
+    await flows.page.screenshot({
+      path: testInfo.outputPath('dashboard-desktop.png'),
+      fullPage: true,
+    });
   });
 
   // Last in this block: it navigates away from the panel.

@@ -11,7 +11,11 @@ export function asDuration(ms: number): string {
   if (ms <= 0) return '0s';
   if (ms < 60_000) return `${Math.max(1, Math.round(ms / 1000))}s`;
 
-  const hours = Math.floor(ms / 3_600_000);
-  const minutes = Math.round((ms % 3_600_000) / 60_000);
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  // Round once before splitting. Rounding the remainder independently emitted
+  // impossible values such as "1h 60m" and even "60m" just before an hour.
+  const totalMinutes = Math.round(ms / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }

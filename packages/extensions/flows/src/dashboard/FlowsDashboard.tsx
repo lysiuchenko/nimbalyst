@@ -1,62 +1,162 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PanelHostProps } from '@nimbalyst/extension-sdk';
 import { getHostServices } from '../host/hostServices';
-import { loadAllRuns } from './loadAllRuns';
-import { loadFlowFiles } from './loadFlowFiles';
-import { buildFlowRows, type FlowRow } from './flowList';
-import { summariseRuns, type RunsSummary } from './metrics';
-import { asDuration } from './asDuration';
+import { createWorkspaceFiles, workspaceFindIpc } from '../host/workspaceFiles';
 import { asAgo } from './asAgo';
+import { asDuration } from './asDuration';
+import { asNextRun } from './asNextRun';
+import { type FlowRow, type FlowRowState } from './flowList';
+import { loadDashboardData, type DashboardData } from './loadDashboardData';
+import type { RunsSummary } from './metrics';
 import { scheduleLabel } from '../schedule/label';
 import { readTheme, type FlowThemeId } from '../editor/theme';
 
-interface DashboardData {
-  summary: RunsSummary;
-  rows: FlowRow[];
+const REFRESH_INTERVAL_MS = 15_000;
+
+interface DashboardView {
+  data: DashboardData | null;
+  error: string | null;
+  refreshing: boolean;
+  updatedAt: number | null;
 }
 
+const INITIAL_VIEW: DashboardView = {
+  data: null,
+  error: null,
+  refreshing: true,
+  updatedAt: null,
+};
+
 export function FlowsDashboard({ host }: PanelHostProps) {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [view, setView] = useState<DashboardView>(INITIAL_VIEW);
   // The canvas theme is a per-workspace choice the editor stores; the panel
   // reads the same key so the two surfaces do not disagree.
   const [theme, setTheme] = useState<FlowThemeId>(() => readTheme(host.storage));
+  const requestId = useRef(0);
+  const workspacePath = host.workspacePath;
 
   useEffect(() => {
     setTheme(readTheme(host.storage));
   }, [host.storage]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const filesystem = getHostServices().filesystem;
+  const refresh = useCallback(
+    async (clearSnapshot = false) => {
+      const currentRequest = ++requestId.current;
+      setView((current) =>
+        clearSnapshot ? INITIAL_VIEW : { ...current, error: null, refreshing: true }
+      );
 
-    void Promise.all([loadAllRuns(filesystem), loadFlowFiles(filesystem)]).then(
-      ([records, files]) => {
-        if (cancelled) return;
-        const summary = summariseRuns(records);
-        setData({ summary, rows: buildFlowRows(files, summary.byFlow, host.workspacePath) });
+      try {
+        const filesystem = createWorkspaceFiles(
+          getHostServices().filesystem,
+          workspacePath,
+          workspaceFindIpc()
+        );
+        const data = await loadDashboardData(filesystem, workspacePath);
+        if (requestId.current !== currentRequest) return;
+        setView({
+          data,
+          error: null,
+          refreshing: false,
+          updatedAt: Date.now(),
+        });
+      } catch (error) {
+        if (requestId.current !== currentRequest) return;
+        setView((current) => ({
+          ...current,
+          error: messageFor(error),
+          refreshing: false,
+        }));
       }
-    );
+    },
+    [workspacePath]
+  );
+
+  useEffect(() => {
+    void refresh(true);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    const timer = window.setInterval(refreshWhenVisible, REFRESH_INTERVAL_MS);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
 
     return () => {
-      cancelled = true;
+      requestId.current += 1;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [host.workspacePath]);
+  }, [refresh]);
 
-  if (!data) {
+  if (!view.data && view.error) {
     return (
-      <div className="flows-dashboard" data-flow-theme={theme} data-testid="flows-dashboard" />
+      <DashboardShell theme={theme} busy={false}>
+        <LoadError message={view.error} onRetry={() => void refresh(true)} />
+      </DashboardShell>
     );
   }
 
-  const { summary, rows } = data;
+  if (!view.data) {
+    return (
+      <DashboardShell theme={theme} busy>
+        <DashboardLoading />
+      </DashboardShell>
+    );
+  }
+
+  const { summary, rows, runProblems } = view.data;
   const { totals } = summary;
+  const invalidFlows = rows.filter((row) => row.state === 'invalid').length;
 
   return (
-    <div className="flows-dashboard" data-flow-theme={theme} data-testid="flows-dashboard">
+    <DashboardShell theme={theme} busy={view.refreshing}>
       <header className="flows-dashboard-header">
-        <h1>Flows</h1>
-        <p>{subtitleFor(rows.length, totals.runs)}</p>
+        <div>
+          <h1>Flows</h1>
+          <p>{subtitleFor(rows.length, totals.runs)}</p>
+        </div>
+        <div className="flows-dashboard-actions">
+          <span className="flows-dashboard-updated" aria-live="polite">
+            {view.refreshing
+              ? 'Refreshing…'
+              : view.updatedAt
+              ? `Updated ${asAgo(view.updatedAt)}`
+              : ''}
+          </span>
+          <button
+            type="button"
+            className="flows-dashboard-refresh"
+            disabled={view.refreshing}
+            onClick={() => void refresh()}
+            aria-label="Refresh flows"
+            title="Refresh flows"
+          >
+            <span
+              className="material-symbols-outlined"
+              data-spinning={view.refreshing || undefined}
+              aria-hidden="true"
+            >
+              refresh
+            </span>
+            <span>Refresh</span>
+          </button>
+        </div>
       </header>
+
+      {view.error && (
+        <Notice tone="warning" title="Couldn’t refresh">
+          Showing the last good snapshot. {view.error}
+        </Notice>
+      )}
+
+      {(invalidFlows > 0 || runProblems.length > 0) && (
+        <Notice tone="attention" title="Some flow data needs attention">
+          {problemSummary(invalidFlows, runProblems.length)} Invalid flows stay in the list so you
+          can open and repair them.
+        </Notice>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState />
@@ -65,24 +165,21 @@ export function FlowsDashboard({ host }: PanelHostProps) {
           {totals.runs > 0 && <MetricCards summary={summary} />}
 
           <section className="flows-dashboard-list" data-testid="flows-dashboard-flows">
-            {/* Aligned to the row grid so "43s" is legibly agent time rather
-                than an unexplained number at the end of a line. */}
             <div className="flows-dashboard-row flows-dashboard-head" aria-hidden="true">
               <span />
               <span>Flow</span>
-              <span>Runs when</span>
+              <span>Next run</span>
               <span className="flows-dashboard-row-stat">Runs</span>
               <span className="flows-dashboard-row-stat">Failed</span>
-              <span className="flows-dashboard-row-stat">Agent</span>
+              <span className="flows-dashboard-row-stat">Avg. agent</span>
             </div>
 
             {rows.map((row) => (
               <FlowRowCard
-                key={row.flowPath}
+                key={`${row.state}:${row.flowPath}`}
                 row={row}
                 onOpen={() => {
-                  // The file opens in a tab *behind* this panel, so without
-                  // standing down the panel a click looks like it did nothing.
+                  // Opening behind an opaque panel looked like a dead click.
                   host.openFile(row.flowPath);
                   host.close();
                 }}
@@ -91,8 +188,112 @@ export function FlowsDashboard({ host }: PanelHostProps) {
           </section>
         </>
       )}
+    </DashboardShell>
+  );
+}
+
+function DashboardShell({
+  theme,
+  busy,
+  children,
+}: {
+  theme: FlowThemeId;
+  busy: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <main
+      className="flows-dashboard"
+      data-flow-theme={theme}
+      data-testid="flows-dashboard"
+      aria-busy={busy}
+    >
+      {children}
+    </main>
+  );
+}
+
+function DashboardLoading() {
+  return (
+    <div
+      className="flows-dashboard-loading"
+      data-testid="flows-dashboard-loading"
+      aria-label="Loading flows"
+    >
+      <div className="flows-dashboard-loading-title" />
+      <div className="flows-dashboard-loading-subtitle" />
+      <div className="flows-dashboard-loading-cards">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="flows-dashboard-loading-rows">
+        <span />
+        <span />
+        <span />
+      </div>
     </div>
   );
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <section
+      className="flows-dashboard-load-error"
+      role="alert"
+      data-testid="flows-dashboard-error"
+    >
+      <span className="material-symbols-outlined" aria-hidden="true">
+        cloud_off
+      </span>
+      <h1>Couldn’t load flows</h1>
+      <p className="select-text">{message}</p>
+      <button type="button" className="flows-dashboard-primary-action" onClick={onRetry}>
+        Try again
+      </button>
+    </section>
+  );
+}
+
+function Notice({
+  tone,
+  title,
+  children,
+}: {
+  tone: 'warning' | 'attention';
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <aside className="flows-dashboard-notice" data-tone={tone} role="status">
+      <span className="material-symbols-outlined" aria-hidden="true">
+        {tone === 'warning' ? 'sync_problem' : 'warning'}
+      </span>
+      <div>
+        <strong>{title}</strong>
+        <p>{children}</p>
+      </div>
+    </aside>
+  );
+}
+
+function messageFor(error: unknown): string {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : 'The workspace could not be read.';
+}
+
+function problemSummary(invalidFlows: number, damagedRuns: number): string {
+  const parts: string[] = [];
+  if (invalidFlows > 0) {
+    parts.push(`${invalidFlows} invalid ${invalidFlows === 1 ? 'flow' : 'flows'}`);
+  }
+  if (damagedRuns > 0) {
+    parts.push(
+      `${damagedRuns} damaged run ${damagedRuns === 1 ? 'record was' : 'records were'} skipped`
+    );
+  }
+  return `${parts.join(' · ')}.`;
 }
 
 function subtitleFor(flows: number, runs: number): string {
@@ -102,18 +303,12 @@ function subtitleFor(flows: number, runs: number): string {
   return `${flows} ${flowWord} · ${runs} ${runs === 1 ? 'run' : 'runs'} recorded`;
 }
 
-/**
- * A flow as a row you can act on.
- *
- * Archived rows have no file behind them any more, so they are deliberately
- * inert — offering to open a file that is gone is worse than not offering.
- */
+/** One flow as a complete keyboard target. Archived rows have no file to open. */
 function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
   const openable = row.state !== 'archived';
-  // `scheduleLabel` answers for a toolbar button, so it says "Schedule" when
-  // there is none. On a list a flow nobody automated is "Manual".
   const scheduled = row.schedule?.enabled === true;
-  const schedule = scheduled ? scheduleLabel(row.schedule ?? undefined) : null;
+  const recurrence = scheduled ? scheduleLabel(row.schedule ?? undefined) : null;
+  const title = titleFor(row, openable, recurrence);
 
   return (
     <div
@@ -122,9 +317,7 @@ function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
       data-dashboard-flow={row.flowName}
       role={openable ? 'button' : undefined}
       tabIndex={openable ? 0 : undefined}
-      title={
-        openable ? `${row.displayPath} — open it` : `${row.displayPath} — no longer in the workspace`
-      }
+      title={title}
       onClick={openable ? onOpen : undefined}
       onKeyDown={
         openable
@@ -142,15 +335,31 @@ function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
       <div className="flows-dashboard-row-main">
         <span className="flows-dashboard-row-name">{row.flowName}</span>
         <span className="flows-dashboard-row-sub">
+          <span className="flows-dashboard-status">{statusLabel(row.state)}</span>
+          <span aria-hidden="true"> · </span>
           {row.state === 'archived' ? 'No longer in this workspace' : row.displayPath}
-          {' · '}
-          {asAgo(row.lastRunAt)}
+          {row.state !== 'invalid' && row.state !== 'never-run' && (
+            <>
+              <span aria-hidden="true"> · </span>
+              {asAgo(row.lastRunAt)}
+            </>
+          )}
+          {row.state === 'invalid' && row.problemSummary && (
+            <>
+              <span aria-hidden="true"> · </span>
+              {row.problemSummary}
+            </>
+          )}
         </span>
       </div>
 
-      {schedule ? (
-        <span className="flows-dashboard-pill" data-pill="schedule">
-          {schedule}
+      {row.state === 'invalid' ? (
+        <span className="flows-dashboard-pill" data-pill="invalid">
+          {row.problemCount} {row.problemCount === 1 ? 'problem' : 'problems'}
+        </span>
+      ) : scheduled ? (
+        <span className="flows-dashboard-pill" data-pill="schedule" title={recurrence ?? undefined}>
+          {asNextRun(row.nextRunAt)}
         </span>
       ) : (
         <span className="flows-dashboard-pill" data-pill="manual">
@@ -158,24 +367,43 @@ function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
         </span>
       )}
 
-      <span className="flows-dashboard-row-stat">
+      <span className="flows-dashboard-row-stat" data-stat="runs">
         {row.runs === 0 ? '—' : `${row.runs} ${row.runs === 1 ? 'run' : 'runs'}`}
       </span>
-      <span className="flows-dashboard-row-stat" data-failed={row.failed > 0}>
-        {row.failed > 0 ? `${row.failed} failed` : ''}
+      <span className="flows-dashboard-row-stat" data-stat="failed" data-failed={row.failed > 0}>
+        {row.failed > 0 ? `${row.failed} failed` : '—'}
       </span>
-      <span className="flows-dashboard-row-stat">{row.runs === 0 ? '' : asDuration(row.agentMs)}</span>
+      <span className="flows-dashboard-row-stat" data-stat="average">
+        {row.runs === 0 || row.agentMs === 0 ? '—' : asDuration(row.averageAgentMs)}
+      </span>
     </div>
   );
 }
 
-/**
- * What someone sees before they have anything.
- *
- * The New File menu already offers "Flow" — the manifest contributes it — but
- * nothing in the product ever said so, which left this screen as a blank
- * rectangle with no way forward.
- */
+function titleFor(row: FlowRow, openable: boolean, recurrence: string | null): string {
+  if (!openable) return `${row.displayPath} — no longer in the workspace`;
+  if (row.state === 'invalid') {
+    return `${row.displayPath} — open to fix ${row.problemCount} ${
+      row.problemCount === 1 ? 'problem' : 'problems'
+    }`;
+  }
+  return recurrence ? `${row.displayPath} — ${recurrence}` : `${row.displayPath} — open flow`;
+}
+
+function statusLabel(state: FlowRowState): string {
+  const labels: Record<FlowRowState, string> = {
+    invalid: 'Needs repair',
+    failing: 'Failed',
+    interrupted: 'Interrupted',
+    running: 'Running',
+    cancelled: 'Cancelled',
+    ok: 'Succeeded',
+    'never-run': 'Never run',
+    archived: 'Archived',
+  };
+  return labels[state];
+}
+
 function EmptyState() {
   return (
     <div className="flows-dashboard-empty" data-testid="flows-dashboard-empty">
@@ -188,7 +416,8 @@ function EmptyState() {
         Run it once, or put it on a schedule and let it run without you.
       </p>
       <p className="flows-dashboard-empty-how">
-        Create one from <strong>New File → Flow</strong>, then pick a starter template on the canvas.
+        Create one from <strong>New File → Flow</strong>, then pick a starter template on the
+        canvas.
       </p>
     </div>
   );
@@ -215,8 +444,6 @@ function MetricCards({ summary }: { summary: RunsSummary }) {
         <span className="flows-dashboard-note">Spawned by fan-out steps</span>
       </article>
 
-      {/* Only shown where a flow author stated a baseline — the figure is
-          theirs, and without one there is nothing honest to display. */}
       {summary.savedMs !== null && (
         <article className="flows-dashboard-card" data-metric="saved">
           <span className="flows-dashboard-value">{asDuration(summary.savedMs)}</span>
@@ -233,7 +460,6 @@ function MetricCards({ summary }: { summary: RunsSummary }) {
           {summary.tokens === null ? '—' : summary.tokens.toLocaleString()}
         </span>
         <span className="flows-dashboard-label">Tokens</span>
-        {/* Zero would claim these runs were free; they were not. */}
         <span className="flows-dashboard-note">
           {summary.tokens === null ? 'Not recorded by the host' : 'Across every run'}
         </span>

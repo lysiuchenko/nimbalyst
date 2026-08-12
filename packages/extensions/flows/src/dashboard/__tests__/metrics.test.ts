@@ -75,6 +75,18 @@ describe('summariseRuns', () => {
     expect(summary.subAgents).toBe(4);
   });
 
+  it('does not count a damaged non-array session id field as sub-agents', () => {
+    const summary = summariseRuns([
+      record({
+        nodes: {
+          review: node({ nodeId: 'review', childSessionIds: 'not-an-array' }),
+        } as unknown as RunRecord['nodes'],
+      }),
+    ]);
+
+    expect(summary.subAgents).toBe(0);
+  });
+
   it('admits it does not know the token spend rather than reporting zero', () => {
     expect(summariseRuns([record()]).tokens).toBeNull();
   });
@@ -88,6 +100,15 @@ describe('summariseRuns', () => {
     expect(summary.tokens).toBe(126);
   });
 
+  it('does not let damaged negative token usage reduce a real total', () => {
+    const summary = summariseRuns([
+      record({ usage: { inputTokens: 100, outputTokens: 20 } }),
+      record({ runId: 'b', usage: { inputTokens: -500, outputTokens: 1 } }),
+    ]);
+
+    expect(summary.tokens).toBe(121);
+  });
+
   it('breaks the numbers down per flow, so one bad flow is visible', () => {
     const summary = summariseRuns([
       record({ flowName: 'nightly', flowPath: '/a', status: 'done' }),
@@ -97,6 +118,32 @@ describe('summariseRuns', () => {
 
     const release = summary.byFlow.find((flow) => flow.flowName === 'release');
     expect(release).toMatchObject({ runs: 2, failed: 2 });
+  });
+
+  it('merges absolute, relative, and Windows-separator records before aggregating', () => {
+    const summary = summariseRuns(
+      [
+        record({ flowPath: 'deep/nightly.flow.json', startedAt: 1_000 }),
+        record({
+          runId: 'b',
+          flowPath: '/repo/deep/nightly.flow.json',
+          startedAt: 2_000,
+        }),
+        record({
+          runId: 'c',
+          flowPath: 'deep\\nightly.flow.json',
+          startedAt: 3_000,
+        }),
+      ],
+      '/repo'
+    );
+
+    expect(summary.byFlow).toHaveLength(1);
+    expect(summary.byFlow[0]).toMatchObject({
+      pathKey: 'deep/nightly.flow.json',
+      runs: 3,
+      lastRunAt: 3_000,
+    });
   });
 
   it('has something to say about no runs at all', () => {
@@ -157,6 +204,16 @@ describe('summariseRuns', () => {
     ]);
 
     expect(summary.savedMs).toBe(0);
+  });
+
+  it('ignores a damaged non-finite baseline instead of poisoning the estimate', () => {
+    const summary = summariseRuns([
+      record({ runId: 'a', manualBaselineMinutes: Number.NaN }),
+      record({ runId: 'b', manualBaselineMinutes: 30 }),
+    ]);
+
+    expect(summary.savedMs).toBe(30 * 60_000);
+    expect(summary.baselineRuns).toBe(1);
   });
 
   // Timestamps that are not numbers reached the tiles as NaN, which then

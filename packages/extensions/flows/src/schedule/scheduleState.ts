@@ -10,8 +10,9 @@ import type { ScheduleState } from './types';
  * machine's clock into everybody's repository.
  */
 export function statePathFor(flowPath: string): string {
-  const directory = flowPath.slice(0, Math.max(flowPath.lastIndexOf('/'), 0));
-  const name = flowPath.slice(flowPath.lastIndexOf('/') + 1);
+  const portablePath = flowPath.replace(/\\/g, '/');
+  const directory = portablePath.slice(0, Math.max(portablePath.lastIndexOf('/'), 0));
+  const name = portablePath.slice(portablePath.lastIndexOf('/') + 1);
   const prefix = directory ? `${directory}/` : '';
   return `${prefix}.flow-runs/${name}.schedule.json`;
 }

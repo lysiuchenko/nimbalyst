@@ -1,9 +1,12 @@
 import type { RunRecord } from '../runner/runStore';
 import type { NodeExecution } from '../runner/types';
+import { flowPathKey } from './flowPath';
 
 export interface FlowMetrics {
   flowName: string;
   flowPath: string;
+  /** Canonical workspace-relative identity shared by all path spellings. */
+  pathKey: string;
   runs: number;
   failed: number;
   agentMs: number;
@@ -15,7 +18,14 @@ export interface FlowMetrics {
 }
 
 export interface RunsSummary {
-  totals: { runs: number; done: number; failed: number; interrupted: number };
+  totals: {
+    runs: number;
+    done: number;
+    failed: number;
+    interrupted: number;
+    running: number;
+    cancelled: number;
+  };
   /** Time nodes worked, excluding time a person was deciding. */
   agentMs: number;
   /** Time spent waiting at human gates — literally how long people blocked flows. */
@@ -55,8 +65,15 @@ function isHumanNode(node: NodeExecution & { type?: string }): boolean {
  * absent: nothing in a run record knows how long the work would have taken by
  * hand, and inventing a multiplier would make the rest untrustworthy too.
  */
-export function summariseRuns(records: RunRecord[]): RunsSummary {
-  const totals = { runs: records.length, done: 0, failed: 0, interrupted: 0 };
+export function summariseRuns(records: RunRecord[], workspaceRoot = ''): RunsSummary {
+  const totals = {
+    runs: records.length,
+    done: 0,
+    failed: 0,
+    interrupted: 0,
+    running: 0,
+    cancelled: 0,
+  };
   const byFlow = new Map<string, FlowMetrics>();
   let agentMs = 0;
   let humanMs = 0;
@@ -70,10 +87,14 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
     if (record.status === 'done') totals.done += 1;
     if (record.status === 'failed') totals.failed += 1;
     if (record.status === 'interrupted') totals.interrupted += 1;
+    if (record.status === 'running') totals.running += 1;
+    if (record.status === 'cancelled') totals.cancelled += 1;
 
-    const flow = byFlow.get(record.flowPath) ?? {
+    const pathKey = flowPathKey(record.flowPath, workspaceRoot);
+    const flow = byFlow.get(pathKey) ?? {
       flowName: record.flowName,
       flowPath: record.flowPath,
+      pathKey,
       runs: 0,
       failed: 0,
       agentMs: 0,
@@ -89,6 +110,8 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
     if (Number.isFinite(record.startedAt) && record.startedAt >= flow.lastRunAt) {
       flow.lastRunAt = record.startedAt;
       flow.lastStatus = record.status;
+      flow.flowName = record.flowName;
+      flow.flowPath = record.flowPath;
     }
 
     for (const node of Object.values(record.nodes ?? {})) {
@@ -101,24 +124,29 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
         agentMs += ms;
         flow.agentMs += ms;
       }
-      subAgents += node.childSessionIds?.length ?? 0;
+      subAgents += Array.isArray(node.childSessionIds) ? node.childSessionIds.length : 0;
     }
 
-    if (record.manualBaselineMinutes !== undefined) {
+    if (
+      Number.isFinite(record.manualBaselineMinutes) &&
+      (record.manualBaselineMinutes as number) > 0
+    ) {
       baselineRuns += 1;
       const humanForRun = Object.values(record.nodes ?? {})
         .filter((node) => isHumanNode(node as NodeExecution & { type?: string }))
         .reduce((total, node) => total + durationOf(node), 0);
       // Never negative: a run where the people took longer than the manual
       // baseline saved nothing, it did not cost time back.
-      savedMs += Math.max(0, record.manualBaselineMinutes * 60_000 - humanForRun);
+      savedMs += Math.max(0, (record.manualBaselineMinutes as number) * 60_000 - humanForRun);
     }
 
-    const used = (record.usage?.inputTokens ?? 0) + (record.usage?.outputTokens ?? 0);
+    const inputTokens = finiteNonNegative(record.usage?.inputTokens);
+    const outputTokens = finiteNonNegative(record.usage?.outputTokens);
+    const used = inputTokens + outputTokens;
     if (used > 0) sawUsage = true;
     tokens += used;
 
-    byFlow.set(record.flowPath, flow);
+    byFlow.set(pathKey, flow);
   }
 
   return {
@@ -131,4 +159,8 @@ export function summariseRuns(records: RunRecord[]): RunsSummary {
     baselineRuns,
     byFlow: [...byFlow.values()].sort((a, b) => b.runs - a.runs),
   };
+}
+
+function finiteNonNegative(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
 }
