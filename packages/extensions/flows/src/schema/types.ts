@@ -122,6 +122,13 @@ export interface FlowEdge {
   to: string;
   /** Must match the `output` declared by the `from` node. */
   port?: string;
+  /**
+   * When this edge fires. Absent means `success` — the only meaning edges had
+   * before conditions existed, so every existing flow keeps its behaviour.
+   * `failure` routes a failed step (a rejected gate included) to a handler
+   * instead of failing the run.
+   */
+  on?: 'success' | 'failure';
 }
 
 export interface Flow {

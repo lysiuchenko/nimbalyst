@@ -1,4 +1,4 @@
-import type { Flow, FlowNode, NodeType } from '../schema/types';
+import type { Flow, FlowEdge, FlowNode, NodeType } from '../schema/types';
 import { validateFlow } from '../schema/validate';
 import { nodeDefinitionHash } from './resume';
 import { interpolate, listReferences, UnresolvedReferenceError } from './interpolate';
@@ -93,23 +93,28 @@ export class DagFlowRunner implements FlowRunner {
     notifyState();
 
     const byId = new Map(resolvedFlow.nodes.map((node) => [node.id, node]));
-    const children = new Map<string, string[]>();
+    // Whole edges, not just target ids: which way a completion routes depends
+    // on each edge's condition.
+    const childEdges = new Map<string, FlowEdge[]>();
     const pending = new Map<string, number>();
     for (const node of resolvedFlow.nodes) {
-      children.set(node.id, []);
+      childEdges.set(node.id, []);
       pending.set(node.id, 0);
     }
     for (const edge of resolvedFlow.edges) {
-      children.get(edge.from)!.push(edge.to);
+      childEdges.get(edge.from)!.push(edge);
       pending.set(edge.to, (pending.get(edge.to) ?? 0) + 1);
     }
 
     // A seeded node is already finished: release its children before the loop
-    // starts, exactly as if it had just completed.
+    // starts, exactly as if it had just completed. Seeds are always successes
+    // (`planResume` reuses only done nodes), so failure edges out of them stay
+    // dead.
     for (const node of resolvedFlow.nodes) {
       if (!seed?.executions[node.id]) continue;
-      for (const child of children.get(node.id) ?? []) {
-        pending.set(child, (pending.get(child) ?? 1) - 1);
+      for (const edge of childEdges.get(node.id) ?? []) {
+        if (edge.on === 'failure') continue;
+        pending.set(edge.to, (pending.get(edge.to) ?? 1) - 1);
       }
     }
 
@@ -119,14 +124,30 @@ export class DagFlowRunner implements FlowRunner {
     const running = new Map<string, Promise<void>>();
     let failed = false;
 
-    const skipDescendants = (nodeId: string) => {
-      const queue = [...(children.get(nodeId) ?? [])];
+    // A node with a dead incoming edge can never satisfy its AND-join, and a
+    // skipped node can neither succeed nor fail — so every edge out of it is
+    // dead too, whatever its condition.
+    const skipCascade = (startId: string) => {
+      const queue = [startId];
       while (queue.length > 0) {
         const id = queue.shift()!;
         const execution = state.nodes[id];
         if (execution.status !== 'queued') continue;
         execution.status = 'skipped';
-        queue.push(...(children.get(id) ?? []));
+        queue.push(...(childEdges.get(id) ?? []).map((edge) => edge.to));
+      }
+    };
+
+    /** Fire the edges matching an outcome; the rest are dead ends. */
+    const routeCompletion = (nodeId: string, outcome: 'success' | 'failure') => {
+      for (const edge of childEdges.get(nodeId) ?? []) {
+        const matches = (edge.on ?? 'success') === outcome;
+        if (!matches) {
+          skipCascade(edge.to);
+          continue;
+        }
+        pending.set(edge.to, (pending.get(edge.to) ?? 1) - 1);
+        if (pending.get(edge.to) === 0) ready.push(edge.to);
       }
     };
 
@@ -175,19 +196,26 @@ export class DagFlowRunner implements FlowRunner {
         emit({ type: 'node-finished', runId, nodeId, at: finishedAt, output: result.output });
         notifyState();
 
-        for (const child of children.get(nodeId) ?? []) {
-          pending.set(child, (pending.get(child) ?? 1) - 1);
-          if (pending.get(child) === 0) ready.push(child);
-        }
+        routeCompletion(nodeId, 'success');
       } catch (error) {
         const finishedAt = now();
         const message = error instanceof Error ? error.message : String(error);
-        failed = true;
         execution.status = 'failed';
         execution.finishedAt = finishedAt;
         execution.error = message;
+
+        // A failure with a handler is a branch taken, not a run lost. The node
+        // still records `failed` — that is what happened — but only a failure
+        // nothing catches marks the run itself failed.
+        const handled = (childEdges.get(nodeId) ?? []).some((edge) => edge.on === 'failure');
+        if (!handled) failed = true;
+
+        // The handler's one input is what went wrong, published as the
+        // implicit `error` port so it can read {{node.error}}.
+        state.outputs[nodeId] = { ...state.outputs[nodeId], error: message };
+
         emit({ type: 'node-failed', runId, nodeId, at: finishedAt, error: message });
-        skipDescendants(nodeId);
+        routeCompletion(nodeId, 'failure');
         notifyState();
       }
     };
@@ -276,7 +304,9 @@ function addUsage(total: TokenUsage, usage?: TokenUsage): void {
 function preflight(flow: Flow, variables: Record<string, string>): void {
   const outputsByNode: Record<string, Record<string, string>> = {};
   for (const node of flow.nodes) {
-    if (node.output !== undefined) outputsByNode[node.id] = { [node.output]: '' };
+    // `error` is a port every node has: a failure publishes its message there,
+    // which is what a failure-edge handler reads via {{node.error}}.
+    outputsByNode[node.id] = { error: '', ...(node.output !== undefined ? { [node.output]: '' } : {}) };
   }
 
   for (const node of flow.nodes) {

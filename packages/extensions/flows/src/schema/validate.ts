@@ -336,6 +336,11 @@ function validateEdges(raw: unknown, nodes: FlowNode[] | undefined, fail: Fail):
       return;
     }
 
+    if (entry.on !== undefined && entry.on !== 'success' && entry.on !== 'failure') {
+      fail(`${path}.on`, `edge condition must be "success" or "failure", got ${JSON.stringify(entry.on)}`);
+      return;
+    }
+
     if (entry.port !== undefined) {
       const source = byId.get(entry.from as string);
       if (!isNonEmptyString(entry.port)) {
@@ -349,10 +354,17 @@ function validateEdges(raw: unknown, nodes: FlowNode[] | undefined, fail: Fail):
         );
         return;
       }
+      // A failed node published nothing, so an output name on a failure edge
+      // is a contradiction worth hearing about, not silently ignoring.
+      if (entry.on === 'failure') {
+        fail(`${path}.port`, 'a failure edge cannot carry a port — the failed node published no output');
+        return;
+      }
     }
 
     const edge: FlowEdge = { from: entry.from as string, to: entry.to as string };
     if (entry.port !== undefined) edge.port = entry.port as string;
+    if (entry.on !== undefined) edge.on = entry.on as FlowEdge['on'];
     edges.push(edge);
   });
 

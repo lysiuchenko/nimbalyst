@@ -218,3 +218,38 @@ describe('placeNewNode', () => {
     });
   });
 });
+
+describe('conditional edges on the canvas', () => {
+  const branching: Flow = {
+    version: 1,
+    name: 'routes',
+    nodes: [
+      { id: 'test', type: 'shell', run: 'npm test' },
+      { id: 'fix', type: 'agent', prompt: 'fix {{test.error}}' },
+    ],
+    edges: [{ from: 'test', to: 'fix', on: 'failure' }],
+    variables: {},
+  } as Flow;
+
+  it('marks a failure edge so the canvas can draw it differently', () => {
+    const graph = flowToGraph(branching);
+
+    expect(graph.edges[0].data).toMatchObject({ on: 'failure' });
+    expect(graph.edges[0].className).toContain('flow-edge-failure');
+    expect(graph.edges[0].label).toBe('on failure');
+  });
+
+  it('round-trips the condition back into the file', () => {
+    const graph = flowToGraph(branching);
+
+    expect(graphToFlow(branching, graph).edges).toEqual([
+      { from: 'test', to: 'fix', on: 'failure' },
+    ]);
+  });
+
+  it('leaves plain edges exactly as they were', () => {
+    const plain: Flow = { ...branching, edges: [{ from: 'test', to: 'fix' }] } as Flow;
+
+    expect(graphToFlow(plain, flowToGraph(plain)).edges).toEqual([{ from: 'test', to: 'fix' }]);
+  });
+});

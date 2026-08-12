@@ -212,6 +212,27 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [markDirty, refreshAnalysis]
   );
 
+  // Double-click flips an edge between the success path and the failure path.
+  // A failure edge cannot carry a port (the validator refuses the pair), so
+  // flipping deliberately drops any port label rather than smuggling it along.
+  const onEdgeDoubleClick = useCallback(
+    (_event: React.MouseEvent, edge: FlowCanvasEdge) => {
+      remember();
+      setEdges((edges) =>
+        edges.map((candidate) => {
+          if (candidate.id !== edge.id) return candidate;
+          const failure = (candidate.data as { on?: string } | undefined)?.on === 'failure';
+          return failure
+            ? { ...candidate, data: {}, className: undefined, label: undefined }
+            : { ...candidate, data: { on: 'failure' }, className: 'flow-edge-failure', label: 'on failure' };
+        })
+      );
+      markDirty();
+      refreshAnalysis();
+    },
+    [markDirty, refreshAnalysis, remember, setEdges]
+  );
+
   const addNodeOfType = useCallback(
     (type: NodeType) => {
       const existing = getNodes();
@@ -1043,6 +1064,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onEdgeDoubleClick={onEdgeDoubleClick}
             onConnectEnd={onConnectEnd}
             deleteKeyCode={['Backspace', 'Delete']}
             proOptions={{ hideAttribution: false }}

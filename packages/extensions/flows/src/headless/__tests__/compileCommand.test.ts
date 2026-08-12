@@ -97,3 +97,22 @@ describe('compileToSlashCommand', () => {
     expect(() => compileToSlashCommand(cyclic, 'x.flow.json')).toThrow('cycle');
   });
 });
+
+describe('compiling conditional edges', () => {
+  it('turns a failure edge into an explicit condition, because the CLI has no runtime', () => {
+    const compiled = compileToSlashCommand({
+      version: 1,
+      name: 'routes',
+      nodes: [
+        { id: 'test', type: 'shell', run: 'npm test' },
+        { id: 'fix', type: 'agent', prompt: 'fix it' },
+      ],
+      edges: [{ from: 'test', to: 'fix', on: 'failure' }],
+      variables: {},
+    } as never, 'routes.flow.json');
+
+    expect(compiled).toContain('Only if a step above failed');
+    // And an unconditional step carries no such prefix.
+    expect(compiled.split('### test')[1].split('###')[0]).not.toContain('Only if');
+  });
+});

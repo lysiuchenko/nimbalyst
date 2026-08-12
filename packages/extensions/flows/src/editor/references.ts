@@ -41,15 +41,25 @@ export function referencesByNode(flow: Flow): Record<string, string[]> {
   const variables = Object.keys(flow.variables);
   const outputOf = new Map(flow.nodes.filter((n) => n.output).map((n) => [n.id, n.output!]));
 
+  // A failure edge's handler reads what went wrong: `error` is an implicit
+  // port every node publishes when it fails, so a handler may reference
+  // `{{parent.error}}` for any parent it is wired to by a failure edge.
+  const failureParents = new Map<string, string[]>();
+  for (const edge of flow.edges) {
+    if (edge.on !== 'failure') continue;
+    failureParents.set(edge.to, [...(failureParents.get(edge.to) ?? []), edge.from]);
+  }
+
   return Object.fromEntries(
     flow.nodes.map((node) => {
       const upstream = [...ancestorsOf(flow, node.id)]
         .filter((id) => outputOf.has(id))
         .map((id) => `${id}.${outputOf.get(id)}`);
+      const errors = (failureParents.get(node.id) ?? []).map((id) => `${id}.error`);
       // A fan-out's prompt is written for one sub-agent, so `item` is a real
       // input there even though it exists nowhere else in the flow.
       const own = node.type === 'fan-out' ? ['item'] : [];
-      return [node.id, [...own, ...upstream, ...variables]];
+      return [node.id, [...own, ...errors, ...upstream, ...variables]];
     })
   );
 }

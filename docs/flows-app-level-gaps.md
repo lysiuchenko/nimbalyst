@@ -197,8 +197,16 @@ week of use, and today the answer is to write a `shell` node and hope.
 > finished steps' outputs (`planResume` — reuse requires the recorded node to be
 > done, its definition unchanged, and all parents reused; an edit cascades
 > downstream, cosmetic moves invalidate nothing). Reused steps carry no
-> timings or usage, so the dashboard does not double-count. Conditional
-> *edges* remain open.
+> timings or usage, so the dashboard does not double-count.
+>
+> **Fixed: conditional edges.** An edge can carry `on: "failure"`, which
+> routes a failed step — a rejected gate included — to a handler instead of
+> failing the run. The handler reads what went wrong via the implicit
+> `{{step.error}}` port; a handled failure records the node as `failed` but
+> the run as `done`; the success path is skipped, AND-joins preserved.
+> Double-clicking an edge on the canvas toggles it (dashed, "on failure").
+> Compiled slash commands render the condition as prose. Expression
+> conditions (`when: {{x}} == "y"`) and retry counts remain open.
 
 ### 3.4 A run has no trace view
 

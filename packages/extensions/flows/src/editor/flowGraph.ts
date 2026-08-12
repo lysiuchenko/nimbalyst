@@ -47,6 +47,14 @@ export function flowToGraph(flow: Flow): FlowGraph {
         target: edge.to,
       };
       if (edge.port !== undefined) canvasEdge.label = edge.port;
+      // A failure edge looks and reads differently: the label wins over a port
+      // (the two cannot coexist — the validator refuses a port on a failure
+      // edge), and the class lets the stylesheet draw it as the exception path.
+      if (edge.on === 'failure') {
+        canvasEdge.data = { on: 'failure' };
+        canvasEdge.className = 'flow-edge-failure';
+        canvasEdge.label = 'on failure';
+      }
       return canvasEdge;
     }),
   };
@@ -108,8 +116,14 @@ export function graphToFlow(base: Flow, graph: FlowGraph): Flow {
     seen.add(key);
 
     const edge: FlowEdge = { from: canvasEdge.source, to: canvasEdge.target };
-    const port = typeof canvasEdge.label === 'string' ? canvasEdge.label : portByEdge.get(key);
-    if (port !== undefined) edge.port = port;
+    const failure = (canvasEdge.data as { on?: string } | undefined)?.on === 'failure';
+    if (failure) {
+      // The "on failure" label is presentation, not a port name.
+      edge.on = 'failure';
+    } else {
+      const port = typeof canvasEdge.label === 'string' ? canvasEdge.label : portByEdge.get(key);
+      if (port !== undefined) edge.port = port;
+    }
     edges.push(edge);
   }
 

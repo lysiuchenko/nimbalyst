@@ -64,7 +64,18 @@ export function compileToSlashCommand(flow: Flow, flowPath: string): string {
     lines.push(`- type: \`${node.type}\``);
     if (parents.length > 0) lines.push(`- after: ${parents.join(', ')}`);
     if (node.output) lines.push(`- publishes: \`{{${node.id}.${node.output}}}\``);
-    lines.push('', instructionFor(node), '');
+    // The compiled prompt is run by a CLI with no scheduler, so a condition on
+    // an edge has to become a condition in prose.
+    const failureOnly =
+      resolved.edges.some((edge) => edge.to === node.id) &&
+      resolved.edges.filter((edge) => edge.to === node.id).every((edge) => edge.on === 'failure');
+    lines.push(
+      '',
+      failureOnly
+        ? `**Only if a step above failed:** ${instructionFor(node)}`
+        : instructionFor(node),
+      ''
+    );
   }
 
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n')}\n`;

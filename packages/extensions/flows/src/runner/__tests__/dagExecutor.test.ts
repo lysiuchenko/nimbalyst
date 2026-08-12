@@ -384,3 +384,129 @@ describe('DagFlowRunner — resuming from a seed', () => {
     }
   });
 });
+
+describe('DagFlowRunner — conditional edges', () => {
+  /** `test` fails; `fix` handles it; `ship` is the success path. */
+  const branching = (edges: Flow['edges']) =>
+    flowOf(
+      [
+        agent('test', { output: 'log' }),
+        agent('fix'),
+        agent('ship'),
+      ],
+      edges
+    );
+
+  const failingExecutor =
+    (failures: string[], order: string[] = []): NodeExecutor =>
+    async (ctx) => {
+      order.push(ctx.node.id);
+      if (failures.includes(ctx.node.id)) throw new Error(`${ctx.node.id} broke`);
+      return { output: `${ctx.node.id}-output` };
+    };
+
+  it('routes a failure to its handler and skips the success path', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor(['test'], order) });
+
+    const state = await runner.run(
+      branching([
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'test', to: 'ship' },
+      ])
+    );
+
+    expect(order).toEqual(['test', 'fix']);
+    expect(state.nodes.test.status).toBe('failed');
+    expect(state.nodes.fix.status).toBe('done');
+    expect(state.nodes.ship.status).toBe('skipped');
+  });
+
+  it('a handled failure does not fail the run', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor(['test']) });
+
+    const state = await runner.run(
+      branching([
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'test', to: 'ship' },
+      ])
+    );
+
+    expect(state.status).toBe('done');
+  });
+
+  it('skips the handler when the step succeeds', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor([], order) });
+
+    const state = await runner.run(
+      branching([
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'test', to: 'ship' },
+      ])
+    );
+
+    expect(order.sort()).toEqual(['ship', 'test']);
+    expect(state.nodes.fix.status).toBe('skipped');
+    expect(state.status).toBe('done');
+  });
+
+  it('an unhandled failure still fails the run', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor(['test']) });
+
+    const state = await runner.run(branching([{ from: 'test', to: 'ship' }]));
+
+    expect(state.status).toBe('failed');
+  });
+
+  it('a handler that itself fails, unhandled, fails the run', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor(['test', 'fix']) });
+
+    const state = await runner.run(
+      branching([
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'test', to: 'ship' },
+      ])
+    );
+
+    expect(state.status).toBe('failed');
+  });
+
+  it('hands the error message to the handler as {{node.error}}', async () => {
+    let seen = '';
+    const runner = new DagFlowRunner({
+      defaultExecutor: async (ctx) => {
+        if (ctx.node.id === 'test') throw new Error('assertion blew up');
+        seen = ctx.resolved.prompt;
+        return { output: 'x' };
+      },
+    });
+    const wired = flowOf(
+      [agent('test'), agent('fix', { prompt: 'repair this: {{test.error}}' })],
+      [{ from: 'test', to: 'fix', on: 'failure' }]
+    );
+
+    const state = await runner.run(wired);
+
+    expect(seen).toBe('repair this: assertion blew up');
+    expect(state.status).toBe('done');
+  });
+
+  it('a skipped handler cascades: nothing downstream of it runs', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: failingExecutor([], order) });
+    const chainAfterHandler = flowOf(
+      [agent('test'), agent('fix'), agent('report')],
+      [
+        { from: 'test', to: 'fix', on: 'failure' },
+        { from: 'fix', to: 'report' },
+      ]
+    );
+
+    const state = await runner.run(chainAfterHandler);
+
+    expect(order).toEqual(['test']);
+    expect(state.nodes.fix.status).toBe('skipped');
+    expect(state.nodes.report.status).toBe('skipped');
+  });
+});

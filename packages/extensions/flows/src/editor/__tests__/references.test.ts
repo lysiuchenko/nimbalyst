@@ -119,3 +119,38 @@ describe('issuesByNode', () => {
     expect(issuesByNode(cyclic)).toEqual({});
   });
 });
+
+describe('failure-edge references', () => {
+  const routed: Flow = {
+    version: 1,
+    name: 'routes',
+    nodes: [
+      { id: 'test', type: 'shell', run: 'npm test' },
+      { id: 'fix', type: 'agent', prompt: 'repair {{test.error}}' },
+    ],
+    edges: [{ from: 'test', to: 'fix', on: 'failure' }],
+    variables: {},
+  } as Flow;
+
+  it('offers {{parent.error}} to a failure handler', () => {
+    expect(referencesByNode(routed).fix).toContain('test.error');
+  });
+
+  // The canvas flagged a working reference as invalid — the runtime published
+  // the implicit error port, the static checker did not know it existed.
+  it('does not flag a handler that reads its parent error', () => {
+    expect(issuesByNode(routed)).toEqual({});
+  });
+
+  it('still refuses error from a node that is not a failure parent', () => {
+    const stranger: Flow = {
+      ...routed,
+      nodes: [
+        ...routed.nodes,
+        { id: 'other', type: 'agent', prompt: 'reads {{test.error}} without an edge' },
+      ],
+    } as Flow;
+
+    expect(issuesByNode(stranger).other?.[0]).toContain('not available');
+  });
+});

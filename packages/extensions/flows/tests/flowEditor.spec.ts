@@ -662,3 +662,107 @@ test.describe('resuming a failed run', () => {
     expect(records[0].nodes.save).toMatchObject({ status: 'done', reused: true });
   });
 });
+
+/**
+ * Conditional edges, proven on disk.
+ *
+ * A rejected gate is a failure. With a failure edge to an apology step and a
+ * success edge to a celebration step, rejecting must produce exactly one file
+ * — and the run must read Done, because the failure was handled.
+ */
+test.describe('a failure edge routes a rejection', () => {
+  let flows: FlowsApp;
+
+  const routed = {
+    version: 1,
+    name: 'routes-on-rejection',
+    variables: {},
+    nodes: [
+      { id: 'gate', type: 'human-gate', message: 'Ship it?' },
+      { id: 'celebrate', type: 'write-file', path: 'shipped.md', content: 'shipped' },
+      { id: 'apologise', type: 'write-file', path: 'declined.md', content: '{{gate.error}}' },
+    ],
+    edges: [
+      { from: 'gate', to: 'celebrate' },
+      { from: 'gate', to: 'apologise', on: 'failure' },
+    ],
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'routed.flow.json': routed }));
+    await openFlow(flows.page, 'routed.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the failure edge is drawn as the exception path', async () => {
+    const edge = flows.page.locator('.react-flow__edge.flow-edge-failure');
+
+    await expect(edge).toHaveCount(1);
+    await expect(edge).toContainText('on failure');
+  });
+
+  test('rejecting takes the failure branch, and the handled run reads done', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await flows.page.locator('[data-testid="flow-gate-reject"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.apologise), { timeout: 60_000 })
+      .toBe('done');
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.celebrate), { timeout: 60_000 })
+      .toBe('skipped');
+
+    // Exactly one branch ran, and the handler read the gate's error.
+    expect(fs.existsSync(path.join(flows.workspace, 'shipped.md'))).toBe(false);
+    expect(fs.readFileSync(path.join(flows.workspace, 'declined.md'), 'utf8')).toContain('gate');
+
+    // Handled failure: the record says done, while the gate itself says failed.
+    const records = flows
+      .runRecords()
+      .map((name) => JSON.parse(fs.readFileSync(path.join(flows.workspace, '.flow-runs', name), 'utf8')));
+    expect(records[0].status).toBe('done');
+    expect(records[0].nodes.gate.status).toBe('failed');
+  });
+
+  test('double-clicking an edge toggles it and the change reaches the file', async () => {
+    // The success edge gate->celebrate becomes a failure edge. Dispatched
+    // rather than clicked: an SVG edge is a thin stroke whose bounding-box
+    // centre can sit under the run panel, so geometric clicks are a lottery.
+    await flows.page
+      .locator('.react-flow__edge:not(.flow-edge-failure)')
+      .first()
+      .dispatchEvent('dblclick');
+    await expect(flows.page.locator('.react-flow__edge.flow-edge-failure')).toHaveCount(2);
+
+    await flows.save();
+    // save() fires the IPC and returns; the write itself lands asynchronously.
+    await expect
+      .poll(
+        () =>
+          (flows.readFlow('routed.flow.json') as { edges: Array<{ to: string; on?: string }> }).edges.find(
+            (edge) => edge.to === 'celebrate'
+          )?.on,
+        { timeout: 15_000 }
+      )
+      .toBe('failure');
+
+    // ...and toggling back restores a plain edge, in the file too.
+    await flows.page
+      .locator('.react-flow__edge.flow-edge-failure')
+      .first()
+      .dispatchEvent('dblclick');
+    await flows.save();
+    await expect
+      .poll(
+        () =>
+          (flows.readFlow('routed.flow.json') as { edges: Array<{ on?: string }> }).edges.filter(
+            (edge) => edge.on === 'failure'
+          ).length,
+        { timeout: 15_000 }
+      )
+      .toBe(1);
+  });
+});
