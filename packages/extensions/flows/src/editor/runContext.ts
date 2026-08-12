@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { ChildProgress, NodeStatus } from '../runner/types';
+import type { ChildProgress, NodeExecution, NodeStatus } from '../runner/types';
 
 /**
  * Per-node run status, published to the node components.
@@ -24,4 +24,18 @@ export const NodeChildrenContext = createContext<Record<string, ChildProgress[]>
 
 export function useNodeChildren(nodeId: string): ChildProgress[] {
   return useContext(NodeChildrenContext)[nodeId] ?? [];
+}
+
+/**
+ * Each node's live execution — output and error included — as the run
+ * progresses. What lets a card answer "what did this step just produce?"
+ * without opening a session or waiting for the history table.
+ *
+ * Same rule as status: never written into the xyflow store, because run state
+ * must not dirty the document.
+ */
+export const NodeResultsContext = createContext<Record<string, NodeExecution>>({});
+
+export function useNodeResult(nodeId: string): NodeExecution | undefined {
+  return useContext(NodeResultsContext)[nodeId];
 }

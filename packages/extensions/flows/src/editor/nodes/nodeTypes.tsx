@@ -4,7 +4,7 @@ import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '.
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
-import { useNodeStatus } from '../runContext';
+import { useNodeResult, useNodeStatus } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
 import { configBadges, summarize } from './summarize';
 
@@ -94,6 +94,8 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const { updateNodeData } = useReactFlow<FlowCanvasNode>();
   const node = data.node;
   const status = useNodeStatus(id);
+  const result = useNodeResult(id);
+  const [resultOpen, setResultOpen] = useState(false);
   const catalog = useCatalog();
   const references = useReferences(id);
   const issues = useNodeIssues(id);
@@ -201,6 +203,26 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             </div>
           )}
         </div>
+      )}
+
+      {/* What the step produced, the moment it produced it. Clamped to two
+          lines; a click swaps clamp for scroll. Errors take the same strip so
+          a failure is readable where it happened, not only in the history. */}
+      {result && (result.output || result.error) && (
+        <button
+          type="button"
+          className="flow-node-result"
+          data-node-result={id}
+          data-kind={result.error ? 'error' : 'output'}
+          data-expanded={resultOpen}
+          title={resultOpen ? 'Collapse' : 'Expand'}
+          onClick={(event) => {
+            event.stopPropagation();
+            setResultOpen((was) => !was);
+          }}
+        >
+          <pre>{result.error ?? result.output}</pre>
+        </button>
       )}
 
       {open && (

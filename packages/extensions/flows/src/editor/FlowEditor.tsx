@@ -42,7 +42,7 @@ import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
-import { NodeChildrenContext, RunStatusContext } from './runContext';
+import { NodeChildrenContext, NodeResultsContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
@@ -1092,6 +1092,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <NodeIssuesContext.Provider value={analysis.issues}>
           <NodeChildrenContext.Provider value={run.children}>
           <RunStatusContext.Provider value={run.statuses}>
+          <NodeResultsContext.Provider value={run.liveNodes}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -1147,6 +1148,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </p>
             </div>
           )}
+          </NodeResultsContext.Provider>
           </RunStatusContext.Provider>
           </NodeChildrenContext.Provider>
           </NodeIssuesContext.Provider>

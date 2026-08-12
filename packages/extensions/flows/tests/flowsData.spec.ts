@@ -790,4 +790,19 @@ test.describe('the gate shows the work it gates', () => {
       .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.approve), { timeout: 60_000 })
       .toBe('done');
   });
+
+  // Runs after the gate test on purpose: the run has finished, and each card
+  // should still be wearing what its step produced.
+  test('each card shows its live output on the canvas, expandable in place', async () => {
+    const strip = flows.page.locator('[data-node-result="save"]');
+
+    await expect(strip).toBeVisible();
+    await expect(strip).toContainText('wrote report.md');
+    await expect(strip).toHaveAttribute('data-kind', 'output');
+
+    await strip.click();
+    await expect(strip).toHaveAttribute('data-expanded', 'true');
+    await strip.click();
+    await expect(strip).toHaveAttribute('data-expanded', 'false');
+  });
 });

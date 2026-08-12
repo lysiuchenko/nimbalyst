@@ -346,6 +346,48 @@
   overflow-y: auto;
 }
 
+/* The step's live product. Two clamped lines at rest; expanded, a scrollable
+   pane. A button, because the whole strip is one toggle target. */
+.flow-node-result {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--flow-border);
+  border-radius: 6px;
+  background: var(--flow-bg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.flow-node-result pre {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--flow-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.flow-node-result[data-expanded='true'] pre {
+  display: block;
+  -webkit-line-clamp: unset;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.flow-node-result[data-kind='error'] {
+  border-color: color-mix(in srgb, var(--flow-danger) 40%, transparent);
+}
+
+.flow-node-result[data-kind='error'] pre {
+  color: var(--flow-danger);
+}
+
 .flow-node-summary {
   display: flex;
   flex-direction: column;
