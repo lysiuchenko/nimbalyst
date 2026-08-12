@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { createWorkspace, launchFlowsApp, openFlow, type FlowsApp } from './helpers';
+import { createWorkspace, launchFlowsApp, nodeStatuses, openFlow, type FlowsApp } from './helpers';
 
 /**
  * History and dashboard behaviour, driven by seeded run records.
@@ -414,6 +414,19 @@ test.describe('the dashboard, from seeded records', () => {
     });
   });
 
+  test('only rows that could actually run offer a Run button', async () => {
+    const rows = flows.page.locator('[data-flow-state]');
+    const buttons = flows.page.locator('[data-testid="flows-dashboard-run"]');
+
+    // Present on ok / failing / never-run; absent on invalid, archived and
+    // running rows, where it could only mislead.
+    const eligible = await flows.page
+      .locator('[data-flow-state="ok"], [data-flow-state="failing"], [data-flow-state="never-run"]')
+      .count();
+    expect(await buttons.count()).toBe(eligible);
+    expect(await rows.count()).toBeGreaterThan(eligible);
+  });
+
   // Last in this block: it navigates away from the panel.
   test('a row opens its flow', async () => {
     await flows.page.locator('[data-dashboard-flow="quiet"]').click();
@@ -597,5 +610,61 @@ test.describe('pickers offer what the repository actually has', () => {
 
     await option.click();
     await expect(node.locator('.flow-picker-value')).toContainText('release-notes');
+  });
+});
+
+/**
+ * The Flows home is a launcher, not just a report: Run on a row opens the flow
+ * and starts it, with no click on the editor's own Run button. Proven by the
+ * artifact the run writes.
+ */
+test.describe('running a flow from the Flows home', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'hands-free.flow.json': {
+          version: 1,
+          name: 'hands-free',
+          variables: { text: 'launched-from-the-panel' },
+          nodes: [{ id: 'save', type: 'write-file', path: 'launched.md', content: '{{text}}' }],
+          edges: [],
+        },
+      })
+    );
+    await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('Run on a row starts the run in the editor and the artifact lands', async () => {
+    const row = flows.page.locator('[data-dashboard-flow="hands-free"]');
+    await expect(row).toBeVisible({ timeout: 30_000 });
+
+    await row.locator('[data-testid="flows-dashboard-run"]').click();
+
+    // The editor takes over...
+    await expect(flows.page.locator('[data-testid="flow-editor"]')).toBeVisible({
+      timeout: 30_000,
+    });
+    // ...and the run happens without the editor's Run button being touched.
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.save), { timeout: 60_000 })
+      .toBe('done');
+    await expect
+      .poll(
+        () => {
+          try {
+            return fs.readFileSync(path.join(flows.workspace, 'launched.md'), 'utf8');
+          } catch {
+            return null;
+          }
+        },
+        { timeout: 15_000 }
+      )
+      .toBe('launched-from-the-panel');
   });
 });

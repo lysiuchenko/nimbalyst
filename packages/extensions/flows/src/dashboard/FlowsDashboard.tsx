@@ -10,6 +10,7 @@ import { loadDashboardData, type DashboardData } from './loadDashboardData';
 import type { RunsSummary } from './metrics';
 import { scheduleLabel } from '../schedule/label';
 import { readTheme, type FlowThemeId } from '../editor/theme';
+import { requestRun, RUN_INTENT_EVENT } from '../editor/runIntent';
 
 const REFRESH_INTERVAL_MS = 15_000;
 
@@ -168,6 +169,7 @@ export function FlowsDashboard({ host }: PanelHostProps) {
             <div className="flows-dashboard-row flows-dashboard-head" aria-hidden="true">
               <span />
               <span>Flow</span>
+              <span />
               <span>Next run</span>
               <span className="flows-dashboard-row-stat">Runs</span>
               <span className="flows-dashboard-row-stat">Failed</span>
@@ -182,6 +184,16 @@ export function FlowsDashboard({ host }: PanelHostProps) {
                   // Opening behind an opaque panel looked like a dead click.
                   host.openFile(row.flowPath);
                   host.close();
+                }}
+                onRun={() => {
+                  // The panel launches; the editor owns the run — gates,
+                  // statuses and cancel already live there. The intent is
+                  // consumed by a freshly-loading editor; the event reaches one
+                  // whose tab was already open.
+                  requestRun(row.flowPath);
+                  host.openFile(row.flowPath);
+                  host.close();
+                  window.dispatchEvent(new Event(RUN_INTENT_EVENT));
                 }}
               />
             ))}
@@ -304,8 +316,19 @@ function subtitleFor(flows: number, runs: number): string {
 }
 
 /** One flow as a complete keyboard target. Archived rows have no file to open. */
-function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
+function FlowRowCard({
+  row,
+  onOpen,
+  onRun,
+}: {
+  row: FlowRow;
+  onOpen: () => void;
+  onRun: () => void;
+}) {
   const openable = row.state !== 'archived';
+  // Not `invalid` (the run would only fail validation), not `archived` (no
+  // file), not `running` (one run per flow at a time is the rule everywhere).
+  const runnable = row.state === 'ok' || row.state === 'failing' || row.state === 'never-run';
   const scheduled = row.schedule?.enabled === true;
   const recurrence = scheduled ? scheduleLabel(row.schedule ?? undefined) : null;
   const title = titleFor(row, openable, recurrence);
@@ -352,6 +375,29 @@ function FlowRowCard({ row, onOpen }: { row: FlowRow; onOpen: () => void }) {
           )}
         </span>
       </div>
+
+      {runnable ? (
+        <button
+          type="button"
+          className="flows-dashboard-run"
+          data-testid="flows-dashboard-run"
+          aria-label={`Run ${row.flowName}`}
+          title={`Run ${row.flowName} — opens the flow and starts it`}
+          onClick={(event) => {
+            // The row itself opens the flow; the button must not double up.
+            event.stopPropagation();
+            onRun();
+          }}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            play_arrow
+          </span>
+          Run
+        </button>
+      ) : (
+        // The rows share one grid; a missing cell would shift every column.
+        <span aria-hidden="true" />
+      )}
 
       {row.state === 'invalid' ? (
         <span className="flows-dashboard-pill" data-pill="invalid">

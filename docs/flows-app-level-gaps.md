@@ -248,10 +248,12 @@ identical grey cards.
 What is left, in order:
 
 1. **1.2 — command contributions**, so a flow can be launched from the palette
-   or the file tree rather than only from its own open tab. The other half of
-   turning flows from a file type into a feature of the app.
-2. **Run a flow from the Flows home.** The rows are there; the button is not.
-3. **3.1 — an artifact node**, because it is what makes a demo end with
-   something in your hand rather than a green tick.
+   or the file tree rather than only from its own open tab.
+2. ~~Run a flow from the Flows home.~~ **Shipped.** Eligible rows (`ok`,
+   `failing`, `never-run`) carry a Run button; the panel records a run intent,
+   opens the flow, and the editor — which owns gates, statuses and cancel —
+   consumes the intent and starts the run. Invalid, archived and running rows
+   deliberately get no button.
+3. ~~3.1 — an artifact node~~ **Shipped** (`write-file`).
 4. **3.2 — a worktree review surface.** Fan-out's isolated branches are still
    invisible the moment a run finishes.

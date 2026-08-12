@@ -46,6 +46,7 @@ import { NodeChildrenContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
+import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 
 
 /** Changes that mean the user edited the document, as opposed to the canvas measuring itself. */
@@ -487,6 +488,20 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setSaveErrors(null);
     void run.start(prepared.flow);
   }, [readGraph, run]);
+
+  // The Flows home launches runs by recording an intent and opening the flow;
+  // the editor owns the run itself. Checked when loading ends (a fresh tab)
+  // and on the panel's window event (a tab that was already open).
+  useEffect(() => {
+    if (isLoading) return;
+    const runIfIntended = () => {
+      if (consumeRun(host.filePath) && !run.isRunning) startRun();
+    };
+    runIfIntended();
+    window.addEventListener(RUN_INTENT_EVENT, runIfIntended);
+    return () => window.removeEventListener(RUN_INTENT_EVENT, runIfIntended);
+  }, [host.filePath, isLoading, run.isRunning, startRun]);
+
 
   // A run that did not finish cleanly can be resumed: its finished steps are
   // carried over (planResume decides which are still trustworthy), so agents
