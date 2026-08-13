@@ -1338,3 +1338,51 @@ test.describe('a flow triggered by a file change', () => {
     expect(record.flowPath.endsWith('watcher.flow.json')).toBe(true);
   });
 });
+
+/**
+ * The flow library: a proven flow lands in the workspace as a new file —
+ * suffixed rather than overwriting when the name is already taken.
+ */
+test.describe('the flow library', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        // The collision case, built in: the library's pr-review must not
+        // overwrite this file.
+        'pr-review.flow.json': {
+          version: 1,
+          name: 'my own pr review',
+          nodes: [{ id: 'note', type: 'write-file', path: 'NOTE.md', content: 'mine' }],
+          edges: [],
+          variables: {},
+        },
+      })
+    );
+    await flows.page.locator('[title="Flows"], [aria-label="Flows"]').first().click();
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('adding a library flow writes a suffixed file and opens it', async () => {
+    await flows.page.locator('[data-testid="flows-library-toggle"]').click();
+    await expect(flows.page.locator('[data-testid="flows-library"]')).toBeVisible();
+
+    await flows.page.locator('[data-library-add="pr-review"]').click();
+
+    // The editor opens on the new file; the canvas shows the library flow.
+    await expect(flows.page.locator('[data-testid="flow-editor"]')).toBeVisible();
+    await expect(flows.page.locator('.react-flow__node[data-id="publish_gate"]')).toBeVisible();
+
+    const added = path.join(flows.workspace, 'pr-review-2.flow.json');
+    await expect.poll(() => fs.existsSync(added)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(added, 'utf8')).name).toBe('PR review');
+    // The original was not touched.
+    expect(
+      JSON.parse(fs.readFileSync(path.join(flows.workspace, 'pr-review.flow.json'), 'utf8')).name
+    ).toBe('my own pr review');
+  });
+});

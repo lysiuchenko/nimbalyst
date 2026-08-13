@@ -11,6 +11,8 @@ import type { RunsSummary } from './metrics';
 import { scheduleLabel } from '../schedule/label';
 import { readTheme, type FlowThemeId } from '../editor/theme';
 import { requestRun, RUN_INTENT_EVENT } from '../editor/runIntent';
+import { LIBRARY_FLOWS, uniqueFlowFileName, type LibraryEntry } from '../library/catalog';
+import { serializeFlow } from '../schema/validate';
 
 const REFRESH_INTERVAL_MS = 15_000;
 
@@ -33,8 +35,26 @@ export function FlowsDashboard({ host }: PanelHostProps) {
   // The canvas theme is a per-workspace choice the editor stores; the panel
   // reads the same key so the two surfaces do not disagree.
   const [theme, setTheme] = useState<FlowThemeId>(() => readTheme(host.storage));
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const requestId = useRef(0);
   const workspacePath = host.workspacePath;
+
+  /** Write the entry as a new flow file and jump straight into the editor. */
+  const addFromLibrary = useCallback(
+    async (entry: LibraryEntry) => {
+      const filesystem = getHostServices().filesystem;
+      const taken = new Set(
+        ((await filesystem.findFiles('*.flow.json')) ?? []).map((found) =>
+          found.slice(found.lastIndexOf('/') + 1)
+        )
+      );
+      const name = uniqueFlowFileName(entry.id, taken);
+      await filesystem.writeFile(name, `${serializeFlow(entry.flow)}\n`);
+      host.openFile(`${workspacePath}/${name}`);
+      host.close();
+    },
+    [host, workspacePath]
+  );
 
   useEffect(() => {
     setTheme(readTheme(host.storage));
@@ -129,6 +149,18 @@ export function FlowsDashboard({ host }: PanelHostProps) {
           <button
             type="button"
             className="flows-dashboard-refresh"
+            data-testid="flows-library-toggle"
+            aria-expanded={libraryOpen}
+            onClick={() => setLibraryOpen((was) => !was)}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              local_library
+            </span>
+            <span>Library</span>
+          </button>
+          <button
+            type="button"
+            className="flows-dashboard-refresh"
             disabled={view.refreshing}
             onClick={() => void refresh()}
             aria-label="Refresh flows"
@@ -157,6 +189,36 @@ export function FlowsDashboard({ host }: PanelHostProps) {
           {problemSummary(invalidFlows, runProblems.length)} Invalid flows stay in the list so you
           can open and repair them.
         </Notice>
+      )}
+
+      {libraryOpen && (
+        <section className="flows-library" data-testid="flows-library">
+          <p className="flows-library-hint">
+            Proven flows, compiled into the extension. Adding one writes a new .flow.json here.
+          </p>
+          <div className="flows-library-grid">
+            {LIBRARY_FLOWS.map((entry) => (
+              <article key={entry.id} className="flows-library-card" data-library={entry.id}>
+                <span className="material-symbols-outlined flows-library-icon" aria-hidden="true">
+                  {entry.icon}
+                </span>
+                <h3>{entry.title}</h3>
+                <p>{entry.description}</p>
+                {entry.needs.length > 0 && (
+                  <p className="flows-library-needs">needs {entry.needs.join(' · ')}</p>
+                )}
+                <button
+                  type="button"
+                  className="flows-dashboard-refresh"
+                  data-library-add={entry.id}
+                  onClick={() => void addFromLibrary(entry)}
+                >
+                  Add to workspace
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
 
       {rows.length === 0 ? (

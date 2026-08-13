@@ -1013,6 +1013,65 @@
   word-break: break-word;
 }
 
+/* The flow library on the Flows home. */
+.flows-library {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid var(--flow-border);
+  border-radius: var(--flow-radius);
+  background: var(--flow-surface);
+}
+
+.flows-library-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--flow-text-muted);
+}
+
+.flows-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.flows-library-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--flow-border);
+  border-radius: var(--flow-radius);
+  background: var(--flow-bg);
+}
+
+.flows-library-card h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--flow-text);
+}
+
+.flows-library-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--flow-text-muted);
+}
+
+.flows-library-icon {
+  font-size: 20px;
+  color: var(--flow-accent);
+}
+
+.flows-library-needs {
+  font-size: 11px;
+  color: var(--flow-warning);
+}
+
+.flows-library-card button {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
 /* Scrubbing through a finished run's timeline. */
 .flow-replay {
   display: flex;
