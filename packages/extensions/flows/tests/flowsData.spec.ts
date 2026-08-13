@@ -1209,9 +1209,11 @@ test.describe('resuming an interrupted run', () => {
 });
 
 /**
- * Event triggers: a file change runs the flow, with nobody in the editor.
- * The flow never gets opened — arming happens at activate(), and proving that
- * is the point.
+ * Event triggers: a file change runs the flow — the editor is open but Run is
+ * never pressed. Opening the flow doubles as the arming barrier: triggers arm
+ * in activate(), which strictly precedes any extension component mounting, and
+ * a write that lands before arming is missed forever (nothing re-emits it).
+ * CI's slow first paint hit exactly that race when nothing was opened at all.
  */
 test.describe('a flow triggered by a file change', () => {
   let flows: FlowsApp;
@@ -1233,6 +1235,7 @@ test.describe('a flow triggered by a file change', () => {
         'notes/.gitkeep': '',
       })
     );
+    await openFlow(flows.page, 'watcher.flow.json');
   });
 
   test.afterAll(async () => {
