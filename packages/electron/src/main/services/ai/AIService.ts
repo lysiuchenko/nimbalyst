@@ -3944,6 +3944,7 @@ export class AIService {
         model?: string;
         mode?: SessionMode;
         tools?: string[];
+        suppressTurnNotification?: boolean;
         worktreeId?: string;
       }
     ) => {
@@ -3984,6 +3985,9 @@ export class AIService {
         temperature: this.getProviderSetting(provider, 'temperature'),
         // Carried on the session so the provider picks it up at init.
         ...(tools && tools.length > 0 ? { allowedTools: tools } : {}),
+        // Machine-driven sessions report at their own level; the per-turn
+        // "Response Ready" notification would fire once per step.
+        ...(options.suppressTurnNotification === true ? { suppressTurnNotification: true } : {}),
       };
 
       // For non-claude-code providers, set the model in provider config

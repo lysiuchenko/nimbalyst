@@ -1194,6 +1194,13 @@ export interface ExtensionAIService {
      */
     tools?: string[];
     /**
+     * Skip the per-turn "Response Ready" OS notification for this session.
+     *
+     * For machine-driven sessions — flow steps, scheduled jobs — where the
+     * caller reports at its own level instead of once per step.
+     */
+    suppressTurnNotification?: boolean;
+    /**
      * Run the prompt in an existing git worktree instead of the main working
      * tree. Create it first with the `worktree:create` IPC and pass the id back
      * here; the host binds the new session to it, so the agent's edits land in

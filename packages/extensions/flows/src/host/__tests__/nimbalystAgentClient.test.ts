@@ -28,6 +28,7 @@ describe('NimbalystAgentClient', () => {
       sessionName: 'Flow: Draft plan',
       provider: 'claude-code',
       mode: 'agent',
+      suppressTurnNotification: true,
     });
     expect(result).toEqual({ sessionId: 'session-3', response: 'done' });
   });
@@ -173,6 +174,16 @@ describe('NimbalystAgentClient', () => {
     const result = await client.run({ ...request, worktree: true }, new AbortController().signal);
 
     expect(result.worktree).toEqual({ id: 'wt-7', path: '/wt/plan', branch: 'flow/plan-ab12' });
+  });
+
+  it('suppresses the per-turn notification: the flow reports at run level', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(request, new AbortController().signal);
+
+    expect(ai.sendPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ suppressTurnNotification: true })
+    );
   });
 
   it('reports no worktree when none was asked for', async () => {

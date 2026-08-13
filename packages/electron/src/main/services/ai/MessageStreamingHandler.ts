@@ -72,6 +72,7 @@ import { extractFilePath } from './tools/extractFilePath';
 import { SoundNotificationService } from '../SoundNotificationService';
 import { notificationService } from '../NotificationService';
 import { composeNotificationTitle } from '../../../shared/notificationTitle';
+import { notificationPreview } from '../../../shared/notificationPreview';
 import { TrayManager } from '../../tray/TrayManager';
 import { logger } from '../../utils/logger';
 import { windowStates, findWindowByWorkspace } from '../../window/WindowManager';
@@ -2675,9 +2676,9 @@ export class MessageStreamingHandler {
               // Show OS notification if enabled and window not focused
               // Use lastTextSection (text after last tool call) for more relevant notification content
               const notificationText = lastTextSection.trim() || prevTextSection || fullResponse;
-              const notificationBody = notificationText.length > 0
-                ? notificationText.substring(0, 100) + (notificationText.length > 100 ? '...' : '')
-                : 'Response complete';
+              // Sanitized and word-boundary truncated: raw markdown hard-cut
+              // mid-word read as noise in Notification Center.
+              const notificationBody = notificationPreview(notificationText);
               const sessionLabel = session.title || session.provider;
 
               // logger.ai.info('[AIService] Notification content', {
@@ -2692,6 +2693,13 @@ export class MessageStreamingHandler {
               //     : 'fullResponse',
               // });
 
+              // Machine-driven sessions (flow steps) opt out of per-turn
+              // notifications: their run reports at its own level — gates and
+              // completion — instead of once per step.
+              const suppressTurn =
+                (session.providerConfig as { suppressTurnNotification?: boolean } | undefined)
+                  ?.suppressTurnNotification === true;
+              if (!suppressTurn)
               await notificationService.showNotification({
                 title: composeNotificationTitle(sessionLabel, 'Response Ready'),
                 body: notificationBody,
@@ -2706,7 +2714,7 @@ export class MessageStreamingHandler {
               // past threshold). When the window is merely unfocused (user in another app),
               // the Electron notification above already covers it -- sending a mobile push
               // too causes duplicates via iPhone Mirroring / Continuity.
-              if (syncProvider && isDesktopTrulyAway()) {
+              if (!suppressTurn && syncProvider && isDesktopTrulyAway()) {
                 syncProvider.requestMobilePush?.(
                   session.id,
                   session.title || 'AI Session',

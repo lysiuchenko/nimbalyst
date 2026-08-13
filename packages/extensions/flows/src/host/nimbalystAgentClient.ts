@@ -66,6 +66,8 @@ export class NimbalystAgentClient implements AgentClient {
       // — and should not, since that would decide permissions on the user's
       // behalf. Flows inherit the project's trust level.
       mode: 'agent',
+      // The flow reports at run level — gates, completion — not once per step.
+      suppressTurnNotification: true,
       ...(request.model ? { model: request.model } : {}),
       ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       ...(worktree ? { worktreeId: worktree.id } : {}),

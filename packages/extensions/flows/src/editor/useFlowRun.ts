@@ -9,6 +9,7 @@ import { runFlow } from '../runner/flowRun';
 import type { GateDecision } from '../runner/ports';
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
+import { gateNotification, runNotification } from './runNotifications';
 
 export interface PendingGate {
   nodeId: string;
@@ -86,8 +87,6 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
       // Gates and failures are the two moments a run needs the user back, and
       // the canvas may not be the visible tab — so they go through the host's
       // own notifications rather than only rendering in the editor.
-      const notify = services.ui;
-
       // Gives isolated nodes their own checkout and reads token usage back off
       // the sessions the run creates. Absent only if the host exposes no IPC,
       // in which case a `worktree: true` node fails instead of running loose.
@@ -96,6 +95,20 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
         host.workspaceId ?? host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
       const sessionHost =
         ipc && workspacePath ? new NimbalystSessionHost(ipc, workspacePath) : undefined;
+
+      const notify = services.ui;
+
+      // Native, run-level notifications. The host gates these on its own
+      // settings and window focus, so they surface exactly when the app is in
+      // the background — the case the in-app toasts cannot cover. Per-step
+      // "Response Ready" noise is suppressed on the sessions themselves.
+      const notifyNative = (copy: { title: string; body: string }) => {
+        void (window as unknown as { electronAPI?: HostIpc }).electronAPI
+          ?.invoke('notifications:show', { ...copy, workspacePath })
+          .catch(() => {
+            // Never let a notification failure touch the run.
+          });
+      };
 
       try {
         const record = await runFlow(
@@ -108,6 +121,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
               requestApproval: (request) =>
                 new Promise<GateDecision>((resolve) => {
                   notify.showWarning(`Flow paused: ${request.message}`);
+                  notifyNative(gateNotification(flow.name, request.nodeId, request.message));
                   setPendingGate({
                     nodeId: request.nodeId,
                     message: request.message,
@@ -149,6 +163,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
         );
 
         setRunState({ ...record, outputs: record.outputs } as RunState);
+        notifyNative(runNotification(record));
         if (record.status === 'failed') {
           const failed = Object.values(record.nodes).find((node) => node.status === 'failed');
           const reason = failed ? `${failed.nodeId}: ${failed.error}` : 'the run failed';

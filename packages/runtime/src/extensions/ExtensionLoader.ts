@@ -1042,6 +1042,7 @@ function createExtensionContext(
         model?: string;
         mode?: 'planning' | 'agent' | 'auto';
         tools?: string[];
+        suppressTurnNotification?: boolean;
         worktreeId?: string;
       }): Promise<{ sessionId: string; response: string }> => {
         const electronAPI = (window as any).electronAPI;
