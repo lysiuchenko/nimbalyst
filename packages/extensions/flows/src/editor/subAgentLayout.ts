@@ -1,7 +1,8 @@
 /** Card geometry, in flow coordinates. */
 export const SUBAGENT_CARD = {
-  width: 150,
-  height: 34,
+  width: 170,
+  // Two rows: label, then one clamped line of what the sub-agent produced.
+  height: 48,
   gap: 8,
   /** Clear space between the parent's right edge and the stack. */
   offset: 40,

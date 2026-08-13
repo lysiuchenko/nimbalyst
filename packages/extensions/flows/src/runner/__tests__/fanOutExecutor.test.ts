@@ -258,3 +258,40 @@ describe('worktrees on sub-agents', () => {
     expect(latest.every((child) => child.worktree === undefined)).toBe(true);
   });
 });
+
+describe('sub-agent output previews', () => {
+  it('each finished child carries a preview of what it produced', async () => {
+    const agent = client(async (request) => ({
+      sessionId: `s-${request.nodeId}`,
+      response: `review of ${request.prompt}`,
+    }));
+
+    let latest: ChildProgress[] = [];
+    await createFanOutExecutor(agent)(
+      contextFor(node, { prompt: 'p {{item}}', over: 'a\nb' }, (children) => {
+        latest = children;
+      })
+    );
+
+    expect(latest.map((child) => child.output)).toEqual(['review of p a', 'review of p b']);
+  });
+
+  // Children live inside the run record; an unbounded transcript per child
+  // would balloon it. The full text stays in the child's session.
+  it('the preview is capped, and says so', async () => {
+    const agent = client(async () => ({
+      sessionId: 's',
+      response: 'x'.repeat(2_000),
+    }));
+
+    let latest: ChildProgress[] = [];
+    await createFanOutExecutor(agent)(
+      contextFor(node, { prompt: 'p', over: 'a' }, (children) => {
+        latest = children;
+      })
+    );
+
+    expect(latest[0].output!.length).toBeLessThanOrEqual(420);
+    expect(latest[0].output).toContain('…');
+  });
+});

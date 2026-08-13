@@ -42,6 +42,12 @@ export interface ChildProgress {
   error?: string;
   /** The isolated checkout this sub-agent worked in, when it got one. */
   worktree?: WorktreeRef;
+  /**
+   * A capped preview of what this sub-agent produced. Bounded because
+   * children live inside the run record; the full text stays in the child's
+   * session.
+   */
+  output?: string;
 }
 
 export interface NodeExecutorContext {

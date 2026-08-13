@@ -148,6 +148,11 @@ export function SubAgentLayer({ subAgents, onOpenSession }: SubAgentLayerProps) 
                   >
                     <span className="flow-subagent-dot" />
                     <span className="flow-subagent-label">{child.label}</span>
+                    {(child.output ?? child.error) && (
+                      <span className="flow-subagent-preview" data-subagent-preview={child.label}>
+                        {child.error ?? child.output}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

@@ -750,6 +750,17 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                   {!node.error && node.warning && (
                                     <em className="flow-run-warned">{node.warning}</em>
                                   )}
+                                  {(node.children ?? [])
+                                    .filter((child) => child.output ?? child.error)
+                                    .map((child) => (
+                                      <span
+                                        key={child.label}
+                                        className="flow-run-child"
+                                        data-run-child={child.label}
+                                      >
+                                        <strong>{child.label}</strong> {child.error ?? child.output}
+                                      </span>
+                                    ))}
                                 </li>
                               ))}
                             </ul>

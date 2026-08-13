@@ -72,12 +72,14 @@ const finished = record({
           status: 'done',
           sessionId: 'child-a',
           worktree: { id: 'wt-a', branch: 'flow/review-0-ab12', path: '/nowhere/wt-a' },
+          output: 'a: two nits, no blockers',
         },
         {
           label: 'b',
           status: 'done',
           sessionId: 'child-b',
           worktree: { id: 'wt-b', branch: 'flow/review-1-cd34', path: '/nowhere/wt-b' },
+          output: 'b: clean',
         },
       ],
     },
@@ -710,6 +712,13 @@ test.describe('worktree branches on the run record', () => {
     await expect(chips).toHaveCount(2);
     await expect(chips.first()).toContainText('flow/review-0-ab12');
     await expect(chips.nth(1)).toContainText('flow/review-1-cd34');
+  });
+
+  test('each sub-agent shows what it produced in the run detail', async () => {
+    const detail = flows.page.locator('[data-run-detail="run-finished"]');
+
+    await expect(detail.locator('[data-run-child="a"]')).toContainText('two nits');
+    await expect(detail.locator('[data-run-child="b"]')).toContainText('clean');
   });
 
   test('a checkout that no longer exists says so instead of pretending', async () => {

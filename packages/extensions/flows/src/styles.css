@@ -1122,6 +1122,27 @@
   border-color: var(--flow-accent);
 }
 
+/* One clamped line of the sub-agent's product, under its label. */
+.flow-subagent-preview {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--flow-text-faint);
+}
+
+/* A child's preview inside the run detail: indented under its step. */
+.flow-run-child {
+  display: block;
+  margin: 2px 0 0 22px;
+  font-size: 11px;
+  color: var(--flow-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .flow-subagent-label {
   overflow: hidden;
   text-overflow: ellipsis;

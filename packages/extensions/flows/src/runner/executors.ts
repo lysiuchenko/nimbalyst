@@ -4,6 +4,14 @@ import type { ChildProgress, NodeExecutor, NodeExecutorContext, TokenUsage } fro
 import type { RunFileWriter } from './runStore';
 import { safeWorkspacePath } from './safeWorkspacePath';
 
+/** Sub-agent previews are stored per child in the run record, so they are capped. */
+const CHILD_PREVIEW_LIMIT = 400;
+
+function childPreview(response: string): string {
+  if (response.length <= CHILD_PREVIEW_LIMIT) return response;
+  return `${response.slice(0, CHILD_PREVIEW_LIMIT)}…`;
+}
+
 /** Operators that would let one allowlisted command pull in another. */
 const CHAINING = ['&&', '||', ';', '|', '$(', '`', '>', '<', '&', '\n'];
 
@@ -194,6 +202,9 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
             sessionId: result.sessionId,
             // Each checkout is findable after the run: branch on the record.
             ...(result.worktree ? { worktree: result.worktree } : {}),
+            // A capped preview: children are stored in the run record, and
+            // the full text already lives in the child's session.
+            output: childPreview(result.response),
           };
           if (result.sessionId) childSessionIds[index] = result.sessionId;
           addUsage(usage, result.usage);
