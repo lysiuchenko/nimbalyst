@@ -60,7 +60,10 @@ export class NimbalystAgentClient implements AgentClient {
     const { sessionId, response } = await this.ai.sendPrompt({
       prompt: request.prompt,
       sessionName: `Flow: ${request.sessionName}`,
-      provider: 'claude-code',
+      // Per step: a flow can draft on one CLI and review on another. Codex
+      // steps refuse a tools allowlist at validation, because that provider
+      // does not honor one.
+      provider: request.provider ?? 'claude-code',
       // Sessions persist `planning` or `agent` only; `auto` is an *effective*
       // mode the host derives from workspace trust, so a flow cannot request it
       // — and should not, since that would decide permissions on the user's

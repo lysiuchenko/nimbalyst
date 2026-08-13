@@ -14,10 +14,10 @@ import { parseEdgeCondition } from '../runner/edgeCondition';
 const WEEKDAY_SET = new Set<unknown>(WEEKDAYS);
 
 const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly string[] }> = {
-  agent: { required: 'prompt', optional: ['model', 'tools', 'worktree'] },
+  agent: { required: 'prompt', optional: ['model', 'provider', 'tools', 'worktree'] },
   'fan-out': {
     required: 'prompt',
-    optional: ['over', 'concurrency', 'model', 'tools', 'worktree'],
+    optional: ['over', 'concurrency', 'model', 'provider', 'tools', 'worktree'],
   },
   'slash-command': { required: 'command', optional: ['args'] },
   skill: { required: 'skill', optional: ['input'] },
@@ -251,6 +251,28 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
 
   if (entry.join !== undefined && entry.join !== 'all' && entry.join !== 'any') {
     fail(`${path}.join`, `join must be "all" or "any", got ${JSON.stringify(entry.join)}`);
+  }
+
+  if (entry.provider !== undefined) {
+    if (type !== 'agent' && type !== 'fan-out') {
+      fail(`${path}.provider`, `a ${type} step does not run an agent, so it has no provider`);
+    } else if (entry.provider !== 'claude-code' && entry.provider !== 'openai-codex') {
+      fail(
+        `${path}.provider`,
+        `provider must be "claude-code" or "openai-codex", got ${JSON.stringify(entry.provider)}`
+      );
+    } else if (
+      entry.provider === 'openai-codex' &&
+      Array.isArray(entry.tools) &&
+      entry.tools.length > 0
+    ) {
+      // Verified against the codex provider: it does not read a session's
+      // allowedTools, so the restriction would silently not hold.
+      fail(
+        `${path}.tools`,
+        'openai-codex does not honor a tool allowlist — remove tools or use claude-code for this step'
+      );
+    }
   }
 
   if (entry.retries !== undefined) {

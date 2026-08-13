@@ -82,9 +82,14 @@ export function configBadges(node: FlowNode): ConfigBadge[] {
   // `never`, because their `type` literals cannot both hold.
   const configurable = node as Partial<{
     model: string | null;
+    provider: string;
     tools: string[];
     worktree: boolean;
   }>;
+
+  if (configurable.provider === 'openai-codex') {
+    badges.push({ label: 'codex', title: 'Runs on OpenAI Codex instead of Claude Code' });
+  }
 
   if (node.type === 'fan-out' && node.concurrency) {
     badges.push({

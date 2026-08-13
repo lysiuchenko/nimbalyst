@@ -48,11 +48,18 @@ interface FlowNodeCommon {
   position?: NodePosition;
 }
 
+/**
+ * Which agent CLI runs the step. Absent means the host default (Claude Code).
+ * Chat providers are deliberately not offered: a flow step is agentic work.
+ */
+export type StepProvider = 'claude-code' | 'openai-codex';
+
 export interface AgentNode extends FlowNodeCommon {
   type: 'agent';
   prompt: string;
   /** `null` means "let the host pick the model". */
   model?: string | null;
+  provider?: StepProvider;
   tools?: string[];
   worktree?: boolean;
 }
@@ -72,6 +79,7 @@ export interface FanOutNode extends FlowNodeCommon {
   /** How many sub-agents run at once. Defaults to the runner's limit. */
   concurrency?: number;
   model?: string | null;
+  provider?: StepProvider;
   tools?: string[];
   /**
    * Give every sub-agent its own git worktree.

@@ -401,6 +401,20 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         {(agent || fanOut) && (
           <>
             <label className="flow-node-field">
+              <span className="flow-node-field-label">Provider</span>
+              <select
+                className="flow-node-input"
+                aria-label="Provider"
+                value={(agent ?? fanOut)?.provider ?? ''}
+                onChange={(event) =>
+                  patch({ provider: event.target.value === '' ? undefined : event.target.value })
+                }
+              >
+                <option value="">Claude Code (default)</option>
+                <option value="openai-codex">OpenAI Codex — no tool allowlist</option>
+              </select>
+            </label>
+            <label className="flow-node-field">
               <span className="flow-node-field-label">Model</span>
               <select
                 className="flow-node-input"

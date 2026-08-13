@@ -411,3 +411,60 @@ describe('retries', () => {
     expect(!result.valid && result.errors[0].message).toContain('decision');
   });
 });
+
+describe('per-step provider', () => {
+  const flowWith = (node: Record<string, unknown>) => ({
+    version: 1,
+    name: 'mixed',
+    nodes: [node],
+    edges: [],
+  });
+
+  it('accepts openai-codex on agent and fan-out steps', () => {
+    const agent = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'openai-codex' })
+    );
+    const fanOut = validateFlow(
+      flowWith({ id: 'f', type: 'fan-out', prompt: 'p {{item}}', over: 'x', provider: 'openai-codex' })
+    );
+
+    expect(agent.valid).toBe(true);
+    expect(agent.valid && agent.flow.nodes[0]).toMatchObject({ provider: 'openai-codex' });
+    expect(fanOut.valid).toBe(true);
+  });
+
+  it('absence means the host default, so every existing flow is unchanged', () => {
+    const result = validateFlow(flowWith({ id: 'a', type: 'agent', prompt: 'p' }));
+
+    expect(result.valid).toBe(true);
+    expect(result.valid && 'provider' in result.flow.nodes[0]).toBe(false);
+  });
+
+  it('rejects an unknown provider', () => {
+    const result = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'gemini' })
+    );
+
+    expect(result.valid).toBe(false);
+  });
+
+  // Codex ignores a session's tool allowlist (verified against
+  // OpenAICodexProvider: only its meta-agent path touches allowedTools).
+  // Running anyway would tell the author the restriction held when it did not.
+  it('refuses tools together with openai-codex — the allowlist would not be honored', () => {
+    const result = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'openai-codex', tools: ['Read'] })
+    );
+
+    expect(result.valid).toBe(false);
+    expect(!result.valid && result.errors[0].message).toContain('allowlist');
+  });
+
+  it('rejects provider on a step type that never runs an agent', () => {
+    const result = validateFlow(
+      flowWith({ id: 's', type: 'shell', run: 'ls', provider: 'openai-codex' })
+    );
+
+    expect(result.valid).toBe(false);
+  });
+});

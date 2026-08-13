@@ -13,6 +13,8 @@ export interface AgentRunRequest {
   /** Which node type asked, for session naming and host routing. */
   kind: 'agent' | 'slash-command' | 'skill';
   nodeId: string;
+  /** Which agent CLI runs it. Absent means the host default (Claude Code). */
+  provider?: 'claude-code' | 'openai-codex';
   sessionName: string;
   prompt: string;
   model?: string | null;

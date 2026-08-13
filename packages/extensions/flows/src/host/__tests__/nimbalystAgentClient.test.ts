@@ -176,6 +176,17 @@ describe('NimbalystAgentClient', () => {
     expect(result.worktree).toEqual({ id: 'wt-7', path: '/wt/plan', branch: 'flow/plan-ab12' });
   });
 
+  it('routes a step to the provider it names, defaulting to claude-code', async () => {
+    const ai = aiService();
+    const client = new NimbalystAgentClient(ai);
+
+    await client.run({ ...request, provider: 'openai-codex' }, new AbortController().signal);
+    await client.run(request, new AbortController().signal);
+
+    expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).toMatchObject({ provider: 'openai-codex' });
+    expect(vi.mocked(ai.sendPrompt).mock.calls[1][0]).toMatchObject({ provider: 'claude-code' });
+  });
+
   it('suppresses the per-turn notification: the flow reports at run level', async () => {
     const ai = aiService();
 
