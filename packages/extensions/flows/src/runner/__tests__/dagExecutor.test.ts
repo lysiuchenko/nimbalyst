@@ -740,3 +740,100 @@ describe('DagFlowRunner — retries', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('DagFlowRunner — when conditions', () => {
+  const verdictFlow = () =>
+    flowOf(
+      [
+        agent('report', { output: 'verdict' }),
+        agent('publish'),
+        agent('rework', { join: 'any' }),
+      ],
+      [
+        { from: 'report', to: 'publish', when: '{{report.verdict}} contains "APPROVE"' },
+        { from: 'report', to: 'rework', when: '{{report.verdict}} contains "REQUEST"' },
+      ],
+      {},
+    );
+
+  const emitting = (value: string, order: string[]): NodeExecutor =>
+    async (ctx) => {
+      order.push(ctx.node.id);
+      return { output: ctx.node.id === 'report' ? value : 'x' };
+    };
+
+  it('routes to the branch whose condition matches', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: emitting('APPROVE WITH NITS', order) });
+
+    const state = await runner.run(verdictFlow());
+
+    expect(order).toEqual(['report', 'publish']);
+    expect(state.nodes.rework.status).toBe('skipped');
+    expect(state.status).toBe('done');
+  });
+
+  it('routes the other way when the other condition matches', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({ defaultExecutor: emitting('REQUEST CHANGES', order) });
+
+    const state = await runner.run(verdictFlow());
+
+    expect(order).toEqual(['report', 'rework']);
+    expect(state.nodes.publish.status).toBe('skipped');
+  });
+
+  it('no condition matching means both edges are dead', async () => {
+    const runner = new DagFlowRunner({ defaultExecutor: emitting('MU', []) });
+
+    const state = await runner.run(verdictFlow());
+
+    expect(state.nodes.publish.status).toBe('skipped');
+    expect(state.nodes.rework.status).toBe('skipped');
+    expect(state.status).toBe('done');
+  });
+
+  it('when composes with on: failure — failed AND the error mentions it', async () => {
+    const order: string[] = [];
+    const runner = new DagFlowRunner({
+      defaultExecutor: async (ctx) => {
+        order.push(ctx.node.id);
+        if (ctx.node.id === 'test') throw new Error('TIMEOUT waiting for browser');
+        return { output: 'x' };
+      },
+    });
+    const flow = flowOf(
+      [agent('test'), agent('slow'), agent('broken', { join: 'any' })],
+      [
+        { from: 'test', to: 'slow', on: 'failure', when: '{{test.error}} contains "TIMEOUT"' },
+        { from: 'test', to: 'broken', on: 'failure', when: '{{test.error}} contains "assert"' },
+      ]
+    );
+
+    const state = await runner.run(flow);
+
+    expect(order).toEqual(['test', 'slow']);
+    expect(state.nodes.broken.status).toBe('skipped');
+    // The failure was handled — a failure edge existed and one fired.
+    expect(state.status).toBe('done');
+  });
+
+  it('a failure no when-edge matches is unhandled, and fails the run', async () => {
+    const runner = new DagFlowRunner({
+      defaultExecutor: async (ctx) => {
+        if (ctx.node.id === 'test') throw new Error('segfault');
+        return { output: 'x' };
+      },
+    });
+    const flow = flowOf(
+      [agent('test'), agent('slow')],
+      [{ from: 'test', to: 'slow', on: 'failure', when: '{{test.error}} contains "TIMEOUT"' }]
+    );
+
+    const state = await runner.run(flow);
+
+    expect(state.nodes.slow.status).toBe('skipped');
+    // An edge that did not fire caught nothing.
+    expect(state.status).toBe('failed');
+  });
+});

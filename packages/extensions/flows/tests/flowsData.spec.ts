@@ -872,3 +872,71 @@ test.describe('a fork that rejoins at an any-join', () => {
     expect(result).toBe('came via: wrote FIX.md (7 characters)');
   });
 });
+
+/**
+ * Data-driven routing: the same flow takes different branches depending on
+ * what a step actually said — no human router, no failure hack.
+ */
+test.describe('when-conditions route on output', () => {
+  let flows: FlowsApp;
+
+  const routed = {
+    version: 1,
+    name: 'routed-verdict',
+    variables: { decision: 'approve' },
+    nodes: [
+      {
+        id: 'verdict',
+        type: 'write-file',
+        label: 'Publish the verdict',
+        path: 'verdict-{{decision}}.md',
+        content: 'decided',
+        output: 'note',
+      },
+      { id: 'accepted', type: 'write-file', path: 'ACCEPTED.md', content: 'shipped' },
+      { id: 'declined', type: 'write-file', path: 'DECLINED.md', content: 'held back' },
+    ],
+    edges: [
+      { from: 'verdict', to: 'accepted', when: '{{verdict.note}} contains "approve"' },
+      { from: 'verdict', to: 'declined', when: '{{verdict.note}} contains "reject"' },
+    ],
+  };
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(createWorkspace({ 'routed.flow.json': routed }));
+    await openFlow(flows.page, 'routed.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the matching branch runs; the other dies; the file proves it', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.accepted), {
+        timeout: 60_000,
+      })
+      .toBe('done');
+
+    const statuses = await nodeStatuses(flows.page);
+    expect(statuses.declined).toBe('skipped');
+    expect(fs.existsSync(path.join(flows.workspace, 'ACCEPTED.md'))).toBe(true);
+    expect(fs.existsSync(path.join(flows.workspace, 'DECLINED.md'))).toBe(false);
+  });
+
+  test('changing the variable flips the route, same flow, no edits to edges', async () => {
+    await flows.page.locator('[data-testid="flow-variables-toggle"]').click();
+    await flows.page.getByLabel('Value of decision').fill('reject');
+    await flows.page.locator('[data-testid="flow-run"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.declined), {
+        timeout: 60_000,
+      })
+      .toBe('done');
+
+    expect(fs.existsSync(path.join(flows.workspace, 'DECLINED.md'))).toBe(true);
+  });
+});

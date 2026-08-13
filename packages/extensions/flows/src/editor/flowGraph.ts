@@ -55,6 +55,14 @@ export function flowToGraph(flow: Flow): FlowGraph {
         canvasEdge.className = 'flow-edge-failure';
         canvasEdge.label = 'on failure';
       }
+      // The condition outranks other labels: it is the most specific thing the
+      // edge has to say. The node-id prefix is dropped — the edge already
+      // starts at that node.
+      if (edge.when !== undefined) {
+        canvasEdge.data = { ...canvasEdge.data, when: edge.when };
+        canvasEdge.className = [canvasEdge.className, 'flow-edge-when'].filter(Boolean).join(' ');
+        canvasEdge.label = edge.when.replace(/\{\{\s*[^.}]+\.([^}\s]+)\s*\}\}/, '$1');
+      }
       return canvasEdge;
     }),
   };
@@ -116,11 +124,17 @@ export function graphToFlow(base: Flow, graph: FlowGraph): Flow {
     seen.add(key);
 
     const edge: FlowEdge = { from: canvasEdge.source, to: canvasEdge.target };
-    const failure = (canvasEdge.data as { on?: string } | undefined)?.on === 'failure';
+    const data = canvasEdge.data as { on?: string; when?: string } | undefined;
+    const failure = data?.on === 'failure';
     if (failure) {
       // The "on failure" label is presentation, not a port name.
       edge.on = 'failure';
-    } else {
+    }
+    if (data?.when !== undefined) {
+      // A condition's label is presentation too; the real expression lives in
+      // the edge data and goes back to the file verbatim.
+      edge.when = data.when;
+    } else if (!failure) {
       const port = typeof canvasEdge.label === 'string' ? canvasEdge.label : portByEdge.get(key);
       if (port !== undefined) edge.port = port;
     }

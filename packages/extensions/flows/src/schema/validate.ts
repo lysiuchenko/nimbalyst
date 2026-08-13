@@ -8,6 +8,7 @@ import {
   type ValidationResult,
 } from './types';
 import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
+import { parseEdgeCondition } from '../runner/edgeCondition';
 
 /** The field each node type cannot do without, and the fields it may also carry. */
 const WEEKDAY_SET = new Set<unknown>(WEEKDAYS);
@@ -377,9 +378,33 @@ function validateEdges(raw: unknown, nodes: FlowNode[] | undefined, fail: Fail):
       }
     }
 
+    if (entry.when !== undefined) {
+      if (typeof entry.when !== 'string') {
+        fail(`${path}.when`, 'when must be a string condition');
+        return;
+      }
+      try {
+        const condition = parseEdgeCondition(entry.when);
+        const fromId = condition.reference.slice(0, condition.reference.indexOf('.'));
+        // A condition on an edge is about the step it leaves; anything else
+        // would make routing depend on nodes the edge is not connected to.
+        if (fromId !== entry.from) {
+          fail(
+            `${path}.when`,
+            `the condition must reference this edge's own source ${JSON.stringify(entry.from)}, got ${JSON.stringify(fromId)}`
+          );
+          return;
+        }
+      } catch (error) {
+        fail(`${path}.when`, error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+
     const edge: FlowEdge = { from: entry.from as string, to: entry.to as string };
     if (entry.port !== undefined) edge.port = entry.port as string;
     if (entry.on !== undefined) edge.on = entry.on as FlowEdge['on'];
+    if (entry.when !== undefined) edge.when = entry.when as string;
     edges.push(edge);
   });
 

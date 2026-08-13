@@ -141,6 +141,13 @@ export interface FlowEdge {
    * instead of failing the run.
    */
   on?: 'success' | 'failure';
+  /**
+   * Data-driven routing: `{{from.port}} contains|==|!= "literal"`, evaluated
+   * when `from` completes with the outcome `on` selects. False or
+   * unresolvable means the edge is dead. The reference must name this edge's
+   * own `from` node.
+   */
+  when?: string;
 }
 
 export interface Flow {

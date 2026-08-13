@@ -253,3 +253,56 @@ describe('conditional edges on the canvas', () => {
     expect(graphToFlow(plain, flowToGraph(plain)).edges).toEqual([{ from: 'test', to: 'fix' }]);
   });
 });
+
+describe('when conditions on the canvas', () => {
+  const routed: Flow = {
+    version: 1,
+    name: 'routed',
+    nodes: [
+      { id: 'report', type: 'agent', prompt: 'p', output: 'verdict' },
+      { id: 'publish', type: 'agent', prompt: 'q' },
+    ],
+    edges: [{ from: 'report', to: 'publish', when: '{{report.verdict}} contains "APPROVE"' }],
+    variables: {},
+  } as Flow;
+
+  it('shows the condition as the edge label, without the reference noise', () => {
+    const graph = flowToGraph(routed);
+
+    expect(graph.edges[0].label).toBe('verdict contains "APPROVE"');
+    expect(graph.edges[0].className).toContain('flow-edge-when');
+    expect(graph.edges[0].data).toMatchObject({
+      when: '{{report.verdict}} contains "APPROVE"',
+    });
+  });
+
+  it('round-trips the condition back into the file', () => {
+    const graph = flowToGraph(routed);
+
+    expect(graphToFlow(routed, graph).edges).toEqual([
+      { from: 'report', to: 'publish', when: '{{report.verdict}} contains "APPROVE"' },
+    ]);
+  });
+
+  it('a failure edge with a condition keeps both', () => {
+    const both: Flow = {
+      ...routed,
+      edges: [
+        {
+          from: 'report',
+          to: 'publish',
+          on: 'failure',
+          when: '{{report.error}} contains "TIMEOUT"',
+        },
+      ],
+    } as Flow;
+
+    const roundTripped = graphToFlow(both, flowToGraph(both)).edges[0];
+    expect(roundTripped).toEqual({
+      from: 'report',
+      to: 'publish',
+      on: 'failure',
+      when: '{{report.error}} contains "TIMEOUT"',
+    });
+  });
+});

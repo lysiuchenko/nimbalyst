@@ -1,6 +1,7 @@
 import type { Flow, FlowEdge, FlowNode, NodeType } from '../schema/types';
 import { validateFlow } from '../schema/validate';
 import { nodeDefinitionHash } from './resume';
+import { evaluateEdgeCondition, parseEdgeCondition } from './edgeCondition';
 import { interpolate, listReferences, UnresolvedReferenceError } from './interpolate';
 import type {
   DagFlowRunnerConfig,
@@ -143,7 +144,13 @@ export class DagFlowRunner implements FlowRunner {
     /** Fire the edges matching an outcome; the rest are dead ends. */
     const routeCompletion = (nodeId: string, outcome: 'success' | 'failure') => {
       for (const edge of childEdges.get(nodeId) ?? []) {
-        const matches = (edge.on ?? 'success') === outcome;
+        // `on` selects the outcome; `when` interrogates what the step said.
+        // Both must hold, and a false or unresolvable condition is a dead
+        // edge, exactly like an unmatched outcome.
+        const matches =
+          (edge.on ?? 'success') === outcome &&
+          (edge.when === undefined ||
+            evaluateEdgeCondition(parseEdgeCondition(edge.when), state.outputs));
         if (!matches) {
           killEdge(edge.to);
           continue;
@@ -248,15 +255,22 @@ export class DagFlowRunner implements FlowRunner {
         execution.finishedAt = finishedAt;
         execution.error = message;
 
-        // A failure with a handler is a branch taken, not a run lost. The node
-        // still records `failed` — that is what happened — but only a failure
-        // nothing catches marks the run itself failed.
-        const handled = (childEdges.get(nodeId) ?? []).some((edge) => edge.on === 'failure');
-        if (!handled) failed = true;
-
         // The handler's one input is what went wrong, published as the
-        // implicit `error` port so it can read {{node.error}}.
+        // implicit `error` port so it can read {{node.error}}. Published
+        // before the handled check, because a when-condition on a failure
+        // edge reads it.
         state.outputs[nodeId] = { ...state.outputs[nodeId], error: message };
+
+        // A failure with a handler is a branch taken, not a run lost. The node
+        // still records `failed` — but an edge whose condition did not match
+        // caught nothing: only a failure edge that will actually fire counts.
+        const handled = (childEdges.get(nodeId) ?? []).some(
+          (edge) =>
+            edge.on === 'failure' &&
+            (edge.when === undefined ||
+              evaluateEdgeCondition(parseEdgeCondition(edge.when), state.outputs))
+        );
+        if (!handled) failed = true;
 
         emit({ type: 'node-failed', runId, nodeId, at: finishedAt, error: message });
         routeCompletion(nodeId, 'failure');

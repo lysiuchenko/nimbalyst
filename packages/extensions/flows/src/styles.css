@@ -1933,6 +1933,17 @@
 
 /* Failure edges — the exception path reads as one: dashed, danger-coloured,
    labelled. Appended at EOF while styles.css is concurrently edited. */
+/* A conditioned edge: routing that depends on what the step said. Dotted, in
+   the second accent, so it reads as a question rather than an exception. */
+.flow-editor .react-flow__edge.flow-edge-when path.react-flow__edge-path {
+  stroke-dasharray: 2 4;
+}
+
+.flow-editor .react-flow__edge.flow-edge-when .react-flow__edge-text {
+  font-size: 9px;
+  font-style: italic;
+}
+
 .flow-editor .react-flow__edge.flow-edge-failure path.react-flow__edge-path {
   stroke: var(--flow-danger);
   stroke-dasharray: 6 4;
