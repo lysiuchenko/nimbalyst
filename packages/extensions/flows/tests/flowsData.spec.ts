@@ -1236,6 +1236,20 @@ test.describe('a flow triggered by a file change', () => {
       })
     );
     await openFlow(flows.page, 'watcher.flow.json');
+
+    // A second, test-owned subscription to the same broadcast the trigger
+    // adapter uses. When the flow does not run, this names the broken layer:
+    // events absent → the workspace watcher; events present → the extension.
+    await flows.page.evaluate(() => {
+      const w = window as unknown as {
+        __fileEvents: string[];
+        electronAPI?: { on(event: string, cb: (d: unknown) => void): void };
+      };
+      w.__fileEvents = [];
+      w.electronAPI?.on?.('file-changed-on-disk', (d) =>
+        w.__fileEvents.push(String((d as { path?: unknown } | undefined)?.path))
+      );
+    });
   });
 
   test.afterAll(async () => {
@@ -1250,6 +1264,20 @@ test.describe('a flow triggered by a file change', () => {
     expect(fs.existsSync(path.join(flows.workspace, 'TRIGGERED.md'))).toBe(false);
 
     fs.writeFileSync(path.join(flows.workspace, 'notes', 'todo.md'), '- buy milk');
+
+    // The renderer must see the broadcast before the flow can possibly run.
+    await expect
+      .poll(
+        () =>
+          flows.page.evaluate(() =>
+            (window as unknown as { __fileEvents: string[] }).__fileEvents.filter((p) =>
+              p.endsWith('todo.md')
+            )
+          ),
+        { timeout: 30_000, message: 'file-changed-on-disk never reached the renderer' }
+      )
+      .not.toEqual([]);
+
     await expect
       .poll(() => fs.existsSync(path.join(flows.workspace, 'TRIGGERED.md')), { timeout: 60_000 })
       .toBe(true);
