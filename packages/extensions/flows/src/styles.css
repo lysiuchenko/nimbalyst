@@ -167,6 +167,11 @@
   font-size: 14px;
 }
 
+/* The rehearsal marker: informational, not a success or a warning. */
+.flow-dry-indicator {
+  color: var(--flow-accent-2, var(--flow-text-muted));
+}
+
 .flow-toolbar-status[data-dirty='true'] {
   color: var(--flow-warning);
 }

@@ -1015,3 +1015,62 @@ test.describe('run from a node', () => {
     expect(records[0].nodes.first).toMatchObject({ status: 'done', reused: true });
   });
 });
+
+/**
+ * Dry run: the rehearsal. The whole graph executes with effects stubbed —
+ * proven by what does NOT appear on disk afterwards.
+ */
+test.describe('dry run', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'rehearse.flow.json': {
+          version: 1,
+          name: 'rehearse',
+          variables: {},
+          nodes: [
+            { id: 'check', type: 'shell', run: 'npm test', output: 'log' },
+            { id: 'gate', type: 'human-gate', message: 'Looks right?' },
+            { id: 'save', type: 'write-file', path: 'REHEARSED.md', content: '{{check.log}}' },
+          ],
+          edges: [
+            { from: 'check', to: 'gate' },
+            { from: 'gate', to: 'save' },
+          ],
+        },
+      })
+    );
+    await openFlow(flows.page, 'rehearse.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('walks the graph free of effects: gate asks, disk stays clean', async () => {
+    await flows.page.locator('[data-testid="flow-dry-run"]').click();
+
+    // The gate is real — deciding is part of the rehearsal — and it shows the
+    // stubbed upstream work.
+    const gate = flows.page.locator('[data-testid="flow-gate"]');
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    await expect(gate).toContainText('[dry-run] would run: npm test');
+    await flows.page.locator('[data-testid="flow-gate-approve"]').click();
+
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.save), { timeout: 60_000 })
+      .toBe('done');
+
+    // The strips say what would have happened...
+    await expect(flows.page.locator('[data-node-result="save"]')).toContainText(
+      'would write REHEARSED.md'
+    );
+    await expect(flows.page.locator('[data-testid="flow-dry-indicator"]')).toBeVisible();
+
+    // ...and nothing did: no artifact, no run record.
+    expect(fs.existsSync(path.join(flows.workspace, 'REHEARSED.md'))).toBe(false);
+    expect(flows.runRecords()).toEqual([]);
+  });
+});

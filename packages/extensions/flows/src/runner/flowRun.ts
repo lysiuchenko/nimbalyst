@@ -12,6 +12,19 @@ import {
 import type { AgentClient, GateController, ShellClient } from './ports';
 import { RunStore, type RunFileWriter, type RunRecord } from './runStore';
 import { planResume, planRunFrom } from './resume';
+import { safeWorkspacePath } from './safeWorkspacePath';
+import type { NodeExecutor } from './types';
+
+/**
+ * The rehearsal's write-file: same path guard, honest output, no write. The
+ * real executor's "wrote X" over a no-op writer would be a claim about a
+ * write that never happened.
+ */
+const dryWriteFileExecutor: NodeExecutor = async (context) => {
+  const target = safeWorkspacePath(context.resolved.path ?? '');
+  const content = context.resolved.content ?? '';
+  return { output: `[dry-run] would write ${target} (${content.length} characters)` };
+};
 import type { RunOptions } from './types';
 
 export interface FlowRunDependencies {
@@ -42,15 +55,21 @@ export async function runFlow(
   flow: Flow,
   flowPath: string,
   dependencies: FlowRunDependencies,
-  options: RunOptions & { resumeFrom?: RunRecord; startAt?: string } = {}
+  options: RunOptions & { resumeFrom?: RunRecord; startAt?: string; dryRun?: boolean } = {}
 ): Promise<RunRecord> {
-  const store = new RunStore(dependencies.writer, flowPath, flow.manualBaselineMinutes);
+  // Dry runs persist nothing: one no-op writer removes both the run record
+  // and every artifact, and the write-file executor below is swapped so its
+  // output says "would write" instead of claiming a write that never happened.
+  const writer: RunFileWriter = options.dryRun
+    ? { write: async () => {} }
+    : dependencies.writer;
+  const store = new RunStore(writer, flowPath, flow.manualBaselineMinutes);
 
   // Two ways to carry a previous run in as seeds: `resumeFrom` alone re-runs
   // what did not finish (`planResume` decides what is still trustworthy);
   // with `startAt`, the user draws the boundary — run from that node down,
   // seed everything above it.
-  const { resumeFrom, startAt, ...runOptions } = options;
+  const { resumeFrom, startAt, dryRun: _dryRun, ...runOptions } = options;
   const plan = resumeFrom
     ? startAt !== undefined
       ? planRunFrom(flow, resumeFrom, startAt)
@@ -75,7 +94,9 @@ export async function runFlow(
       'human-gate': createHumanGateExecutor(dependencies.gate),
       // Same writer the run record uses: a flow that can record itself can
       // already write a file, so this needs no extra host capability.
-      'write-file': createWriteFileExecutor(dependencies.writer),
+      'write-file': options.dryRun
+        ? dryWriteFileExecutor
+        : createWriteFileExecutor(dependencies.writer),
     },
     defaultExecutor: async ({ node }) => {
       throw new Error(`no executor for node type ${JSON.stringify(node.type)}`);

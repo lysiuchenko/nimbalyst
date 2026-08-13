@@ -6,6 +6,7 @@ import { NimbalystAgentClient } from '../host/nimbalystAgentClient';
 import { NimbalystSessionHost, type HostIpc } from '../host/nimbalystSessionHost';
 import type { Flow } from '../schema/types';
 import { runFlow } from '../runner/flowRun';
+import { dryAgentClient, dryShellClient } from '../runner/dryRun';
 import type { GateDecision } from '../runner/ports';
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
@@ -42,6 +43,13 @@ export interface FlowRunControls {
    * record — the iteration loop.
    */
   start(flow: Flow, resumeFrom?: RunRecord, startAt?: string): Promise<void>;
+  /**
+   * Rehearse the flow: every external effect stubbed, instant, free. Gates
+   * still pause — deciding is part of the rehearsal. Nothing persists.
+   */
+  dryRun(flow: Flow): Promise<void>;
+  /** True while — and after — the state on screen came from a rehearsal. */
+  isDry: boolean;
   cancel(): void;
 }
 
@@ -63,6 +71,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   const [runState, setRunState] = useState<RunState | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [pendingGate, setPendingGate] = useState<PendingGate | null>(null);
+  const [isDry, setIsDry] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const cancel = useCallback(() => {
@@ -74,8 +83,9 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   }, []);
 
   const start = useCallback(
-    async (flow: Flow, resumeFrom?: RunRecord, startAt?: string) => {
+    async (flow: Flow, resumeFrom?: RunRecord, startAt?: string, dry = false) => {
       const services = getHostServices();
+      setIsDry(dry);
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -120,13 +130,15 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
           flow,
           host.filePath,
           {
-            agent: new NimbalystAgentClient(services.ai!, sessionHost, sessionHost),
-            shell: new BackendShellClient(services.ai!, SHELL_ALLOWLIST),
+            agent: dry
+              ? dryAgentClient()
+              : new NimbalystAgentClient(services.ai!, sessionHost, sessionHost),
+            shell: dry ? dryShellClient() : new BackendShellClient(services.ai!, SHELL_ALLOWLIST),
             gate: {
               requestApproval: (request) =>
                 new Promise<GateDecision>((resolve) => {
                   notify.showWarning(`Flow paused: ${request.message}`);
-                  notifyNative(gateNotification(flow.name, request.nodeId, request.message));
+                  if (!dry) notifyNative(gateNotification(flow.name, request.nodeId, request.message));
                   setPendingGate({
                     nodeId: request.nodeId,
                     message: request.message,
@@ -143,6 +155,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
           {
             ...(resumeFrom ? { resumeFrom } : {}),
             ...(startAt !== undefined ? { startAt } : {}),
+            ...(dry ? { dryRun: true } : {}),
             signal: controller.signal,
             onStateChange: (state) => {
               setStatuses(
@@ -169,7 +182,8 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
         );
 
         setRunState({ ...record, outputs: record.outputs } as RunState);
-        notifyNative(runNotification(record));
+        // A rehearsal ends on screen, not in Notification Center.
+        if (!dry) notifyNative(runNotification(record));
         if (record.status === 'failed') {
           const failed = Object.values(record.nodes).find((node) => node.status === 'failed');
           const reason = failed ? `${failed.nodeId}: ${failed.error}` : 'the run failed';
@@ -190,5 +204,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
     [host]
   );
 
-  return { isRunning, statuses, liveNodes, children, runState, runError, pendingGate, start, cancel };
+  const dryRun = useCallback((flow: Flow) => start(flow, undefined, undefined, true), [start]);
+
+  return { isRunning, statuses, liveNodes, children, runState, runError, pendingGate, start, dryRun, isDry, cancel };
 }

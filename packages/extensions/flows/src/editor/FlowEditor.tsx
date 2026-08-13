@@ -649,6 +649,36 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           </span>
           {isDirty ? 'Unsaved changes' : 'Saved'}
         </span>
+        {!run.isRunning && (
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-dry-run"
+            title="Rehearse without executing: agents, shell and files are stubbed; gates still ask"
+            onClick={() => {
+              const prepared = prepareSave(baseRef.current, readGraph());
+              if (!prepared.ok) {
+                setSaveErrors(prepared.summary.replace('was not saved', 'cannot be run'));
+                return;
+              }
+              setSaveErrors(null);
+              void run.dryRun(prepared.flow);
+            }}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              experiment
+            </span>
+            Dry run
+          </button>
+        )}
+        {run.isDry && (
+          <span className="flow-toolbar-status flow-dry-indicator" data-testid="flow-dry-indicator">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              experiment
+            </span>
+            Rehearsal — nothing was executed
+          </span>
+        )}
         {resumable && (
           <button
             type="button"
