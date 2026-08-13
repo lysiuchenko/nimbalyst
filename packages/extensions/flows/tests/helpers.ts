@@ -29,7 +29,11 @@ export interface FlowsApp {
 }
 
 export function createWorkspace(files: Record<string, unknown | string>): string {
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'flows-e2e-'));
+  // One level below the temp dir, never the temp dir itself: the workspace
+  // watcher refuses paths shallower than depth 3, and Linux's `/tmp/x` is
+  // depth 2 — file-change events would silently never fire there.
+  const workspace = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'flows-e2e-')), 'workspace');
+  fs.mkdirSync(workspace);
   const git = (...args: string[]) => execFileSync('git', args, { cwd: workspace, stdio: 'ignore' });
 
   // A real repo: worktree- and git-status-shaped flows need a valid HEAD.
