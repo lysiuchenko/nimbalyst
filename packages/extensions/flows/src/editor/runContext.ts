@@ -41,6 +41,18 @@ export function useNodeResult(nodeId: string): NodeExecution | undefined {
 }
 
 /**
+ * Per-node outcome counts across the recorded runs, for the reliability chip.
+ * A node missing from the map has no recorded outcomes.
+ */
+export const NodeReliabilityContext = createContext<
+  Record<string, { ok: number; total: number }>
+>({});
+
+export function useNodeReliability(nodeId: string): { ok: number; total: number } | undefined {
+  return useContext(NodeReliabilityContext)[nodeId];
+}
+
+/**
  * Run-from-here, when it is available: a callback while the editor has a past
  * record to seed from and no run in flight; null otherwise, and the cards hide
  * the button rather than offering a dead control.

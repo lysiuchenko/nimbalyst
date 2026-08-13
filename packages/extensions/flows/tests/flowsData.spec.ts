@@ -256,6 +256,13 @@ test.describe('run history, from seeded records', () => {
     await expect(row.locator('.flow-run-outcome')).toHaveText('1 of 3 steps · failed at approve');
   });
 
+  test('a step that failed wears its reliability; a clean one stays clean', async () => {
+    // approve: done once, failed once across the records — 1/2 on the card.
+    await expect(flows.page.locator('[data-reliability="approve"]')).toHaveText('1/2');
+    // plan finished every recorded run; the chip is signal, not decoration.
+    await expect(flows.page.locator('[data-reliability="plan"]')).toHaveCount(0);
+  });
+
   test('unrecorded token usage reads as a dash, not as free', async () => {
     const cells = flows.page.locator('[data-past-run="run-failed"] td');
 
@@ -1205,6 +1212,20 @@ test.describe('resuming an interrupted run', () => {
       .sort((a, b) => b.startedAt - a.startedAt);
     expect(records[0].resumedFrom).toBe('run-cut-short');
     expect(records[0].nodes.first).toMatchObject({ status: 'done', reused: true });
+  });
+
+  test('clicking the wire shows what travelled it', async () => {
+    await flows.page.locator('.react-flow__edge[data-id="first->second"]').click();
+
+    const panel = flows.page.locator('[data-testid="flow-edge-payload"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('first → second');
+    await expect(panel).toContainText('{{first.note}}');
+    // The seeded output from the resumed run — the actual hand-off value.
+    await expect(panel.locator('.flow-edge-payload-value')).toContainText('wrote FIRST.md');
+
+    await flows.page.locator('[data-testid="flow-edge-payload-close"]').click();
+    await expect(panel).toHaveCount(0);
   });
 });
 

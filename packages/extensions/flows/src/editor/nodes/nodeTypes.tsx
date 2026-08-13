@@ -4,7 +4,7 @@ import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '.
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
-import { useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
+import { useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
 import { configBadges, summarize } from './summarize';
 
@@ -96,6 +96,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const status = useNodeStatus(id);
   const result = useNodeResult(id);
   const onRunFrom = useRunFrom();
+  const reliability = useNodeReliability(id);
   const [resultOpen, setResultOpen] = useState(false);
   const catalog = useCatalog();
   const references = useReferences(id);
@@ -163,6 +164,17 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
           <span className={`flow-node-badge flow-node-badge-${status}`}>{status}</span>
         ) : (
           open && <span className="flow-node-type">{node.type}</span>
+        )}
+        {/* Worn only by a step with a recorded failure: the chip is signal,
+            not decoration — a clean node stays clean-looking. */}
+        {reliability && reliability.total >= 2 && reliability.ok < reliability.total && (
+          <span
+            className="flow-node-reliability"
+            data-reliability={id}
+            title={`succeeded ${reliability.ok} of ${reliability.total} recent runs`}
+          >
+            {reliability.ok}/{reliability.total}
+          </span>
         )}
         <button
           type="button"

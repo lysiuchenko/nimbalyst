@@ -43,12 +43,13 @@ import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
-import { NodeChildrenContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
+import { NodeChildrenContext, NodeReliabilityContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
+import { edgePayload, nodeReliability } from './observability';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
 import { draftFlow, editFlow } from './aiDraft';
@@ -564,6 +565,31 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     void run.start(prepared.flow);
   }, [readGraph, run]);
 
+  // What flowed through a clicked wire. Live outputs win over the record so
+  // the panel updates as a run streams; selection survives until closed or
+  // replaced. Never in the xyflow store — run state must not dirty the doc.
+  const [inspectedEdge, setInspectedEdge] = useState<{
+    from: string;
+    to: string;
+    port?: string;
+    on?: string;
+  } | null>(null);
+
+  const onEdgeClick = useCallback((_event: React.MouseEvent, edge: FlowCanvasEdge) => {
+    const data = edge.data as { on?: string; when?: string } | undefined;
+    setInspectedEdge({
+      from: edge.source,
+      to: edge.target,
+      port: typeof edge.label === 'string' ? edge.label : undefined,
+      on: data?.on,
+    });
+  }, []);
+
+  const inspectedOutputs = run.runState?.outputs ?? pastRuns[0]?.outputs;
+  const inspectedPayload = inspectedEdge ? edgePayload(inspectedEdge, inspectedOutputs) : null;
+
+  const reliability = useMemo(() => nodeReliability(pastRuns), [pastRuns]);
+
   // The Flows home launches runs by recording an intent and opening the flow;
   // the editor owns the run itself. Checked when loading ends (a fresh tab)
   // and on the panel's window event (a tab that was already open).
@@ -822,6 +848,42 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {inspectedEdge && (
+        <div className="flow-edge-payload" data-testid="flow-edge-payload">
+          <div className="flow-edge-payload-head">
+            <span className="flow-edge-payload-route">
+              {inspectedEdge.from} → {inspectedEdge.to}
+              {inspectedEdge.on === 'failure' && ' · on failure'}
+            </span>
+            {inspectedPayload && <code>{`{{${inspectedPayload.label}}}`}</code>}
+            <span className="flow-toolbar-spacer" />
+            {inspectedOutputs && (
+              <span className="flow-node-hint-inline">
+                {run.runState?.outputs ? 'from the current run' : 'from the last run'}
+              </span>
+            )}
+            <button
+              type="button"
+              className="flow-toolbar-button"
+              data-testid="flow-edge-payload-close"
+              aria-label="Close the payload panel"
+              onClick={() => setInspectedEdge(null)}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">
+                close
+              </span>
+            </button>
+          </div>
+          {inspectedPayload ? (
+            <pre className="flow-edge-payload-value">{inspectedPayload.value}</pre>
+          ) : (
+            <p className="flow-node-hint">
+              Nothing recorded on this wire yet — run the flow to see the hand-off.
+            </p>
+          )}
         </div>
       )}
 
@@ -1364,6 +1426,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <RunStatusContext.Provider value={run.statuses}>
           <NodeResultsContext.Provider value={run.liveNodes}>
           <RunFromContext.Provider value={runFrom}>
+          <NodeReliabilityContext.Provider value={reliability}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -1372,6 +1435,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onEdgeClick={onEdgeClick}
             onEdgeDoubleClick={onEdgeDoubleClick}
             onConnectEnd={onConnectEnd}
             deleteKeyCode={['Backspace', 'Delete']}
@@ -1454,6 +1518,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </p>
             </div>
           )}
+          </NodeReliabilityContext.Provider>
           </RunFromContext.Provider>
           </NodeResultsContext.Provider>
           </RunStatusContext.Provider>

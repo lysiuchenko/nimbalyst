@@ -982,6 +982,47 @@
   color: var(--flow-danger);
 }
 
+/* What flowed through a clicked wire. */
+.flow-edge-payload {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--flow-border);
+  background: var(--flow-surface);
+  font-size: 12px;
+}
+
+.flow-edge-payload-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-edge-payload-route {
+  font-weight: 600;
+  color: var(--flow-text);
+}
+
+.flow-edge-payload-value {
+  margin: 6px 0 2px;
+  max-height: 160px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: var(--flow-radius);
+  background: var(--flow-bg);
+  color: var(--flow-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Worn only by a step with a recorded failure. */
+.flow-node-reliability {
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--flow-danger) 14%, var(--flow-surface));
+  color: var(--flow-danger);
+  font-size: 10px;
+  font-weight: 600;
+}
+
 /* The file-change trigger, a second section of the schedule panel. */
 .flow-trigger {
   margin-top: 8px;
