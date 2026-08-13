@@ -318,16 +318,21 @@ function assertAllowed(command: string, allowlist: readonly string[]): void {
  */
 export function createHumanGateExecutor(gate: GateController): NodeExecutor {
   return async (context: NodeExecutorContext) => {
-    const decision = await gate.requestApproval(
+    const answer = await gate.requestApproval(
       { nodeId: context.node.id, message: context.resolved.message ?? '' },
       context.signal
     );
+    const { decision, comment } = typeof answer === 'string' ? { decision: answer, comment: undefined } : answer;
 
     if (decision === 'rejected') {
-      throw new Error(`gate ${JSON.stringify(context.node.id)} was rejected`);
+      // The comment rides the error, which is exactly what a failure edge's
+      // {{gate.error}} hands to the branch that deals with the rejection.
+      throw new Error(
+        `gate ${JSON.stringify(context.node.id)} was rejected${comment ? `: ${comment}` : ''}`
+      );
     }
 
-    return { output: decision };
+    return { output: comment ? `approved: ${comment}` : 'approved' };
   };
 }
 

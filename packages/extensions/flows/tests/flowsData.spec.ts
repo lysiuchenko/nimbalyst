@@ -1386,3 +1386,73 @@ test.describe('the flow library', () => {
     ).toBe('my own pr review');
   });
 });
+
+/**
+ * Gate decisions: the gate reads markdown, and a decision can carry a note —
+ * a rejection reason travels to {{gate.error}} for the failure branch.
+ */
+test.describe('gate markdown and decision notes', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'signoff.flow.json': {
+          version: 1,
+          name: 'signoff',
+          variables: {},
+          nodes: [
+            {
+              id: 'draft',
+              type: 'write-file',
+              label: 'Draft the verdict',
+              path: 'VERDICT.md',
+              content: '# Verdict\n\n- ship it\n- after the standup',
+              output: 'note',
+            },
+            { id: 'review', type: 'human-gate', message: 'Publish?\n\n- check the numbers first' },
+            { id: 'publish', type: 'write-file', path: 'PUBLISHED.md', content: 'ok' },
+            {
+              id: 'declined',
+              type: 'write-file',
+              path: 'DECLINED.md',
+              content: 'Reason: {{review.error}}',
+            },
+          ],
+          edges: [
+            { from: 'draft', to: 'review', port: 'note' },
+            { from: 'review', to: 'publish' },
+            { from: 'review', to: 'declined', on: 'failure' },
+          ],
+        },
+      })
+    );
+    await openFlow(flows.page, 'signoff.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the gate renders its message and the gated work as markdown', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    const gate = flows.page.locator('[data-testid="flow-gate"]');
+    await expect(gate).toBeVisible({ timeout: 60_000 });
+
+    // A list item element, not a raw "- " line: markdown became structure.
+    await expect(gate.locator('.flow-markdown li', { hasText: 'check the numbers first' })).toBeVisible();
+  });
+
+  test('rejecting with a note routes the reason to the failure branch', async () => {
+    await flows.page.locator('[data-testid="flow-gate-comment"]').fill('wrong quarter in the summary');
+    await flows.page.locator('[data-testid="flow-gate-reject"]').click();
+
+    await expect
+      .poll(() => fs.existsSync(path.join(flows.workspace, 'DECLINED.md')), { timeout: 60_000 })
+      .toBe(true);
+    expect(fs.readFileSync(path.join(flows.workspace, 'DECLINED.md'), 'utf8')).toContain(
+      'wrong quarter in the summary'
+    );
+    expect(fs.existsSync(path.join(flows.workspace, 'PUBLISHED.md'))).toBe(false);
+  });
+});

@@ -7,7 +7,7 @@ import { NimbalystSessionHost, type HostIpc } from '../host/nimbalystSessionHost
 import type { Flow } from '../schema/types';
 import { runFlow } from '../runner/flowRun';
 import { dryAgentClient, dryShellClient } from '../runner/dryRun';
-import type { GateDecision } from '../runner/ports';
+import type { GateAnswer, GateDecision } from '../runner/ports';
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
 import { gateNotification, runNotification } from './runNotifications';
@@ -15,7 +15,7 @@ import { gateNotification, runNotification } from './runNotifications';
 export interface PendingGate {
   nodeId: string;
   message: string;
-  decide(decision: GateDecision): void;
+  decide(decision: GateDecision, comment?: string): void;
 }
 
 export interface FlowRunControls {
@@ -136,15 +136,15 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
             shell: dry ? dryShellClient() : new BackendShellClient(services.ai!, SHELL_ALLOWLIST),
             gate: {
               requestApproval: (request) =>
-                new Promise<GateDecision>((resolve) => {
+                new Promise<GateAnswer>((resolve) => {
                   notify.showWarning(`Flow paused: ${request.message}`);
                   if (!dry) notifyNative(gateNotification(flow.name, request.nodeId, request.message));
                   setPendingGate({
                     nodeId: request.nodeId,
                     message: request.message,
-                    decide: (decision) => {
+                    decide: (decision, comment) => {
                       setPendingGate(null);
-                      resolve(decision);
+                      resolve(comment?.trim() ? { decision, comment: comment.trim() } : decision);
                     },
                   });
                 }),

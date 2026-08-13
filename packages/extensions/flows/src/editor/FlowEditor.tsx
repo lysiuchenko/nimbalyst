@@ -50,6 +50,7 @@ import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
 import { edgePayload, nodeReliability } from './observability';
+import { Markdown } from './markdown';
 import { replayDuration, replayStatuses } from './replay';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
@@ -590,6 +591,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   const inspectedPayload = inspectedEdge ? edgePayload(inspectedEdge, inspectedOutputs) : null;
 
   const reliability = useMemo(() => nodeReliability(pastRuns), [pastRuns]);
+
+  // The note travelling with the next gate decision; cleared when it lands.
+  const [gateComment, setGateComment] = useState('');
 
   // Replay: scrub through a finished run's timeline. Purely a read over the
   // record, so the slider can jump anywhere; a live run always wins the canvas.
@@ -1361,7 +1365,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <span className="material-symbols-outlined">front_hand</span>
           <div className="flow-gate-body">
             <strong>{run.pendingGate.nodeId}</strong>
-            <p>{run.pendingGate.message}</p>
+            <Markdown text={run.pendingGate.message} />
             {/* The work being gated, so the decision is made looking at it
                 rather than on faith. Direct parents' outputs, live. */}
             {gateContext(graphToFlow(baseRef.current, readGraph()), run.pendingGate.nodeId, run.liveNodes).map((entry) => (
@@ -1372,15 +1376,26 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                 open
               >
                 <summary>{entry.label}</summary>
-                <pre>{entry.output}</pre>
+                <Markdown text={entry.output} />
               </details>
             ))}
+            <textarea
+              className="flow-node-input flow-gate-comment"
+              data-testid="flow-gate-comment"
+              aria-label="Note for this decision"
+              placeholder="Optional note — a rejection reason travels to {{gate.error}}"
+              value={gateComment}
+              onChange={(event) => setGateComment(event.target.value)}
+            />
           </div>
           <button
             type="button"
             className="flow-gate-approve"
             data-testid="flow-gate-approve"
-            onClick={() => run.pendingGate?.decide('approved')}
+            onClick={() => {
+              run.pendingGate?.decide('approved', gateComment);
+              setGateComment('');
+            }}
           >
             Approve
           </button>
@@ -1388,7 +1403,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             type="button"
             className="flow-gate-reject"
             data-testid="flow-gate-reject"
-            onClick={() => run.pendingGate?.decide('rejected')}
+            onClick={() => {
+              run.pendingGate?.decide('rejected', gateComment);
+              setGateComment('');
+            }}
           >
             Reject
           </button>

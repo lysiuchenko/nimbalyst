@@ -1013,6 +1013,26 @@
   word-break: break-word;
 }
 
+/* Gate decisions read markdown and may carry a note. */
+.flow-markdown p { margin: 4px 0; }
+.flow-markdown h4, .flow-markdown h5, .flow-markdown h6 { margin: 6px 0 2px; font-size: 12px; }
+.flow-markdown ul { margin: 4px 0; padding-left: 18px; }
+.flow-markdown pre {
+  margin: 4px 0;
+  padding: 6px 8px;
+  border-radius: var(--flow-radius);
+  background: var(--flow-bg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.flow-gate-comment {
+  margin-top: 6px;
+  width: 100%;
+  min-height: 34px;
+  resize: vertical;
+}
+
 /* The flow library on the Flows home. */
 .flows-library {
   margin: 0 0 18px;

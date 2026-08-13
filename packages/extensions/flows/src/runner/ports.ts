@@ -77,6 +77,9 @@ export interface GateRequest {
 
 export type GateDecision = 'approved' | 'rejected';
 
+/** A decision may carry the decider's note; plain decisions remain valid. */
+export type GateAnswer = GateDecision | { decision: GateDecision; comment?: string };
+
 export interface GateController {
-  requestApproval(request: GateRequest, signal: AbortSignal): Promise<GateDecision>;
+  requestApproval(request: GateRequest, signal: AbortSignal): Promise<GateAnswer>;
 }

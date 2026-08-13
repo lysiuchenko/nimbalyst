@@ -294,6 +294,24 @@ describe('human-gate executor', () => {
     ).rejects.toThrow('gate "g" was rejected');
   });
 
+  it('carries the decision comment: into the output when approved', async () => {
+    const controller = { requestApproval: async () => ({ decision: 'approved', comment: 'lgtm, ship after the standup' }) } as never;
+    const node = { id: 'g', type: 'human-gate', message: 'ok?' } as FlowNode;
+
+    const result = await createHumanGateExecutor(controller)(contextFor(node, { message: 'ok?' }));
+
+    expect(result.output).toBe('approved: lgtm, ship after the standup');
+  });
+
+  it('carries the rejection comment into the error, where {{gate.error}} reads it', async () => {
+    const controller = { requestApproval: async () => ({ decision: 'rejected', comment: 'wrong quarter in the summary' }) } as never;
+    const node = { id: 'g', type: 'human-gate', message: 'ok?' } as FlowNode;
+
+    await expect(
+      createHumanGateExecutor(controller)(contextFor(node, { message: 'ok?' }))
+    ).rejects.toThrow('gate "g" was rejected: wrong quarter in the summary');
+  });
+
   it('hands the gate the run signal so cancelling a run releases the wait', async () => {
     const controller = { requestApproval: vi.fn(async () => 'approved' as const) };
     const node = { id: 'g', type: 'human-gate', message: 'ok?' } as FlowNode;
