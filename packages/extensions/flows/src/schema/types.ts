@@ -1,4 +1,5 @@
 import type { FlowSchedule } from '../schedule/types';
+import type { FlowTrigger } from '../trigger/types';
 
 /**
  * `.flow.json` schema v1.
@@ -166,6 +167,8 @@ export interface Flow {
   variables: Record<string, string>;
   /** When this flow runs on its own. Absent means only when someone presses Run. */
   schedule?: FlowSchedule;
+  /** Runs the flow when matching workspace files change. */
+  trigger?: FlowTrigger;
   /**
    * How long this work takes a person by hand, in minutes.
    *

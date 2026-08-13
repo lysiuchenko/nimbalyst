@@ -4,6 +4,7 @@ import { FlowsDashboard } from './dashboard/FlowsDashboard';
 import { rememberHostServices } from './host/hostServices';
 import { startScheduler } from './schedule/startScheduler';
 import type { FlowScheduler } from './schedule/FlowScheduler';
+import { startTriggers } from './trigger/startTriggers';
 import './styles.css';
 
 export async function activate(context: ExtensionContext): Promise<void> {
@@ -13,16 +14,21 @@ export async function activate(context: ExtensionContext): Promise<void> {
   // Flows are local-only files: no collaboration codec is registered.
   rememberHostServices(context);
 
-  // Flows that carry a schedule fire from here. Agent nodes cannot run
-  // headlessly, so the app being open is what makes a scheduled run possible.
+  // Flows that carry a schedule or a file-change trigger fire from here. Agent
+  // nodes cannot run headlessly, so the app being open is what makes an
+  // unattended run possible.
   scheduler = startScheduler(context);
+  triggers = startTriggers(context);
 }
 
 let scheduler: FlowScheduler | null = null;
+let triggers: { dispose(): void } | null = null;
 
 export async function deactivate(): Promise<void> {
   scheduler?.stop();
   scheduler = null;
+  triggers?.dispose();
+  triggers = null;
 }
 
 export const components = {

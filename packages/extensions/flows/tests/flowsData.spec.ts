@@ -1207,3 +1207,60 @@ test.describe('resuming an interrupted run', () => {
     expect(records[0].nodes.first).toMatchObject({ status: 'done', reused: true });
   });
 });
+
+/**
+ * Event triggers: a file change runs the flow, with nobody in the editor.
+ * The flow never gets opened — arming happens at activate(), and proving that
+ * is the point.
+ */
+test.describe('a flow triggered by a file change', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'watcher.flow.json': {
+          version: 1,
+          name: 'watcher',
+          trigger: { type: 'file-change', glob: 'notes/*.md', debounceSeconds: 1, enabled: true },
+          nodes: [
+            { id: 'mark', type: 'write-file', path: 'TRIGGERED.md', content: 'the watcher ran' },
+          ],
+          edges: [],
+          variables: {},
+        },
+        // The watched directory exists from the start; the test only adds a file.
+        'notes/.gitkeep': '',
+      })
+    );
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('a matching save runs the flow; a non-matching one never did', async () => {
+    // The non-matching write goes first and gets a full debounce period of
+    // silence — if it were ever going to fire, it would fire now.
+    fs.writeFileSync(path.join(flows.workspace, 'unrelated.txt'), 'noise');
+    await flows.page.waitForTimeout(2_500);
+    expect(fs.existsSync(path.join(flows.workspace, 'TRIGGERED.md'))).toBe(false);
+
+    fs.writeFileSync(path.join(flows.workspace, 'notes', 'todo.md'), '- buy milk');
+    await expect
+      .poll(() => fs.existsSync(path.join(flows.workspace, 'TRIGGERED.md')), { timeout: 60_000 })
+      .toBe(true);
+
+    expect(fs.readFileSync(path.join(flows.workspace, 'TRIGGERED.md'), 'utf8')).toBe(
+      'the watcher ran'
+    );
+
+    // Exactly one run: the matching save fired, the noise never did.
+    await expect.poll(() => flows.runRecords().length, { timeout: 15_000 }).toBe(1);
+    const record = JSON.parse(
+      fs.readFileSync(path.join(flows.workspace, '.flow-runs', flows.runRecords()[0]), 'utf8')
+    );
+    expect(record.status).toBe('done');
+    expect(record.flowPath.endsWith('watcher.flow.json')).toBe(true);
+  });
+});

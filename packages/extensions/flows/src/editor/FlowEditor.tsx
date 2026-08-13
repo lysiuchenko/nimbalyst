@@ -33,6 +33,7 @@ import { deleteRunRecord } from './deleteRunRecord';
 import { openSession } from './openSession';
 import type { HostIpc } from '../host/nimbalystSessionHost';
 import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
+import type { FlowTrigger } from '../trigger/types';
 import { scheduleLabel } from '../schedule/label';
 import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } from './runSummary';
 import type { RunRecord } from '../runner/runStore';
@@ -106,6 +107,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // Mirrors baseRef.current.schedule for rendering; the ref stays the source of
   // truth so editing a schedule never re-renders the canvas.
   const [schedule, setScheduleState] = useState<FlowSchedule | undefined>(undefined);
+  const [trigger, setTriggerState] = useState<FlowTrigger | undefined>(undefined);
   const [baseline, setBaseline] = useState<number | undefined>(undefined);
   const history = useRef(createHistory<FlowGraph>());
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
@@ -144,6 +146,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setIsEmpty(candidate.nodes.length === 0);
     setVariables(candidate.variables);
     setScheduleState(candidate.schedule);
+    setTriggerState(candidate.trigger);
     setBaseline(candidate.manualBaselineMinutes);
   }, [readGraph]);
 
@@ -459,6 +462,23 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       const next = { ...current, ...changes } as unknown as FlowSchedule;
       baseRef.current = { ...baseRef.current, schedule: next };
       setScheduleState(next);
+      markDirty();
+    },
+    [markDirty]
+  );
+
+  /** Edit the trigger on the document, the way the schedule is edited. */
+  const patchTrigger = useCallback(
+    (changes: Partial<Record<string, unknown>>) => {
+      const current = (baseRef.current.trigger ?? {
+        type: 'file-change',
+        glob: '**/*.md',
+        debounceSeconds: 10,
+        enabled: false,
+      }) as unknown as Record<string, unknown>;
+      const next = { ...current, ...changes } as unknown as FlowTrigger;
+      baseRef.current = { ...baseRef.current, trigger: next };
+      setTriggerState(next);
       markDirty();
     },
     [markDirty]
@@ -1089,6 +1109,47 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               notify you.
             </p>
           )}
+
+          <div className="flow-trigger" data-testid="flow-trigger">
+            <label className="flow-node-toggle">
+              <input
+                type="checkbox"
+                aria-label="Run when matching files change"
+                checked={trigger?.enabled === true}
+                onChange={(event) => patchTrigger({ enabled: event.target.checked })}
+              />
+              <span>Run when matching files change</span>
+            </label>
+
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">Files (glob)</span>
+              <input
+                className="flow-node-input"
+                aria-label="Files (glob)"
+                placeholder="notes/**/*.md"
+                value={trigger?.glob ?? ''}
+                onChange={(event) => patchTrigger({ glob: event.target.value })}
+              />
+            </label>
+
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">
+                Quiet seconds before running
+                <span className="flow-node-hint-inline">saves arrive in bursts</span>
+              </span>
+              <input
+                className="flow-node-input"
+                type="number"
+                min={1}
+                max={600}
+                aria-label="Quiet seconds before running"
+                value={trigger?.debounceSeconds ?? 10}
+                onChange={(event) =>
+                  patchTrigger({ debounceSeconds: Number(event.target.value) || 10 })
+                }
+              />
+            </label>
+          </div>
         </div>
       )}
 

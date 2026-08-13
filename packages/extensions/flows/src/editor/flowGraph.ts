@@ -150,6 +150,7 @@ export function graphToFlow(base: Flow, graph: FlowGraph): Flow {
     // The canvas owns nodes and edges; everything else on the document belongs
     // to the base and must survive the round trip.
     ...(base.schedule ? { schedule: base.schedule } : {}),
+    ...(base.trigger ? { trigger: base.trigger } : {}),
     ...(base.manualBaselineMinutes !== undefined
       ? { manualBaselineMinutes: base.manualBaselineMinutes }
       : {}),

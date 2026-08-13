@@ -208,14 +208,14 @@ describe('placeNewNode', () => {
       edges: [],
       variables: {},
       schedule: { type: 'daily', time: '02:30', enabled: true },
+      trigger: { type: 'file-change', glob: 'notes/*.md', enabled: true },
     } as unknown as Flow;
 
-    // Losing this on save meant a schedule set in the editor never reached disk.
-    expect(graphToFlow(base, { nodes: [], edges: [] }).schedule).toEqual({
-      type: 'daily',
-      time: '02:30',
-      enabled: true,
-    });
+    // Losing these on save meant a schedule or trigger set in the editor
+    // never reached disk.
+    const round = graphToFlow(base, { nodes: [], edges: [] });
+    expect(round.schedule).toEqual({ type: 'daily', time: '02:30', enabled: true });
+    expect(round.trigger).toEqual({ type: 'file-change', glob: 'notes/*.md', enabled: true });
   });
 });
 

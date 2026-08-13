@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { scheduledGatePolicy } from '../gatePolicy';
+import { scheduledGatePolicy, unattendedGatePolicy } from '../gatePolicy';
 import type { Flow } from '../../schema/types';
 
 const flowOf = (nodes: unknown[], schedule?: unknown) =>
@@ -39,5 +39,18 @@ describe('scheduledGatePolicy', () => {
 
     expect(policy.kind).toBe('needs-a-person');
     expect(policy.kind === 'needs-a-person' && policy.reason).toContain('approve');
+  });
+});
+
+describe('unattendedGatePolicy', () => {
+  it('names the trigger, not the schedule, when a trigger fired the run', () => {
+    const policy = unattendedGatePolicy(
+      flowOf([{ id: 'approve', type: 'human-gate', message: 'ok?' }]),
+      undefined,
+      'triggered'
+    );
+
+    expect(policy.kind === 'needs-a-person' && policy.reason).toContain('A triggered run');
+    expect(policy.kind === 'needs-a-person' && policy.reason).toContain("trigger's onGate");
   });
 });

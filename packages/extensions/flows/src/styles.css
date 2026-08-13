@@ -982,6 +982,13 @@
   color: var(--flow-danger);
 }
 
+/* The file-change trigger, a second section of the schedule panel. */
+.flow-trigger {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--flow-border);
+}
+
 /* The offer to pick up an interrupted run where it left off. */
 .flow-resume-banner {
   display: flex;

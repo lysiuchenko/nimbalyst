@@ -8,6 +8,7 @@ import {
   type ValidationResult,
 } from './types';
 import { WEEKDAYS, type FlowSchedule } from '../schedule/types';
+import type { FlowTrigger } from '../trigger/types';
 import { parseEdgeCondition } from '../runner/edgeCondition';
 
 /** The field each node type cannot do without, and the fields it may also carry. */
@@ -84,6 +85,7 @@ export function validateFlow(input: unknown): ValidationResult {
   const edges = validateEdges(input.edges, nodes, fail);
   const variables = validateVariables(input.variables, fail);
   const schedule = validateSchedule(input.schedule, nodes ?? [], fail);
+  const trigger = validateTrigger(input.trigger, nodes ?? [], fail);
   const baseline = validateBaseline(input.manualBaselineMinutes, fail);
 
   if (edges) detectCycle(nodes ?? [], edges, fail);
@@ -99,9 +101,60 @@ export function validateFlow(input: unknown): ValidationResult {
       edges: edges ?? [],
       variables,
       ...(schedule ? { schedule } : {}),
+      ...(trigger ? { trigger } : {}),
       ...(baseline !== undefined ? { manualBaselineMinutes: baseline } : {}),
     },
   };
+}
+
+/**
+ * A flow's file-change trigger, if it has one.
+ *
+ * The gate rule is the schedule's: a triggered run is just as unattended, so
+ * auto-approving a gate is only safe where no command hides behind it.
+ */
+function validateTrigger(raw: unknown, nodes: FlowNode[], fail: Fail): FlowTrigger | undefined {
+  if (raw === undefined) return undefined;
+  if (!isPlainObject(raw)) {
+    fail('trigger', 'trigger must be an object');
+    return undefined;
+  }
+
+  if (raw.type !== 'file-change') {
+    fail('trigger.type', 'trigger type must be file-change');
+    return undefined;
+  }
+  if (typeof raw.glob !== 'string' || raw.glob.trim() === '') {
+    fail('trigger.glob', 'trigger needs a glob, e.g. "notes/**/*.md"');
+    return undefined;
+  }
+  if (typeof raw.enabled !== 'boolean') {
+    fail('trigger.enabled', 'trigger must say whether it is enabled');
+    return undefined;
+  }
+
+  const debounce = raw.debounceSeconds;
+  if (
+    debounce !== undefined &&
+    (typeof debounce !== 'number' || !Number.isInteger(debounce) || debounce < 1 || debounce > 600)
+  ) {
+    fail('trigger.debounceSeconds', 'debounce must be a whole number of seconds, 1 to 600');
+    return undefined;
+  }
+
+  if (raw.onGate !== undefined && raw.onGate !== 'pause' && raw.onGate !== 'skip') {
+    fail('trigger.onGate', 'onGate must be pause or skip');
+    return undefined;
+  }
+  if (raw.onGate === 'skip' && nodes.some((node) => node.type === 'shell')) {
+    fail(
+      'trigger.onGate',
+      'onGate "skip" cannot be used in a flow that runs a shell command — the gate is what reviews it'
+    );
+    return undefined;
+  }
+
+  return raw as unknown as FlowTrigger;
 }
 
 /**
@@ -526,6 +579,7 @@ export function serializeFlow(flow: Flow): string {
     // Written last, and only when set, so an unscheduled flow keeps the shape
     // it has always had on disk.
     ...(flow.schedule ? { schedule: flow.schedule } : {}),
+    ...(flow.trigger ? { trigger: flow.trigger } : {}),
     ...(flow.manualBaselineMinutes !== undefined
       ? { manualBaselineMinutes: flow.manualBaselineMinutes }
       : {}),
