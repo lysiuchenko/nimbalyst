@@ -36,7 +36,12 @@ export interface FlowRunControls {
    * over instead of re-executed — agents do not re-bill and gates do not
    * re-ask for work that already succeeded.
    */
-  start(flow: Flow, resumeFrom?: RunRecord): Promise<void>;
+  /**
+   * Run the flow. `resumeFrom` alone retries what did not finish; with
+   * `startAt` it runs from that node down, seeding everything above from the
+   * record — the iteration loop.
+   */
+  start(flow: Flow, resumeFrom?: RunRecord, startAt?: string): Promise<void>;
   cancel(): void;
 }
 
@@ -69,7 +74,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   }, []);
 
   const start = useCallback(
-    async (flow: Flow, resumeFrom?: RunRecord) => {
+    async (flow: Flow, resumeFrom?: RunRecord, startAt?: string) => {
       const services = getHostServices();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -137,6 +142,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
           },
           {
             ...(resumeFrom ? { resumeFrom } : {}),
+            ...(startAt !== undefined ? { startAt } : {}),
             signal: controller.signal,
             onStateChange: (state) => {
               setStatuses(

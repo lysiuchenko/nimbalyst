@@ -42,7 +42,7 @@ import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
-import { NodeChildrenContext, NodeResultsContext, RunStatusContext } from './runContext';
+import { NodeChildrenContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
@@ -525,6 +525,25 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setSaveErrors(null);
     void run.start(prepared.flow, resumable);
   }, [readGraph, resumable, run]);
+
+  // Run from a node: upstream seeded from the latest record, whatever its
+  // status — the user is drawing the boundary, not asking for a retry. Null
+  // while unavailable, and the cards hide the button.
+  const runFrom = useMemo(
+    () =>
+      !run.isRunning && pastRuns.length > 0
+        ? (id: string) => {
+            const prepared = prepareSave(baseRef.current, readGraph());
+            if (!prepared.ok) {
+              setSaveErrors(prepared.summary.replace('was not saved', 'cannot be run'));
+              return;
+            }
+            setSaveErrors(null);
+            void run.start(prepared.flow, pastRuns[0], id);
+          }
+        : null,
+    [pastRuns, readGraph, run]
+  );
 
   if (error) {
     return <FlowLoadError error={error} onEditAsText={host.toggleSourceMode} />;
@@ -1109,6 +1128,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <NodeChildrenContext.Provider value={run.children}>
           <RunStatusContext.Provider value={run.statuses}>
           <NodeResultsContext.Provider value={run.liveNodes}>
+          <RunFromContext.Provider value={runFrom}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -1164,6 +1184,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </p>
             </div>
           )}
+          </RunFromContext.Provider>
           </NodeResultsContext.Provider>
           </RunStatusContext.Provider>
           </NodeChildrenContext.Provider>

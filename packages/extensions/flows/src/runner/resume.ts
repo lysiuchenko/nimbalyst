@@ -60,27 +60,80 @@ export function planResume(flow: Flow, record: RunRecord): ResumePlan {
     if (!recorded.definitionHash || recorded.definitionHash !== nodeDefinitionHash(node)) continue;
     if (!(parents.get(node.id) ?? []).every((parent) => reused.has(parent))) continue;
 
-    reused.set(node.id, {
-      nodeId: node.id,
-      type: recorded.type,
-      status: 'done',
-      // The result is carried; the cost is not. Old timings and usage would
-      // double-count the original run's work on the dashboard.
-      output: recorded.output,
-      sessionId: recorded.sessionId,
-      childSessionIds: recorded.childSessionIds,
-      warning: recorded.warning,
-      definitionHash: recorded.definitionHash,
-      reused: true,
-    });
+    reused.set(node.id, reusedExecution(recorded));
   }
 
+  return { reused, outputs: outputsFor(reused, record), resumedFrom: record.runId };
+}
+
+/**
+ * Run `startId` and everything downstream of it; seed the rest from the record.
+ *
+ * The iteration loop: tweak step 5, re-run 5–7 without re-paying for 1–4.
+ * Deliberately unlike resume in one way — **no definition-hash check on the
+ * seeded side**. Resume must distrust edits; here the user is drawing the
+ * boundary themselves, and their edit is exactly why they came. A node the
+ * record cannot vouch for (not `done`) is simply not seeded: it does not run
+ * either, and anything joined to it dies through the normal dead-edge rules.
+ */
+export function planRunFrom(flow: Flow, record: RunRecord, startId: string): ResumePlan {
+  // An unknown start would make everything "not downstream" and seed the whole
+  // run — a no-op dressed as a run. Degenerate to a full run instead.
+  if (!flow.nodes.some((node) => node.id === startId)) {
+    return { reused: new Map(), outputs: {}, resumedFrom: record.runId };
+  }
+
+  const children = new Map<string, string[]>();
+  for (const node of flow.nodes) children.set(node.id, []);
+  for (const edge of flow.edges) children.get(edge.from)?.push(edge.to);
+
+  const downstream = new Set<string>([startId]);
+  const queue = [startId];
+  while (queue.length > 0) {
+    for (const child of children.get(queue.shift()!) ?? []) {
+      if (!downstream.has(child)) {
+        downstream.add(child);
+        queue.push(child);
+      }
+    }
+  }
+
+  const reused = new Map<string, NodeExecution>();
+  for (const node of flow.nodes) {
+    if (downstream.has(node.id)) continue;
+    const recorded = record.nodes?.[node.id];
+    if (recorded?.status !== 'done') continue;
+    reused.set(node.id, reusedExecution(recorded));
+  }
+
+  return { reused, outputs: outputsFor(reused, record), resumedFrom: record.runId };
+}
+
+/** The result is carried; the cost is not — old timings and usage would
+ * double-count the original run's work on the dashboard. */
+function reusedExecution(recorded: NodeExecution): NodeExecution {
+  return {
+    nodeId: recorded.nodeId,
+    type: recorded.type,
+    status: 'done',
+    output: recorded.output,
+    sessionId: recorded.sessionId,
+    childSessionIds: recorded.childSessionIds,
+    warning: recorded.warning,
+    definitionHash: recorded.definitionHash,
+    reused: true,
+  };
+}
+
+function outputsFor(
+  reused: Map<string, NodeExecution>,
+  record: RunRecord
+): Record<string, Record<string, string>> {
   const outputs: Record<string, Record<string, string>> = {};
   for (const [nodeId, published] of Object.entries(record.outputs ?? {})) {
     if (reused.has(nodeId)) outputs[nodeId] = published;
   }
-
-  return { reused, outputs, resumedFrom: record.runId };
+  return outputs;
 }
 
 /** Parent-before-child order; the flow is a validated DAG, so this terminates. */

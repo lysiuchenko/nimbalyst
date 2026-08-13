@@ -11,7 +11,7 @@ import {
 } from './executors';
 import type { AgentClient, GateController, ShellClient } from './ports';
 import { RunStore, type RunFileWriter, type RunRecord } from './runStore';
-import { planResume } from './resume';
+import { planResume, planRunFrom } from './resume';
 import type { RunOptions } from './types';
 
 export interface FlowRunDependencies {
@@ -42,19 +42,26 @@ export async function runFlow(
   flow: Flow,
   flowPath: string,
   dependencies: FlowRunDependencies,
-  options: RunOptions & { resumeFrom?: RunRecord } = {}
+  options: RunOptions & { resumeFrom?: RunRecord; startAt?: string } = {}
 ): Promise<RunRecord> {
   const store = new RunStore(dependencies.writer, flowPath, flow.manualBaselineMinutes);
 
-  // A resumed run carries the failed run's finished steps in as pre-completed
-  // seeds; `planResume` decides which of them are still trustworthy.
-  const { resumeFrom, ...runOptions } = options;
-  const seed = resumeFrom
-    ? (({ reused, outputs, resumedFrom }) => ({
-        executions: Object.fromEntries(reused),
-        outputs,
-        resumedFrom,
-      }))(planResume(flow, resumeFrom))
+  // Two ways to carry a previous run in as seeds: `resumeFrom` alone re-runs
+  // what did not finish (`planResume` decides what is still trustworthy);
+  // with `startAt`, the user draws the boundary — run from that node down,
+  // seed everything above it.
+  const { resumeFrom, startAt, ...runOptions } = options;
+  const plan = resumeFrom
+    ? startAt !== undefined
+      ? planRunFrom(flow, resumeFrom, startAt)
+      : planResume(flow, resumeFrom)
+    : undefined;
+  const seed = plan
+    ? {
+        executions: Object.fromEntries(plan.reused),
+        outputs: plan.outputs,
+        resumedFrom: plan.resumedFrom,
+      }
     : undefined;
   const runner = new DagFlowRunner({
     executors: {

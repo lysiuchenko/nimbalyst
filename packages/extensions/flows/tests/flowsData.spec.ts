@@ -949,3 +949,69 @@ test.describe('when-conditions route on output', () => {
     expect(fs.existsSync(path.join(flows.workspace, 'DECLINED.md'))).toBe(true);
   });
 });
+
+/**
+ * Run-from-here: the iteration loop. Upstream is seeded from the latest run;
+ * only the chosen node and its descendants execute. Proven on disk: the
+ * upstream artifact is deleted and must NOT come back.
+ */
+test.describe('run from a node', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'iterate.flow.json': {
+          version: 1,
+          name: 'iterate',
+          variables: { text: 'v1' },
+          nodes: [
+            { id: 'first', type: 'write-file', path: 'FIRST.md', content: '{{text}}', output: 'note' },
+            { id: 'second', type: 'write-file', path: 'SECOND.md', content: 'built on {{first.note}}' },
+          ],
+          edges: [{ from: 'first', to: 'second', port: 'note' }],
+        },
+      })
+    );
+    await openFlow(flows.page, 'iterate.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('no button before any run exists — there is nothing to seed from', async () => {
+    await expect(flows.page.locator('[data-run-from="second"]')).toHaveCount(0);
+  });
+
+  test('after a run, running from the second step reuses the first', async () => {
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.second), { timeout: 60_000 })
+      .toBe('done');
+
+    // The proof surface: delete the upstream artifact.
+    fs.rmSync(path.join(flows.workspace, 'FIRST.md'));
+    fs.rmSync(path.join(flows.workspace, 'SECOND.md'));
+
+    await flows.page.locator('[data-run-from="second"]').click();
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.second), { timeout: 60_000 })
+      .toBe('done');
+
+    // Upstream was seeded, not re-executed; downstream really ran.
+    expect(fs.existsSync(path.join(flows.workspace, 'FIRST.md'))).toBe(false);
+    expect(fs.readFileSync(path.join(flows.workspace, 'SECOND.md'), 'utf8')).toContain(
+      'built on wrote FIRST.md'
+    );
+
+    const records = flows
+      .runRecords()
+      .map((name) =>
+        JSON.parse(fs.readFileSync(path.join(flows.workspace, '.flow-runs', name), 'utf8'))
+      )
+      .sort((a, b) => b.startedAt - a.startedAt);
+    expect(records[0].resumedFrom).toBe(records[1].runId);
+    expect(records[0].nodes.first).toMatchObject({ status: 'done', reused: true });
+  });
+});

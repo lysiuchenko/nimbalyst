@@ -1056,6 +1056,11 @@
 
 .flow-canvas { position: relative; }
 
+/* Run-from-here: present only when a past record can seed the upstream. */
+.flow-node-runfrom:hover {
+  color: var(--flow-accent);
+}
+
 .flow-node-duplicate {
   padding: 0;
   border: none;

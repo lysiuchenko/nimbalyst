@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { nodeDefinitionHash, planResume } from '../resume';
+import { nodeDefinitionHash, planResume, planRunFrom } from '../resume';
 import type { Flow, FlowNode } from '../../schema/types';
 import type { RunRecord } from '../runStore';
 
@@ -167,5 +167,49 @@ describe('planResume', () => {
     const source = diamond();
 
     expect(planResume(source, recordFor(source, {})).reused.size).toBe(4);
+  });
+});
+
+describe('planRunFrom', () => {
+  test('the start node and its descendants run; the rest seed', () => {
+    const source = diamond();
+    const plan = planRunFrom(source, recordFor(source, {}), 'b');
+
+    // b runs, c is downstream of b; a and d are seeded context.
+    expect([...plan.reused.keys()].sort()).toEqual(['a', 'd']);
+    expect(plan.reused.get('a')).toMatchObject({ status: 'done', reused: true });
+    expect(plan.outputs).toEqual({ a: { text: 'one' } });
+    expect(plan.resumedFrom).toBe('run-old');
+  });
+
+  test('running from a root re-runs everything and seeds nothing', () => {
+    const source = diamond();
+
+    expect(planRunFrom(source, recordFor(source, {}), 'a').reused.size).toBe(0);
+  });
+
+  // Resume distrusts edits; run-from-here is the user drawing the boundary.
+  test('an edited upstream node still seeds — the user chose the line', () => {
+    const source = diamond();
+    const record = recordFor(source, {});
+    (source.nodes[0] as FlowNode & { run: string }).run = 'echo CHANGED';
+
+    const plan = planRunFrom(source, record, 'b');
+
+    expect(plan.reused.has('a')).toBe(true);
+  });
+
+  test('a sibling that did not finish is neither seeded nor run', () => {
+    const source = diamond();
+    const plan = planRunFrom(source, recordFor(source, { d: 'failed' }), 'b');
+
+    expect(plan.reused.has('d')).toBe(false);
+    expect(plan.reused.has('a')).toBe(true);
+  });
+
+  test('an unknown start id reuses nothing and lets the runner run it all', () => {
+    const source = diamond();
+
+    expect(planRunFrom(source, recordFor(source, {}), 'ghost').reused.size).toBe(0);
   });
 });

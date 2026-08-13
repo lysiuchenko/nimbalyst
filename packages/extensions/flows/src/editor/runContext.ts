@@ -39,3 +39,14 @@ export const NodeResultsContext = createContext<Record<string, NodeExecution>>({
 export function useNodeResult(nodeId: string): NodeExecution | undefined {
   return useContext(NodeResultsContext)[nodeId];
 }
+
+/**
+ * Run-from-here, when it is available: a callback while the editor has a past
+ * record to seed from and no run in flight; null otherwise, and the cards hide
+ * the button rather than offering a dead control.
+ */
+export const RunFromContext = createContext<((nodeId: string) => void) | null>(null);
+
+export function useRunFrom(): ((nodeId: string) => void) | null {
+  return useContext(RunFromContext);
+}

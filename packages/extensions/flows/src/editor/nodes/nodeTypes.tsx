@@ -4,7 +4,7 @@ import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '.
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
-import { useNodeResult, useNodeStatus } from '../runContext';
+import { useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
 import { configBadges, summarize } from './summarize';
 
@@ -95,6 +95,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const node = data.node;
   const status = useNodeStatus(id);
   const result = useNodeResult(id);
+  const onRunFrom = useRunFrom();
   const [resultOpen, setResultOpen] = useState(false);
   const catalog = useCatalog();
   const references = useReferences(id);
@@ -176,6 +177,18 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             {open ? 'expand_more' : 'chevron_right'}
           </span>
         </button>
+        {onRunFrom && (
+          <button
+            type="button"
+            className="flow-node-duplicate flow-node-runfrom"
+            data-run-from={id}
+            title="Run from this step — everything above is reused from the last run"
+            aria-label={`Run from ${node.label ?? id}`}
+            onClick={() => onRunFrom(id)}
+          >
+            <span className="material-symbols-outlined">resume</span>
+          </button>
+        )}
         <button
           type="button"
           className="flow-node-duplicate"
