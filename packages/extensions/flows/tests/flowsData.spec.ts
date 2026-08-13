@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { createWorkspace, launchFlowsApp, nodeStatuses, openFlow, type FlowsApp } from './helpers';
+import { nodeDefinitionHash } from '../src/runner/resume';
 
 /**
  * History and dashboard behaviour, driven by seeded run records.
@@ -1113,5 +1114,96 @@ test.describe('draft with AI', () => {
 
     await flows.page.locator('[data-testid="flow-ai-edit-toggle"]').click();
     await expect(flows.page.locator('[data-testid="flow-ai-edit"]')).toBeVisible();
+  });
+});
+
+/**
+ * Durable runs: an interrupted run greets the user with a resume offer.
+ * The record is seeded — a real interruption would mean killing the app
+ * mid-run, which no CI retry could reproduce twice the same way.
+ */
+test.describe('resuming an interrupted run', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    const durableFlow = {
+      version: 1,
+      name: 'durable',
+      nodes: [
+        { id: 'first', type: 'write-file', path: 'FIRST.md', content: 'hello', output: 'note' },
+        { id: 'second', type: 'write-file', path: 'SECOND.md', content: 'built on {{first.note}}' },
+      ],
+      edges: [{ from: 'first', to: 'second', port: 'note' }],
+      variables: {},
+    };
+    const firstOutput = 'wrote FIRST.md (5 characters)';
+    const started = Date.now() - HOUR;
+    const workspace = createWorkspace({
+      'durable.flow.json': durableFlow,
+      '.flow-runs/run-cut-short.json': {
+        runId: 'run-cut-short',
+        flowName: 'durable',
+        status: 'interrupted',
+        startedAt: started,
+        updatedAt: started + 5_000,
+        nodes: {
+          first: {
+            nodeId: 'first',
+            type: 'write-file',
+            status: 'done',
+            output: firstOutput,
+            definitionHash: nodeDefinitionHash(durableFlow.nodes[0] as never),
+          },
+        },
+        outputs: { first: { note: firstOutput } },
+        usage: { inputTokens: 0, outputTokens: 0 },
+        sessionIds: [],
+      },
+    });
+    const recordFile = path.join(workspace, '.flow-runs', 'run-cut-short.json');
+    const parsed = JSON.parse(fs.readFileSync(recordFile, 'utf8'));
+    parsed.flowPath = path.join(workspace, 'durable.flow.json');
+    fs.writeFileSync(recordFile, JSON.stringify(parsed, null, 2));
+
+    flows = await launchFlowsApp(workspace);
+    await openFlow(flows.page, 'durable.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the flow opens with the offer, not a bare canvas', async () => {
+    const banner = flows.page.locator('[data-testid="flow-resume-banner"]');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('1 finished step will be kept');
+  });
+
+  test('Resume keeps the finished step and runs the rest', async () => {
+    // The proof surface: the finished step's artifact never existed on disk.
+    expect(fs.existsSync(path.join(flows.workspace, 'FIRST.md'))).toBe(false);
+
+    await flows.page.locator('[data-testid="flow-resume-banner-go"]').click();
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.second), { timeout: 60_000 })
+      .toBe('done');
+
+    // Seeded, not re-executed — a re-run would have written FIRST.md.
+    expect(fs.existsSync(path.join(flows.workspace, 'FIRST.md'))).toBe(false);
+    expect(fs.readFileSync(path.join(flows.workspace, 'SECOND.md'), 'utf8')).toContain(
+      'built on wrote FIRST.md'
+    );
+
+    // The offer is settled: the latest run is now a finished one.
+    await expect(flows.page.locator('[data-testid="flow-resume-banner"]')).toHaveCount(0);
+
+    const records = flows
+      .runRecords()
+      .map((name) =>
+        JSON.parse(fs.readFileSync(path.join(flows.workspace, '.flow-runs', name), 'utf8'))
+      )
+      .sort((a, b) => b.startedAt - a.startedAt);
+    expect(records[0].resumedFrom).toBe('run-cut-short');
+    expect(records[0].nodes.first).toMatchObject({ status: 'done', reused: true });
   });
 });

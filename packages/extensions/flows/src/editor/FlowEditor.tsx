@@ -47,6 +47,7 @@ import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
+import { resumeOffer } from './resumeOffer';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
 import { draftFlow, editFlow } from './aiDraft';
@@ -557,6 +558,11 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   }, [host.filePath, isLoading, run.isRunning, startRun]);
 
 
+  // An interruption is the one run ending nobody watched — the app went away
+  // mid-run. Offer the resume rather than leaving it to the retry button.
+  const offer = !run.isRunning ? resumeOffer(pastRuns) : null;
+  const [dismissedResume, setDismissedResume] = useState<string | null>(null);
+
   // A run that did not finish cleanly can be resumed: its finished steps are
   // carried over (planResume decides which are still trustworthy), so agents
   // do not re-bill and gates do not re-ask for work that already succeeded.
@@ -769,6 +775,35 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           {run.isRunning ? 'Cancel' : 'Run'}
         </button>
       </div>
+
+      {offer && offer.record.runId !== dismissedResume && (
+        <div className="flow-resume-banner" data-testid="flow-resume-banner" role="status">
+          <span className="material-symbols-outlined" aria-hidden="true">
+            history
+          </span>
+          <span>
+            Last run was interrupted —{' '}
+            {offer.finished === 1 ? '1 finished step' : `${offer.finished} finished steps`} will be
+            kept.
+          </span>
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-resume-banner-go"
+            onClick={retryRun}
+          >
+            Resume
+          </button>
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-resume-banner-dismiss"
+            onClick={() => setDismissedResume(offer.record.runId)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {aiOpen && (
         <div className="flow-variables flow-ai-edit" data-testid="flow-ai-edit">
