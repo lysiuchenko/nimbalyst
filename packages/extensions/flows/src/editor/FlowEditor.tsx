@@ -49,6 +49,7 @@ import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
+import { draftFlow, editFlow } from './aiDraft';
 
 
 /** Changes that mean the user edited the document, as opposed to the canvas measuring itself. */
@@ -479,6 +480,57 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [fitView, markDirty, refreshAnalysis, remember, setEdges, setNodes]
   );
 
+  // Draft-with-AI: intent in, validated flow out, landed exactly as a
+  // template lands. The model's JSON never reaches the canvas unvalidated —
+  // see aiDraft.ts — so the failure mode here is a message, not a document.
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+
+  const applyDraft = useCallback(
+    (flow: Flow) => {
+      remember();
+      baseRef.current = { ...flow };
+      const graph = flowToGraph(flow);
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
+      markDirty();
+      refreshAnalysis();
+      window.setTimeout(() => fitView({ padding: 0.2, maxZoom: 1 }), 0);
+    },
+    [fitView, markDirty, refreshAnalysis, remember, setEdges, setNodes]
+  );
+
+  const runDraft = useCallback(
+    async (work: () => Promise<import('./aiDraft').DraftResult>) => {
+      const ai = getHostServices().ai;
+      if (!ai) {
+        setAiError('No AI service is available in this host.');
+        return;
+      }
+      setAiBusy(true);
+      setAiError(null);
+      try {
+        const result = await work();
+        if ('flow' in result) {
+          applyDraft(result.flow);
+          setAiOpen(false);
+        } else {
+          setAiError(
+            `The draft did not pass validation: ${result.errors
+              .map((error) => (error.path ? `${error.path}: ${error.message}` : error.message))
+              .join('; ')}`
+          );
+        }
+      } catch (error) {
+        setAiError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setAiBusy(false);
+      }
+    },
+    [applyDraft]
+  );
+
   // Run what is on the canvas, not what is on disk, but refuse to run something
   // that would not survive a save.
   const startRun = useCallback(() => {
@@ -671,6 +723,20 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             Dry run
           </button>
         )}
+        {!run.isRunning && !isEmpty && (
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-ai-edit-toggle"
+            title="Describe a change; the agent revises the flow, validator-checked, undoable"
+            onClick={() => setAiOpen((was) => !was)}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              auto_awesome
+            </span>
+            Edit with AI
+          </button>
+        )}
         {run.isDry && (
           <span className="flow-toolbar-status flow-dry-indicator" data-testid="flow-dry-indicator">
             <span className="material-symbols-outlined" aria-hidden="true">
@@ -703,6 +769,49 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           {run.isRunning ? 'Cancel' : 'Run'}
         </button>
       </div>
+
+      {aiOpen && (
+        <div className="flow-variables flow-ai-edit" data-testid="flow-ai-edit">
+          <form
+            className="flow-draft-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const input = (event.target as HTMLFormElement).elements.namedItem(
+                'instruction'
+              ) as HTMLInputElement;
+              const instruction = input.value.trim();
+              if (instruction === '' || aiBusy) return;
+              void runDraft(() =>
+                editFlow(
+                  getHostServices().ai!,
+                  graphToFlow(baseRef.current, readGraph()),
+                  instruction
+                )
+              );
+            }}
+          >
+            <input
+              className="flow-node-input"
+              name="instruction"
+              disabled={aiBusy}
+              placeholder="e.g. add a security-review skill step before the gate, fed by the draft"
+              aria-label="Describe the change"
+            />
+            <button type="submit" className="flow-toolbar-button" disabled={aiBusy} data-testid="flow-ai-edit-go">
+              {aiBusy ? 'Revising…' : 'Apply'}
+            </button>
+          </form>
+          {aiError && (
+            <p className="flow-editor-invalid" role="alert" data-testid="flow-ai-edit-error">
+              {aiError}
+            </p>
+          )}
+          <p className="flow-node-hint">
+            The revision replaces the whole canvas as one undoable edit; nothing lands unless it
+            passes the validator.
+          </p>
+        </div>
+      )}
 
       {showRuns && (
         <div className="flow-variables flow-run-history" data-testid="flow-run-history">
@@ -1208,6 +1317,41 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                     <span className="flow-template-desc">{template.description}</span>
                   </button>
                 ))}
+              </div>
+              <div className="flow-draft" data-testid="flow-draft">
+                <p className="flow-empty-subtitle">…or describe it, and let the agent draw it:</p>
+                <form
+                  className="flow-draft-row"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const input = (event.target as HTMLFormElement).elements.namedItem(
+                      'description'
+                    ) as HTMLTextAreaElement;
+                    const description = input.value.trim();
+                    if (description === '' || aiBusy) return;
+                    void runDraft(() => draftFlow(getHostServices().ai!, description));
+                  }}
+                >
+                  <textarea
+                    className="flow-node-input"
+                    name="description"
+                    rows={2}
+                    disabled={aiBusy}
+                    placeholder="Nightly: collect the git log, draft release notes, hold them for my approval, save to RELEASE_NOTES.md"
+                    aria-label="Describe the flow"
+                  />
+                  <button type="submit" className="flow-toolbar-button" disabled={aiBusy} data-testid="flow-draft-go">
+                    <span className="material-symbols-outlined" aria-hidden="true">
+                      auto_awesome
+                    </span>
+                    {aiBusy ? 'Drafting…' : 'Draft it'}
+                  </button>
+                </form>
+                {aiError && (
+                  <p className="flow-editor-invalid" role="alert" data-testid="flow-draft-error">
+                    {aiError}
+                  </p>
+                )}
               </div>
               <p className="flow-empty-footnote">
                 …or use the buttons above to place a node yourself.

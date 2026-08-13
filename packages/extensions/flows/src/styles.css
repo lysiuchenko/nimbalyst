@@ -1053,6 +1053,22 @@
   color: var(--flow-text-muted);
 }
 
+/* The describe-it entry point on the empty canvas, and the edit row. */
+.flow-draft {
+  width: min(560px, 90%);
+  margin: 18px auto 0;
+}
+
+.flow-draft-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.flow-draft-row .flow-node-input {
+  flex: 1;
+}
+
 .flow-empty-footnote {
   margin: 10px 0 0;
   font-size: 11px;

@@ -1074,3 +1074,44 @@ test.describe('dry run', () => {
     expect(flows.runRecords()).toEqual([]);
   });
 });
+
+/**
+ * Draft with AI, at the seam CI can prove: the form exists, and with no
+ * provider behind the host the failure is a message — never a broken canvas.
+ */
+test.describe('draft with AI', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'blank.flow.json': { version: 1, name: 'blank', nodes: [], edges: [], variables: {} },
+      })
+    );
+    await openFlow(flows.page, 'blank.flow.json');
+  });
+
+  test.afterAll(async () => {
+    await flows?.close();
+  });
+
+  test('the empty canvas offers describe-it beside the templates', async () => {
+    await expect(flows.page.locator('[data-testid="flow-draft"]')).toBeVisible();
+    await expect(flows.page.locator('[data-testid="flow-empty"]')).toContainText(
+      'describe it'
+    );
+  });
+
+  // The draft/repair loop's failure paths are covered by the aiDraft unit
+  // tests; exercising them here would depend on whether the machine happens to
+  // hold provider auth, which is exactly what an e2e must not depend on.
+  test('edit-with-AI appears only once there is something to edit', async () => {
+    await expect(flows.page.locator('[data-testid="flow-ai-edit-toggle"]')).toHaveCount(0);
+
+    await flows.page.locator('[data-add-node="agent"]').click();
+    await expect(flows.page.locator('[data-testid="flow-ai-edit-toggle"]')).toBeVisible();
+
+    await flows.page.locator('[data-testid="flow-ai-edit-toggle"]').click();
+    await expect(flows.page.locator('[data-testid="flow-ai-edit"]')).toBeVisible();
+  });
+});
