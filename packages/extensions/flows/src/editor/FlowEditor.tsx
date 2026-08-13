@@ -50,6 +50,7 @@ import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
 import { edgePayload, nodeReliability } from './observability';
+import { replayDuration, replayStatuses } from './replay';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
 import { draftFlow, editFlow } from './aiDraft';
@@ -590,6 +591,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   const reliability = useMemo(() => nodeReliability(pastRuns), [pastRuns]);
 
+  // Replay: scrub through a finished run's timeline. Purely a read over the
+  // record, so the slider can jump anywhere; a live run always wins the canvas.
+  const [replay, setReplay] = useState<{ record: RunRecord; atMs: number } | null>(null);
+  const replayActive = replay !== null && !run.isRunning;
+  const canvasStatuses = useMemo(
+    () => (replayActive ? replayStatuses(replay.record, replay.atMs) : run.statuses),
+    [replay, replayActive, run.statuses]
+  );
+
   // The Flows home launches runs by recording an intent and opening the flow;
   // the editor owns the run itself. Checked when loading ends (a fresh tab)
   // and on the panel's window event (a tab that was already open).
@@ -887,6 +897,43 @@ function FlowCanvas({ host }: { host: EditorHost }) {
         </div>
       )}
 
+      {replayActive && (
+        <div className="flow-replay" data-testid="flow-replay">
+          <span className="material-symbols-outlined" aria-hidden="true">
+            history
+          </span>
+          <span className="flow-replay-label">
+            Replaying {relativeWhen(replay.record.startedAt)} run
+          </span>
+          <input
+            className="flow-replay-slider"
+            type="range"
+            aria-label="Replay position"
+            min={0}
+            max={replayDuration(replay.record)}
+            step={100}
+            value={replay.atMs}
+            onChange={(event) =>
+              setReplay({ record: replay.record, atMs: Number(event.target.value) })
+            }
+          />
+          <span className="flow-replay-time" data-testid="flow-replay-time">
+            {formatDuration(replay.atMs)} / {formatDuration(replayDuration(replay.record))}
+          </span>
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-testid="flow-replay-close"
+            aria-label="Stop replaying"
+            onClick={() => setReplay(null)}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              close
+            </span>
+          </button>
+        </div>
+      )}
+
       {aiOpen && (
         <div className="flow-variables flow-ai-edit" data-testid="flow-ai-edit">
           <form
@@ -1059,6 +1106,21 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                               </p>
                             )}
                             <p className="flow-run-detail-id">{record.runId}</p>
+                            {!run.isRunning && replayDuration(record) > 0 && (
+                              <button
+                                type="button"
+                                className="flow-node-duplicate"
+                                data-replay-run={record.runId}
+                                title="Scrub through this run's timeline on the canvas"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setReplay({ record, atMs: replayDuration(record) });
+                                }}
+                              >
+                                <span className="material-symbols-outlined">history</span>
+                                Replay
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="flow-node-duplicate flow-run-forget"
@@ -1423,7 +1485,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <ReferencesContext.Provider value={analysis.references}>
           <NodeIssuesContext.Provider value={analysis.issues}>
           <NodeChildrenContext.Provider value={run.children}>
-          <RunStatusContext.Provider value={run.statuses}>
+          <RunStatusContext.Provider value={canvasStatuses}>
           <NodeResultsContext.Provider value={run.liveNodes}>
           <RunFromContext.Provider value={runFrom}>
           <NodeReliabilityContext.Provider value={reliability}>

@@ -1013,6 +1013,33 @@
   word-break: break-word;
 }
 
+/* Scrubbing through a finished run's timeline. */
+.flow-replay {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--flow-border);
+  background: var(--flow-surface);
+  font-size: 12px;
+  color: var(--flow-text);
+}
+
+.flow-replay > .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--flow-accent);
+}
+
+.flow-replay-slider {
+  flex: 1;
+  accent-color: var(--flow-accent);
+}
+
+.flow-replay-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--flow-text-muted);
+}
+
 /* Worn only by a step with a recorded failure. */
 .flow-node-reliability {
   padding: 1px 5px;

@@ -256,6 +256,28 @@ test.describe('run history, from seeded records', () => {
     await expect(row.locator('.flow-run-outcome')).toHaveText('1 of 3 steps · failed at approve');
   });
 
+  test('replaying a recorded run paints the canvas from its timeline', async () => {
+    const planStatus = flows.page.locator('.react-flow__node[data-id="plan"] [data-node-status]');
+    await expect(planStatus).toHaveAttribute('data-node-status', '');
+
+    const detail = flows.page.locator('[data-run-detail="run-finished"]');
+    if ((await detail.count()) === 0) {
+      await flows.page.locator('[data-past-run="run-finished"]').click();
+    }
+    await flows.page.locator('[data-replay-run="run-finished"]').click();
+
+    await expect(flows.page.locator('[data-testid="flow-replay"]')).toBeVisible();
+    // At this instant of the recorded timeline, plan was mid-flight and
+    // approve had not started — states this canvas never held live.
+    await expect(planStatus).toHaveAttribute('data-node-status', 'running');
+    await expect(
+      flows.page.locator('.react-flow__node[data-id="approve"] [data-node-status]')
+    ).toHaveAttribute('data-node-status', '');
+
+    await flows.page.locator('[data-testid="flow-replay-close"]').click();
+    await expect(planStatus).toHaveAttribute('data-node-status', '');
+  });
+
   test('a step that failed wears its reliability; a clean one stays clean', async () => {
     // approve: done once, failed once across the records — 1/2 on the card.
     await expect(flows.page.locator('[data-reliability="approve"]')).toHaveText('1/2');
