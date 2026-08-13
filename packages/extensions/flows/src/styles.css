@@ -988,7 +988,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* `safe` keeps a too-tall column anchored to the top instead of spilling
+     out of the canvas box — centered overflow would paint over the toolbar
+     and swallow its clicks. overflow-y makes the clipped rest reachable. */
   justify-content: center;
+  justify-content: safe center;
+  overflow-y: auto;
   gap: 6px;
   padding: 24px;
   background: color-mix(in srgb, var(--flow-bg) 88%, transparent);
