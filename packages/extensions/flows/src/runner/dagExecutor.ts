@@ -183,18 +183,38 @@ export class DagFlowRunner implements FlowRunner {
 
       try {
         const resolved = resolveFields(node, { variables, outputs: state.outputs });
-        const result = await this.executorFor(node.type)({
-          node,
-          resolved,
-          variables,
-          signal: signal ?? new AbortController().signal,
-          // Sub-agents appear while the node runs, so each report is pushed
-          // straight through as a state change rather than waiting for the node.
-          reportChildren: (children) => {
-            execution.children = children;
+        // One try plus the node's declared retries. Each failed attempt's
+        // error is kept: a record that only shows the eventual success would
+        // launder instability.
+        const tries = 1 + Math.max(0, node.retries ?? 0);
+        let result: Awaited<ReturnType<NodeExecutor>> | undefined;
+        for (let attempt = 1; attempt <= tries; attempt += 1) {
+          try {
+            result = await this.executorFor(node.type)({
+              node,
+              resolved,
+              variables,
+              signal: signal ?? new AbortController().signal,
+              // Sub-agents appear while the node runs, so each report is pushed
+              // straight through as a state change rather than waiting for the node.
+              reportChildren: (children) => {
+                execution.children = children;
+                notifyState();
+              },
+            });
+            if (attempt > 1) execution.attempts = attempt;
+            break;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (attempt === tries || signal?.aborted) {
+              if (tries > 1) execution.attempts = attempt;
+              throw error;
+            }
+            execution.attemptErrors = [...(execution.attemptErrors ?? []), message];
             notifyState();
-          },
-        });
+          }
+        }
+        if (!result) throw new Error('unreachable: retry loop ended without a result');
 
         const finishedAt = now();
         execution.status = 'done';

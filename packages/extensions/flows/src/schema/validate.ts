@@ -252,6 +252,17 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
     fail(`${path}.join`, `join must be "all" or "any", got ${JSON.stringify(entry.join)}`);
   }
 
+  if (entry.retries !== undefined) {
+    const retries = entry.retries;
+    if (typeof retries !== 'number' || !Number.isInteger(retries) || retries < 1 || retries > 5) {
+      fail(`${path}.retries`, 'retries must be a whole number from 1 to 5');
+    } else if (type === 'human-gate') {
+      // A rejection is a person's decision; re-asking until they crack is not
+      // a retry policy.
+      fail(`${path}.retries`, 'a human gate cannot be retried — a rejection is a decision');
+    }
+  }
+
   for (const [key, value] of Object.entries(entry)) {
     if (typeof value !== 'string') continue;
     const credential = credentialIn(value);
@@ -290,7 +301,7 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
   }
 
   const node: Json = { id: entry.id, type };
-  for (const key of ['label', required, ...NODE_SHAPES[type].optional, 'output', 'position', 'join']) {
+  for (const key of ['label', required, ...NODE_SHAPES[type].optional, 'output', 'position', 'join', 'retries']) {
     if (entry[key] !== undefined) node[key] = entry[key];
   }
 

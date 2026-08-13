@@ -363,6 +363,28 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
           <span>Run on the first arriving branch (any-join)</span>
         </label>
 
+        {node.type !== 'human-gate' && (
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">
+              Retries
+              <span className="flow-node-hint-inline">extra attempts on failure</span>
+            </span>
+            <input
+              className="flow-node-input"
+              aria-label="Retries"
+              type="number"
+              min={1}
+              max={5}
+              value={node.retries ?? ''}
+              placeholder="none"
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                patch({ retries: Number.isNaN(parsed) ? undefined : Math.min(5, Math.max(1, parsed)) });
+              }}
+            />
+          </label>
+        )}
+
         {(agent || fanOut) && (
           <>
             <label className="flow-node-field">

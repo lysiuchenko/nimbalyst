@@ -35,6 +35,11 @@ interface FlowNodeCommon {
    * arm of a fork is always dead.
    */
   join?: 'all' | 'any';
+  /**
+   * Additional attempts after a failure — `2` means three tries in all.
+   * Refused on `human-gate`: a rejection is a decision, not a flake.
+   */
+  retries?: number;
   /** Display name on the canvas. Falls back to `id` when absent. */
   label?: string;
   /** Names this node's result so downstream nodes can read `{{id.output}}`. */

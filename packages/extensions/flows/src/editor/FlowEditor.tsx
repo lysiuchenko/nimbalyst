@@ -741,6 +741,11 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                     .map((child) => (
                                       <WorktreeChip key={child.label} worktree={child.worktree!} />
                                     ))}
+                                  {(node.attempts ?? 1) > 1 && (
+                                    <em className="flow-run-warned" data-attempts={node.nodeId}>
+                                      took {node.attempts} attempts
+                                    </em>
+                                  )}
                                   {node.error && <em>{node.error}</em>}
                                   {!node.error && node.warning && (
                                     <em className="flow-run-warned">{node.warning}</em>

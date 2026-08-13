@@ -99,6 +99,10 @@ export interface NodeExecution {
   usage?: TokenUsage;
   /** The isolated checkout this node ran in, when it asked for one. */
   worktree?: WorktreeRef;
+  /** How many tries success (or final failure) took. Absent means one. */
+  attempts?: number;
+  /** The error of each failed attempt, so retries never hide instability. */
+  attemptErrors?: string[];
   startedAt?: number;
   finishedAt?: number;
 }

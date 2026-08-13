@@ -380,3 +380,34 @@ describe('serializeFlow', () => {
     expect(serializeFlow(minimalFlow()).endsWith('\n')).toBe(true);
   });
 });
+
+describe('retries', () => {
+  const flowWith = (node: Record<string, unknown>) => ({
+    version: 1,
+    name: 'retrying',
+    nodes: [node],
+    edges: [],
+  });
+
+  it('accepts 1..5 and carries the value', () => {
+    const result = validateFlow(flowWith({ id: 'a', type: 'agent', prompt: 'p', retries: 3 }));
+
+    expect(result.valid).toBe(true);
+    expect(result.valid && result.flow.nodes[0].retries).toBe(3);
+  });
+
+  it.each([[0], [6], [1.5], ['2']])('rejects %s', (retries) => {
+    const result = validateFlow(flowWith({ id: 'a', type: 'agent', prompt: 'p', retries }));
+
+    expect(result.valid).toBe(false);
+  });
+
+  it('refuses retries on a human gate — a rejection is a decision', () => {
+    const result = validateFlow(
+      flowWith({ id: 'g', type: 'human-gate', message: 'ok?', retries: 2 })
+    );
+
+    expect(result.valid).toBe(false);
+    expect(!result.valid && result.errors[0].message).toContain('decision');
+  });
+});

@@ -65,6 +65,13 @@ export interface ConfigBadge {
 export function configBadges(node: FlowNode): ConfigBadge[] {
   const badges: ConfigBadge[] = [];
 
+  if (node.retries !== undefined) {
+    badges.push({
+      label: `retries ×${node.retries}`,
+      title: `Retried up to ${node.retries} extra ${node.retries === 1 ? 'time' : 'times'} on failure`,
+    });
+  }
+
   if (node.join === 'any') {
     badges.push({
       label: 'any branch',

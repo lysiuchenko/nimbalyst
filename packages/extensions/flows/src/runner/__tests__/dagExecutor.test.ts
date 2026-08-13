@@ -647,3 +647,96 @@ describe('DagFlowRunner — any-joins', () => {
     expect(state.nodes.review.status).toBe('done');
   });
 });
+
+describe('DagFlowRunner — retries', () => {
+  const flaky = (failuresBeforeSuccess: number) => {
+    let failures = 0;
+    const calls: string[] = [];
+    const executor: NodeExecutor = async (ctx) => {
+      calls.push(ctx.node.id);
+      if (ctx.node.id === 'shaky' && failures < failuresBeforeSuccess) {
+        failures += 1;
+        throw new Error(`attempt ${failures} broke`);
+      }
+      return { output: `${ctx.node.id}-output` };
+    };
+    return { executor, calls };
+  };
+
+  it('a transient failure is retried and the run succeeds', async () => {
+    const { executor, calls } = flaky(1);
+    const runner = new DagFlowRunner({ defaultExecutor: executor });
+
+    const state = await runner.run(flowOf([agent('shaky', { retries: 2 })], []));
+
+    expect(calls).toEqual(['shaky', 'shaky']);
+    expect(state.nodes.shaky.status).toBe('done');
+    expect(state.status).toBe('done');
+  });
+
+  it('success still confesses what it cost: attempts and each failure', async () => {
+    const { executor } = flaky(2);
+    const runner = new DagFlowRunner({ defaultExecutor: executor });
+
+    const state = await runner.run(flowOf([agent('shaky', { retries: 2 })], []));
+
+    expect(state.nodes.shaky.attempts).toBe(3);
+    expect(state.nodes.shaky.attemptErrors).toEqual(['attempt 1 broke', 'attempt 2 broke']);
+  });
+
+  it('exhausted retries fail the node with the final error', async () => {
+    const { executor, calls } = flaky(99);
+    const runner = new DagFlowRunner({ defaultExecutor: executor });
+
+    const state = await runner.run(flowOf([agent('shaky', { retries: 2 })], []));
+
+    expect(calls).toHaveLength(3);
+    expect(state.nodes.shaky.status).toBe('failed');
+    expect(state.nodes.shaky.error).toBe('attempt 3 broke');
+    expect(state.status).toBe('failed');
+  });
+
+  it('a failure edge fires once, only after the last attempt', async () => {
+    const { executor, calls } = flaky(99);
+    const runner = new DagFlowRunner({ defaultExecutor: executor });
+
+    const state = await runner.run(
+      flowOf(
+        [agent('shaky', { retries: 1 }), agent('handler')],
+        [{ from: 'shaky', to: 'handler', on: 'failure' }]
+      )
+    );
+
+    expect(calls).toEqual(['shaky', 'shaky', 'handler']);
+    expect(state.nodes.handler.status).toBe('done');
+    expect(state.status).toBe('done');
+  });
+
+  it('no retries declared means exactly one attempt, as before', async () => {
+    const { executor, calls } = flaky(99);
+    const runner = new DagFlowRunner({ defaultExecutor: executor });
+
+    const state = await runner.run(flowOf([agent('shaky')], []));
+
+    expect(calls).toEqual(['shaky']);
+    expect(state.nodes.shaky.attempts).toBeUndefined();
+  });
+
+  it('cancellation stops the retrying immediately', async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const runner = new DagFlowRunner({
+      defaultExecutor: async () => {
+        calls += 1;
+        controller.abort();
+        throw new Error('broke');
+      },
+    });
+
+    await runner.run(flowOf([agent('shaky', { retries: 5 })], []), {
+      signal: controller.signal,
+    });
+
+    expect(calls).toBe(1);
+  });
+});
