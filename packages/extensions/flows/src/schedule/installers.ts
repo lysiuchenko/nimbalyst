@@ -27,6 +27,22 @@ export interface UninstallPlan {
   summary: string;
 }
 
+/**
+ * Reject paths that would break out of the unit file / batch script they get
+ * written into. `workspace`, `nodePath`, and `cliPath` are interpolated raw
+ * into systemd unit contents and the Windows `.cmd` wrapper (macOS is XML-safe
+ * already). A newline in `workspace` would inject its own `ExecStart=`; a `"`
+ * would break out of the batch `cd /d "..."`. These are trusted environment
+ * paths today — this keeps them trusted if a caller ever passes crafted input.
+ */
+function assertSafePath(platform: NodeJS.Platform, label: string, value: string): void {
+  // C0 control characters (newline/CR included) plus the Windows quote breakout.
+  const forbidden = platform === 'win32' ? /[\u0000-\u001f\u007f"]/ : /[\u0000-\u001f\u007f]/;
+  if (forbidden.test(value)) {
+    throw new Error(`${label} contains a character that is unsafe in a scheduler unit file`);
+  }
+}
+
 /** POSIX-ish join; the plan is built for the target OS, not the current one. */
 function join(...parts: string[]): string {
   const separator = parts[0].includes('\\') && !parts[0].startsWith('/') ? '\\' : '/';
@@ -45,6 +61,10 @@ function unitName(workspace: string): string {
  * `schedule install --print` before anything touches the system.
  */
 export function installPlanFor(platform: NodeJS.Platform, options: InstallOptions): InstallPlan {
+  assertSafePath(platform, 'workspace', options.workspace);
+  assertSafePath(platform, 'node path', options.nodePath);
+  assertSafePath(platform, 'CLI path', options.cliPath);
+
   if (platform === 'darwin') return macosPlan(options);
   if (platform === 'linux') return linuxPlan(options);
   if (platform === 'win32') return windowsPlan(options);

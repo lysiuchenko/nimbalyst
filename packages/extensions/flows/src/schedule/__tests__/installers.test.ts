@@ -76,6 +76,34 @@ describe('installPlanFor — windows', () => {
   });
 });
 
+describe('installPlanFor — rejects paths that could break out of a unit file', () => {
+  it('refuses a workspace with a newline that would inject systemd directives', () => {
+    const workspace = '/home/me/repo\nExecStart=/usr/bin/node /tmp/evil.js';
+
+    expect(() => installPlanFor('linux', { ...options, workspace })).toThrow();
+  });
+
+  it('refuses a node path with a newline', () => {
+    const nodePath = '/usr/bin/node\nExecStartPre=/tmp/evil.js';
+
+    expect(() => installPlanFor('linux', { ...options, nodePath })).toThrow();
+  });
+
+  it('refuses a windows workspace with a quote that would break out of the cd', () => {
+    const workspace = 'C:\\repo" & calc & "';
+
+    expect(() =>
+      installPlanFor('win32', {
+        ...options,
+        workspace,
+        nodePath: 'C:\\node\\node.exe',
+        cliPath: 'C:\\flows\\nimbalyst-flows.js',
+        home: 'C:\\Users\\me',
+      })
+    ).toThrow();
+  });
+});
+
 describe('installPlanFor — unsupported', () => {
   it('says so rather than writing something that will not work', () => {
     const plan = installPlanFor('aix' as NodeJS.Platform, options);
