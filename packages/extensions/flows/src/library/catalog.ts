@@ -195,6 +195,41 @@ export const LIBRARY_FLOWS: LibraryEntry[] = [
     } as unknown as Flow,
   },
   {
+    id: 'jira-import',
+    title: 'Jira import',
+    description:
+      'Pulls your open Jira items onto the tracker board — deduplicated by key, descriptions carried over. Pair it with the bug-fix flow.',
+    icon: 'move_to_inbox',
+    needs: ['Jira access: an MCP server, or JIRA_BASE_URL / JIRA_EMAIL / JIRA_API_TOKEN in the environment'],
+    flow: {
+      version: 1,
+      name: 'Jira import',
+      variables: { jql: 'assignee = currentUser() AND statusCategory != Done' },
+      nodes: [
+        {
+          id: 'fetch', type: 'agent', label: 'Fetch open items',
+          prompt:
+            'Fetch the Jira issues matching this JQL: {{jql}}\n\nUse Jira MCP tools if this workspace has them; otherwise call the Jira REST API with curl using the JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN environment variables (never print the token). For every issue output one block:\n\nKEY | issue type | priority | summary\n<the description, as markdown>\n---\n\nIf Jira cannot be reached or nothing matches, reply with exactly NOTHING_TO_IMPORT and one sentence why.',
+          output: 'items', position: { x: 0, y: 0 },
+        },
+        {
+          id: 'board', type: 'agent', label: 'Create board items',
+          prompt:
+            'These Jira issues were fetched:\n\n{{fetch.items}}\n\nFor each block: first search the board with tracker_list for the Jira KEY; skip it if an item already carries that key. Otherwise call tracker_create — type "bug" for bug-shaped issues and "task" for everything else, title "[KEY] summary", label "jira", the description as the markdown body, ending with a link line back to the Jira issue. Reply with one line per issue, "created" or "skipped", then a final line "Imported N, skipped M." If the input says NOTHING_TO_IMPORT, create nothing and reply "Imported 0, skipped 0."',
+          output: 'report', position: { x: 320, y: 0 },
+        },
+        {
+          id: 'note', type: 'write-file', label: 'Leave the receipt',
+          path: 'JIRA_IMPORT.md', content: '{{board.report}}', position: { x: 640, y: 0 },
+        },
+      ],
+      edges: [
+        { from: 'fetch', to: 'board', port: 'items' },
+        { from: 'board', to: 'note', port: 'report' },
+      ],
+    } as unknown as Flow,
+  },
+  {
     id: 'docs-watcher',
     title: 'Docs watcher',
     description:
