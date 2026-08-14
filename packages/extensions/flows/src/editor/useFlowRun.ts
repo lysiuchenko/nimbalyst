@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorHost } from '@nimbalyst/extension-sdk';
 import { BackendShellClient } from '../host/backendShellClient';
 import { getHostServices } from '../host/hostServices';
@@ -11,6 +11,7 @@ import type { GateAnswer, GateDecision } from '../runner/ports';
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
 import { gateNotification, runNotification } from './runNotifications';
+import { tailLine } from './liveTail';
 
 export interface PendingGate {
   nodeId: string;
@@ -32,6 +33,8 @@ export interface FlowRunControls {
   runState: RunState | null;
   runError: string | null;
   pendingGate: PendingGate | null;
+  /** One line per running agent step: what it is doing right now. */
+  liveTails: Record<string, string>;
   /**
    * Run the flow. With `resumeFrom`, a failed run's finished steps are carried
    * over instead of re-executed — agents do not re-bill and gates do not
@@ -72,7 +75,54 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   const [runError, setRunError] = useState<string | null>(null);
   const [pendingGate, setPendingGate] = useState<PendingGate | null>(null);
   const [isDry, setIsDry] = useState(false);
+  const [liveTails, setLiveTails] = useState<Record<string, string>>({});
   const abortRef = useRef<AbortController | null>(null);
+  /** The flow being run, for mapping running node ids to session titles. */
+  const runningFlowRef = useRef<Flow | null>(null);
+
+  // A heartbeat per running agent step: find its session by title, read the
+  // transcript tail, show the last line. Read-only polling — a failed lookup
+  // is silence, never an error.
+  useEffect(() => {
+    if (!isRunning || isDry) {
+      setLiveTails({});
+      return;
+    }
+    const ipc = (window as unknown as { electronAPI?: HostIpc }).electronAPI;
+    if (!ipc) return;
+    const workspacePath =
+      host.workspaceId ?? host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
+    const sessionHost = new NimbalystSessionHost(ipc, workspacePath);
+    const sessionIds = new Map<string, string>();
+
+    const tick = async () => {
+      const flow = runningFlowRef.current;
+      if (!flow) return;
+      const tails: Record<string, string> = {};
+      for (const node of flow.nodes) {
+        if (statuses[node.id] !== 'running') continue;
+        if (node.type !== 'agent' && node.type !== 'fan-out') continue;
+        try {
+          let sessionId = sessionIds.get(node.id);
+          if (!sessionId) {
+            sessionId = await sessionHost.findNewestSessionByTitle(
+              `Flow: ${node.label ?? node.id}`
+            );
+            if (sessionId) sessionIds.set(node.id, sessionId);
+          }
+          if (!sessionId) continue;
+          const messages = (await ipc.invoke('transcript:get-tail-messages', sessionId, 10)) as unknown[];
+          const line = Array.isArray(messages) ? tailLine(messages) : null;
+          if (line) tails[node.id] = line;
+        } catch {
+          // The heartbeat must never become the reason a run looks broken.
+        }
+      }
+      setLiveTails(tails);
+    };
+    const timer = window.setInterval(() => void tick(), 3_000);
+    return () => window.clearInterval(timer);
+  }, [host.filePath, host.workspaceId, isDry, isRunning, statuses]);
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
@@ -90,6 +140,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
       abortRef.current = controller;
 
       setIsRunning(true);
+      runningFlowRef.current = flow;
       setRunError(null);
       setStatuses(Object.fromEntries(flow.nodes.map((node) => [node.id, 'queued' as NodeStatus])));
       setLiveNodes({});
@@ -206,5 +257,5 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
 
   const dryRun = useCallback((flow: Flow) => start(flow, undefined, undefined, true), [start]);
 
-  return { isRunning, statuses, liveNodes, children, runState, runError, pendingGate, start, dryRun, isDry, cancel };
+  return { isRunning, statuses, liveNodes, children, runState, runError, pendingGate, start, dryRun, isDry, cancel, liveTails };
 }

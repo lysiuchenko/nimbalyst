@@ -43,7 +43,7 @@ import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
-import { NodeChildrenContext, NodeReliabilityContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
+import { LiveTailContext, NodeChildrenContext, NodeReliabilityContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
 import { useFlowRun } from './useFlowRun';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
@@ -1594,6 +1594,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <NodeResultsContext.Provider value={run.liveNodes}>
           <RunFromContext.Provider value={runFrom}>
           <NodeReliabilityContext.Provider value={reliability}>
+          <LiveTailContext.Provider value={run.liveTails}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -1685,6 +1686,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </p>
             </div>
           )}
+          </LiveTailContext.Provider>
           </NodeReliabilityContext.Provider>
           </RunFromContext.Provider>
           </NodeResultsContext.Provider>

@@ -1013,6 +1013,23 @@
   word-break: break-word;
 }
 
+/* The running step's heartbeat line. */
+.flow-node-live {
+  margin: 0;
+  padding: 4px 10px 2px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--flow-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: flow-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes flow-live-pulse {
+  50% { opacity: 0.55; }
+}
+
 /* A failed step offers its own way forward. */
 .flow-node-failure-actions {
   display: flex;

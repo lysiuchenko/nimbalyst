@@ -129,6 +129,19 @@ export class NimbalystSessionHost implements SessionUsageReader {
     );
   }
 
+  /** Newest session wearing this title — how a running step is found mid-run. */
+  async findNewestSessionByTitle(title: string): Promise<string | undefined> {
+    const result = (await this.ipc.invoke('sessions:list', this.workspacePath)) as {
+      entries?: { sessionId?: string; id?: string; title?: string; updatedAt?: number }[];
+      sessions?: { sessionId?: string; id?: string; title?: string; updatedAt?: number }[];
+    };
+    const list = result?.entries ?? result?.sessions ?? [];
+    const match = list
+      .filter((entry) => entry.title === title)
+      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
+    return match?.sessionId ?? match?.id;
+  }
+
   async getTokenUsage(
     sessionId: string
   ): Promise<{ inputTokens: number; outputTokens: number; costUsd?: number } | undefined> {

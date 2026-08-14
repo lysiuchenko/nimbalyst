@@ -40,6 +40,13 @@ export function useNodeResult(nodeId: string): NodeExecution | undefined {
   return useContext(NodeResultsContext)[nodeId];
 }
 
+/** One line per running agent step: the transcript tail's heartbeat. */
+export const LiveTailContext = createContext<Record<string, string>>({});
+
+export function useLiveTail(nodeId: string): string | undefined {
+  return useContext(LiveTailContext)[nodeId];
+}
+
 /**
  * Per-node outcome counts across the recorded runs, for the reliability chip.
  * A node missing from the map has no recorded outcomes.
