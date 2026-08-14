@@ -240,7 +240,7 @@ export function getFileExtensionForAnalytics(filePath: string | undefined): stri
  * sessions, while the direct API providers still require explicitly configured keys.
  */
 export function extensionPromptRequiresConfiguredApiKey(provider: AIProviderType): boolean {
-  return provider !== 'claude-code' && provider !== 'openai-codex';
+  return provider !== 'claude-code' && provider !== 'openai-codex' && provider !== 'copilot-cli';
 }
 
 /**

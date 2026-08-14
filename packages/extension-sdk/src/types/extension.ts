@@ -1174,7 +1174,7 @@ export interface ExtensionAIService {
     prompt: string;
     sessionName?: string;
     /** AI provider to use. Defaults to 'claude-code'. */
-    provider?: 'claude-code' | 'claude' | 'openai' | 'openai-codex';
+    provider?: 'claude-code' | 'claude' | 'openai' | 'openai-codex' | 'copilot-cli';
     /** Model ID (e.g. 'claude-code:opus', 'openai-codex:gpt-5.6-sol'). Uses provider default if omitted. */
     model?: string;
     /**

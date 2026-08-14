@@ -87,6 +87,9 @@ export function configBadges(node: FlowNode): ConfigBadge[] {
     worktree: boolean;
   }>;
 
+  if (configurable.provider === 'copilot-cli') {
+    badges.push({ label: 'copilot', title: 'Runs on GitHub Copilot CLI instead of Claude Code' });
+  }
   if (configurable.provider === 'openai-codex') {
     badges.push({ label: 'codex', title: 'Runs on OpenAI Codex instead of Claude Code' });
   }

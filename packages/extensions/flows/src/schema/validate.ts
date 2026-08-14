@@ -309,21 +309,26 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
   if (entry.provider !== undefined) {
     if (type !== 'agent' && type !== 'fan-out') {
       fail(`${path}.provider`, `a ${type} step does not run an agent, so it has no provider`);
-    } else if (entry.provider !== 'claude-code' && entry.provider !== 'openai-codex') {
+    } else if (
+      entry.provider !== 'claude-code' &&
+      entry.provider !== 'openai-codex' &&
+      entry.provider !== 'copilot-cli'
+    ) {
       fail(
         `${path}.provider`,
-        `provider must be "claude-code" or "openai-codex", got ${JSON.stringify(entry.provider)}`
+        `provider must be "claude-code", "openai-codex" or "copilot-cli", got ${JSON.stringify(entry.provider)}`
       );
     } else if (
-      entry.provider === 'openai-codex' &&
+      entry.provider !== 'claude-code' &&
       Array.isArray(entry.tools) &&
       entry.tools.length > 0
     ) {
-      // Verified against the codex provider: it does not read a session's
-      // allowedTools, so the restriction would silently not hold.
+      // Verified against both providers: neither codex nor the Copilot CLI
+      // reads a session's allowedTools, so the restriction would silently
+      // not hold.
       fail(
         `${path}.tools`,
-        'openai-codex does not honor a tool allowlist — remove tools or use claude-code for this step'
+        `${entry.provider} does not honor a tool allowlist — remove tools or use claude-code for this step`
       );
     }
   }

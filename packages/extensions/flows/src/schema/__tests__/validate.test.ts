@@ -433,6 +433,22 @@ describe('per-step provider', () => {
     expect(fanOut.valid).toBe(true);
   });
 
+  it('accepts copilot-cli, and refuses tools with it for the same reason as codex', () => {
+    const plain = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'copilot-cli' })
+    );
+    expect(plain.valid).toBe(true);
+    expect(plain.valid && plain.flow.nodes[0]).toMatchObject({ provider: 'copilot-cli' });
+
+    // Verified against CopilotCLIProvider: it never reads a session's
+    // allowedTools, so the restriction would silently not hold.
+    const withTools = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'copilot-cli', tools: ['Read'] })
+    );
+    expect(withTools.valid).toBe(false);
+    expect(!withTools.valid && withTools.errors[0].message).toContain('allowlist');
+  });
+
   it('absence means the host default, so every existing flow is unchanged', () => {
     const result = validateFlow(flowWith({ id: 'a', type: 'agent', prompt: 'p' }));
 

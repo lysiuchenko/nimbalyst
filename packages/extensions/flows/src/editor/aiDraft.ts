@@ -32,7 +32,7 @@ const SCHEMA_GUIDE = `A flow is JSON: {"version":1,"name":string,"nodes":[...],"
 
 Node types (each needs "id", unique):
 - {"type":"shell","run":"one allowlisted command (npm,npx,node,git,echo,ls,pwd,cat) — no pipes or && chaining","output":"portName"?}
-- {"type":"agent","prompt":"what the agent should do","output":"portName"?,"model":null?,"provider":"claude-code"|"openai-codex"?,"tools":["Read","Grep","Glob","Bash"]?,"worktree":true?,"retries":1-5?}  — never combine "tools" with provider "openai-codex"
+- {"type":"agent","prompt":"what the agent should do","output":"portName"?,"model":null?,"provider":"claude-code"|"openai-codex"|"copilot-cli"?,"tools":["Read","Grep","Glob","Bash"]?,"worktree":true?,"retries":1-5?}  — never combine "tools" with a provider other than claude-code
 - {"type":"fan-out","prompt":"per-item prompt using {{item}}","over":"{{ref}} or literal list, one item per line","concurrency":number?,"worktree":true? — one sub-agent per item, in parallel}
 - {"type":"skill","skill":"name from .claude/skills","input":"text"?,"output":"portName"?}
 - {"type":"slash-command","command":"/name","args":"text"?}

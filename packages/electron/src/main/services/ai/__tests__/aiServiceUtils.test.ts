@@ -83,6 +83,8 @@ describe('aiServiceUtils', () => {
     it.each([
       ['claude-code', false],
       ['openai-codex', false],
+      // The Copilot CLI signs in with `copilot auth login`, like codex.
+      ['copilot-cli', false],
       ['claude', true],
       ['openai', true],
       ['openai-codex-acp', true],

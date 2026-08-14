@@ -14,7 +14,7 @@ export interface AgentRunRequest {
   kind: 'agent' | 'slash-command' | 'skill';
   nodeId: string;
   /** Which agent CLI runs it. Absent means the host default (Claude Code). */
-  provider?: 'claude-code' | 'openai-codex';
+  provider?: 'claude-code' | 'openai-codex' | 'copilot-cli';
   sessionName: string;
   prompt: string;
   model?: string | null;

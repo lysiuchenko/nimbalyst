@@ -4,7 +4,7 @@ import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '.
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
-import { useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
+import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
 import { configBadges, summarize } from './summarize';
 
@@ -97,6 +97,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const result = useNodeResult(id);
   const onRunFrom = useRunFrom();
   const reliability = useNodeReliability(id);
+  const liveTail = useLiveTail(id);
   const [resultOpen, setResultOpen] = useState(false);
   const catalog = useCatalog();
   const references = useReferences(id);
@@ -212,6 +213,13 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
           <span className="material-symbols-outlined">content_copy</span>
         </button>
       </header>
+
+      {/* The heartbeat: what the running agent is doing right now. */}
+      {status === 'running' && liveTail && (
+        <p className="flow-node-live" data-live-tail={id} title={liveTail}>
+          {liveTail}
+        </p>
+      )}
 
       {/* A failure answers "so what now?" on the spot rather than dead-ending. */}
       {status === 'failed' && (
@@ -449,6 +457,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
               >
                 <option value="">Claude Code (default)</option>
                 <option value="openai-codex">OpenAI Codex — no tool allowlist</option>
+                <option value="copilot-cli">GitHub Copilot CLI — no tool allowlist</option>
               </select>
             </label>
             <label className="flow-node-field">

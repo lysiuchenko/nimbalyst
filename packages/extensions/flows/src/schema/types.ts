@@ -53,7 +53,7 @@ interface FlowNodeCommon {
  * Which agent CLI runs the step. Absent means the host default (Claude Code).
  * Chat providers are deliberately not offered: a flow step is agentic work.
  */
-export type StepProvider = 'claude-code' | 'openai-codex';
+export type StepProvider = 'claude-code' | 'openai-codex' | 'copilot-cli';
 
 export interface AgentNode extends FlowNodeCommon {
   type: 'agent';
