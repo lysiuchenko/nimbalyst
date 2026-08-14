@@ -23,6 +23,49 @@ export function edgeId(from: string, to: string): string {
 }
 
 /**
+ * The canvas label for a `when:` — the condition with the node-id prefix stripped
+ * off, since the edge already starts at that node (`{{report.verdict}} contains
+ * "APPROVE"` reads as `verdict contains "APPROVE"`).
+ */
+export function whenLabel(when: string): string {
+  return when.replace(/\{\{\s*[^.}]+\.([^}\s]+)\s*\}\}/, '$1');
+}
+
+/**
+ * How a wire draws, given the three things an edge can say. One source of truth
+ * so the file→canvas projection and the in-panel editor never drift apart:
+ *
+ * - a `port` labels the wire with the value it carries;
+ * - `on: 'failure'` recolours it and overrides the label — it is the exception path;
+ * - a `when:` outranks both labels (it is the most specific thing the edge says)
+ *   and tags the class the stylesheet draws conditions with. A failure edge may
+ *   also carry a condition, so the class composes.
+ */
+export function edgeVisual(edge: { port?: string; on?: string; when?: string }): {
+  data?: FlowCanvasEdge['data'];
+  className?: string;
+  label?: string;
+} {
+  let data: { on?: string; when?: string } | undefined;
+  let className: string | undefined;
+  let label: string | undefined;
+
+  if (edge.port !== undefined) label = edge.port;
+  if (edge.on === 'failure') {
+    data = { on: 'failure' };
+    className = 'flow-edge-failure';
+    label = 'on failure';
+  }
+  if (edge.when !== undefined) {
+    data = { ...data, when: edge.when };
+    className = [className, 'flow-edge-when'].filter(Boolean).join(' ');
+    label = whenLabel(edge.when);
+  }
+
+  return { data, className, label };
+}
+
+/**
  * Project a flow onto the canvas.
  *
  * Nodes without a stored position get a deterministic layered layout — column
@@ -46,23 +89,10 @@ export function flowToGraph(flow: Flow): FlowGraph {
         source: edge.from,
         target: edge.to,
       };
-      if (edge.port !== undefined) canvasEdge.label = edge.port;
-      // A failure edge looks and reads differently: the label wins over a port
-      // (the two cannot coexist — the validator refuses a port on a failure
-      // edge), and the class lets the stylesheet draw it as the exception path.
-      if (edge.on === 'failure') {
-        canvasEdge.data = { on: 'failure' };
-        canvasEdge.className = 'flow-edge-failure';
-        canvasEdge.label = 'on failure';
-      }
-      // The condition outranks other labels: it is the most specific thing the
-      // edge has to say. The node-id prefix is dropped — the edge already
-      // starts at that node.
-      if (edge.when !== undefined) {
-        canvasEdge.data = { ...canvasEdge.data, when: edge.when };
-        canvasEdge.className = [canvasEdge.className, 'flow-edge-when'].filter(Boolean).join(' ');
-        canvasEdge.label = edge.when.replace(/\{\{\s*[^.}]+\.([^}\s]+)\s*\}\}/, '$1');
-      }
+      const visual = edgeVisual(edge);
+      if (visual.label !== undefined) canvasEdge.label = visual.label;
+      if (visual.className !== undefined) canvasEdge.className = visual.className;
+      if (visual.data !== undefined) canvasEdge.data = visual.data;
       return canvasEdge;
     }),
   };

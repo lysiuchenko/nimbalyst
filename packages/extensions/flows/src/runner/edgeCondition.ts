@@ -27,6 +27,24 @@ export function parseEdgeCondition(expression: string): EdgeCondition {
   return { reference: match[1], op: match[2] as EdgeCondition['op'], literal: match[3] };
 }
 
+/** The `when:` string for a condition — the inverse of `parseEdgeCondition`. */
+export function formatEdgeCondition(condition: EdgeCondition): string {
+  return `{{${condition.reference}}} ${condition.op} "${condition.literal}"`;
+}
+
+/**
+ * Parse without throwing, for the editor: an existing `when:` is loaded into the
+ * form, and a value that no longer parses simply starts the form empty rather
+ * than crashing the panel.
+ */
+export function tryParseEdgeCondition(expression: string): EdgeCondition | null {
+  try {
+    return parseEdgeCondition(expression);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * True only when the reference resolves and the comparison holds.
  *

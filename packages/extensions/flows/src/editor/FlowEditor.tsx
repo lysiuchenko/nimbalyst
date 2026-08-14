@@ -15,6 +15,7 @@ import {
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES, type Flow, type NodeType } from '../schema/types';
 import {
+  edgeVisual,
   flowToGraph,
   graphToFlow,
   placeNewNode,
@@ -22,6 +23,7 @@ import {
   type FlowCanvasNode,
   type FlowGraph,
 } from './flowGraph';
+import { EdgeConditionEditor } from './EdgeConditionEditor';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
 import { formatDuration, previewOf } from './nodes/entryFilter';
 import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
@@ -577,6 +579,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     to: string;
     port?: string;
     on?: string;
+    when?: string;
   } | null>(null);
 
   const onEdgeClick = useCallback((_event: React.MouseEvent, edge: FlowCanvasEdge) => {
@@ -584,10 +587,37 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setInspectedEdge({
       from: edge.source,
       to: edge.target,
-      port: typeof edge.label === 'string' ? edge.label : undefined,
+      // A condition owns the label, so the port only reads off the label when
+      // there is no condition — otherwise the port is carried in data.
+      port: data?.when === undefined && typeof edge.label === 'string' ? edge.label : undefined,
       on: data?.on,
+      when: data?.when,
     });
   }, []);
+
+  // Apply a routing change (failure branch, condition) to the inspected wire and
+  // keep the two decisions independent: setting a condition preserves the
+  // success/failure choice, and flipping the branch preserves the condition.
+  // One recompute through `edgeVisual` so the live wire matches what a reload
+  // would draw.
+  const applyEdge = useCallback(
+    (patch: { port?: string; on?: string; when?: string }) => {
+      if (!inspectedEdge) return;
+      const next = { ...inspectedEdge, ...patch };
+      remember();
+      setEdges((edges) =>
+        edges.map((edge) => {
+          if (edge.source !== inspectedEdge.from || edge.target !== inspectedEdge.to) return edge;
+          const visual = edgeVisual({ port: next.port, on: next.on, when: next.when });
+          return { ...edge, data: visual.data, className: visual.className, label: visual.label };
+        })
+      );
+      markDirty();
+      refreshAnalysis();
+      setInspectedEdge(next);
+    },
+    [inspectedEdge, markDirty, refreshAnalysis, remember, setEdges]
+  );
 
   const inspectedOutputs = run.runState?.outputs ?? pastRuns[0]?.outputs;
   const inspectedPayload = inspectedEdge ? edgePayload(inspectedEdge, inspectedOutputs) : null;
@@ -946,15 +976,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               className="flow-toolbar-button"
               data-testid="flow-edge-toggle-failure"
               title="Route this wire on failure instead of success (also: double-click the wire)"
-              onClick={() => {
-                const canvasEdge = getEdges().find(
-                  (edge) => edge.source === inspectedEdge.from && edge.target === inspectedEdge.to
-                );
-                if (canvasEdge) {
-                  onEdgeDoubleClick({} as React.MouseEvent, canvasEdge);
-                  setInspectedEdge({ ...inspectedEdge, on: inspectedEdge.on === 'failure' ? undefined : 'failure' });
-                }
-              }}
+              onClick={() => applyEdge({ on: inspectedEdge.on === 'failure' ? undefined : 'failure' })}
             >
               {inspectedEdge.on === 'failure' ? 'On failure' : 'On success'}
             </button>
@@ -970,6 +992,13 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </span>
             </button>
           </div>
+          <EdgeConditionEditor
+            key={`${inspectedEdge.from}->${inspectedEdge.to}`}
+            from={inspectedEdge.from}
+            port={inspectedEdge.port}
+            when={inspectedEdge.when}
+            onChange={(when) => applyEdge({ when })}
+          />
           {inspectedPayload ? (
             <pre className="flow-edge-payload-value">{inspectedPayload.value}</pre>
           ) : (

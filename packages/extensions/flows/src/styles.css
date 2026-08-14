@@ -1033,6 +1033,29 @@
   word-break: break-word;
 }
 
+.flow-edge-condition {
+  margin: 6px 0 2px;
+}
+
+.flow-edge-condition-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--flow-text-muted);
+}
+
+.flow-edge-condition-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.flow-edge-condition-row .flow-node-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* The running step's heartbeat line. */
 .flow-node-live {
   margin: 0;

@@ -1,6 +1,33 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { evaluateEdgeCondition, parseEdgeCondition } from '../edgeCondition';
+import {
+  evaluateEdgeCondition,
+  formatEdgeCondition,
+  parseEdgeCondition,
+  tryParseEdgeCondition,
+} from '../edgeCondition';
+
+describe('formatEdgeCondition', () => {
+  it('is the inverse of parseEdgeCondition for every operator', () => {
+    for (const op of ['contains', '==', '!='] as const) {
+      const condition = { reference: 'report.verdict', op, literal: 'APPROVE' };
+      expect(formatEdgeCondition(condition)).toBe(`{{report.verdict}} ${op} "APPROVE"`);
+      expect(parseEdgeCondition(formatEdgeCondition(condition))).toEqual(condition);
+    }
+  });
+});
+
+describe('tryParseEdgeCondition', () => {
+  it('parses a valid condition and returns null for anything else', () => {
+    expect(tryParseEdgeCondition('{{a.out}} == "yes"')).toEqual({
+      reference: 'a.out',
+      op: '==',
+      literal: 'yes',
+    });
+    expect(tryParseEdgeCondition('not a condition')).toBeNull();
+    expect(tryParseEdgeCondition('')).toBeNull();
+  });
+});
 
 describe('parseEdgeCondition', () => {
   it('parses the three operators', () => {

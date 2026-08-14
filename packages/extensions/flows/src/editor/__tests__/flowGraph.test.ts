@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Flow } from '../../schema/types';
 import { validateFlow } from '../../schema/validate';
-import { flowToGraph, graphToFlow, placeNewNode } from '../flowGraph';
+import { edgeVisual, flowToGraph, graphToFlow, placeNewNode } from '../flowGraph';
 
 const pipeline: Flow = {
   version: 1,
@@ -304,5 +304,13 @@ describe('when conditions on the canvas', () => {
       on: 'failure',
       when: '{{report.error}} contains "TIMEOUT"',
     });
+  });
+
+  it('renders a port and a condition together — the condition names the label', () => {
+    const visual = edgeVisual({ port: 'note', when: '{{first.note}} contains "ok"' });
+
+    expect(visual.label).toBe('note contains "ok"');
+    expect(visual.className).toBe('flow-edge-when');
+    expect(visual.data).toEqual({ when: '{{first.note}} contains "ok"' });
   });
 });
