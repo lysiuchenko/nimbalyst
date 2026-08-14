@@ -1418,55 +1418,63 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       )}
 
       {run.pendingGate && (
-        <div className="flow-gate" role="alertdialog" data-testid="flow-gate">
-          <span className="material-symbols-outlined">front_hand</span>
-          <div className="flow-gate-body">
-            <strong>{run.pendingGate.nodeId}</strong>
-            <Markdown text={run.pendingGate.message} />
-            {/* The work being gated, so the decision is made looking at it
-                rather than on faith. Direct parents' outputs, live. */}
-            {gateContext(graphToFlow(baseRef.current, readGraph()), run.pendingGate.nodeId, run.liveNodes).map((entry) => (
-              <details
-                key={entry.nodeId}
-                className="flow-gate-work"
-                data-gate-work={entry.nodeId}
-                open
-              >
-                <summary>{entry.label}</summary>
-                <Markdown text={entry.output} />
-              </details>
-            ))}
-            <textarea
-              className="flow-node-input flow-gate-comment"
-              data-testid="flow-gate-comment"
-              aria-label="Note for this decision"
-              placeholder="Optional note — a rejection reason travels to {{gate.error}}"
-              value={gateComment}
-              onChange={(event) => setGateComment(event.target.value)}
-            />
-          </div>
-          <button
-            type="button"
-            className="flow-gate-approve"
-            data-testid="flow-gate-approve"
-            onClick={() => {
+        <div
+          className="flow-gate"
+          role="alertdialog"
+          data-testid="flow-gate"
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
               run.pendingGate?.decide('approved', gateComment);
               setGateComment('');
-            }}
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            className="flow-gate-reject"
-            data-testid="flow-gate-reject"
-            onClick={() => {
-              run.pendingGate?.decide('rejected', gateComment);
-              setGateComment('');
-            }}
-          >
-            Reject
-          </button>
+            }
+          }}
+        >
+          <div className="flow-gate-head">
+            <span className="material-symbols-outlined">front_hand</span>
+            <strong>{run.pendingGate.nodeId}</strong>
+          </div>
+          <Markdown text={run.pendingGate.message} />
+          {/* The work being gated, so the decision is made looking at it
+              rather than on faith. Direct parents' outputs, live. */}
+          {gateContext(graphToFlow(baseRef.current, readGraph()), run.pendingGate.nodeId, run.liveNodes).map((entry) => (
+            <details key={entry.nodeId} className="flow-gate-work" data-gate-work={entry.nodeId} open>
+              <summary>{entry.label}</summary>
+              <Markdown text={entry.output} />
+            </details>
+          ))}
+          <textarea
+            className="flow-node-input flow-gate-comment"
+            data-testid="flow-gate-comment"
+            aria-label="Note for this decision"
+            placeholder="Optional note — a rejection reason travels to {{gate.error}}"
+            value={gateComment}
+            onChange={(event) => setGateComment(event.target.value)}
+          />
+          <div className="flow-gate-actions">
+            <button
+              type="button"
+              className="flow-gate-reject"
+              data-testid="flow-gate-reject"
+              onClick={() => {
+                run.pendingGate?.decide('rejected', gateComment);
+                setGateComment('');
+              }}
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              className="flow-gate-approve"
+              data-testid="flow-gate-approve"
+              title="Approve (Cmd+Enter)"
+              onClick={() => {
+                run.pendingGate?.decide('approved', gateComment);
+                setGateComment('');
+              }}
+            >
+              Approve
+            </button>
+          </div>
         </div>
       )}
 

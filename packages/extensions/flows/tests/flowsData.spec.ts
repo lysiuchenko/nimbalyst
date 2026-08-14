@@ -824,7 +824,9 @@ test.describe('the gate shows the work it gates', () => {
     await expect(work.locator('summary')).toHaveText('Draft the file');
     await expect(work).toContainText('wrote report.md');
 
-    await flows.page.locator('[data-testid="flow-gate-approve"]').click();
+    // Approve from the keyboard: the decision shortcut is part of the panel.
+    await flows.page.locator('[data-testid="flow-gate-comment"]').focus();
+    await flows.page.keyboard.press('ControlOrMeta+Enter');
     await expect
       .poll(() => nodeStatuses(flows.page).then((statuses) => statuses.approve), { timeout: 60_000 })
       .toBe('done');
