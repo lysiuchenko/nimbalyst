@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CatalogEntry } from '../../host/catalog';
+import { activeRefQuery, applyRef, suggestRefs } from '../refComplete';
 import { filterEntries } from './entryFilter';
 
 /**
@@ -192,6 +193,127 @@ export function ToolPicker({
         ))}
       </div>
     </div>
+  );
+}
+
+/** How many completions to show before the list becomes a scroll. */
+const MAX_COMPLETIONS = 8;
+
+/**
+ * A text field that completes `{{…}}` references as they are typed.
+ *
+ * Typing `{{` opens a list of the inputs this node may legally use, narrowed by
+ * what follows; ↑/↓ move, Enter/Tab accept, Esc dismisses. The always-visible
+ * chips remain for browsing — this is the path for an author who knows the name
+ * and does not want to leave the keyboard. All caret arithmetic lives in the
+ * pure `refComplete` helpers; this component only wires it to the DOM.
+ */
+export function RefField({
+  label,
+  value,
+  references,
+  placeholder,
+  hint,
+  multiline,
+  rows,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  references: string[];
+  placeholder: string;
+  hint?: string;
+  multiline?: boolean;
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  const field = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const [caret, setCaret] = useState<number | null>(null);
+  const [highlight, setHighlight] = useState(0);
+
+  const active = caret === null ? null : activeRefQuery(value, caret);
+  const matches = active ? suggestRefs(references, active.query).slice(0, MAX_COMPLETIONS) : [];
+  const open = matches.length > 0;
+  const chosen = Math.min(highlight, matches.length - 1);
+
+  const insert = (reference: string) => {
+    const next = applyRef(value, caret ?? value.length, reference);
+    onChange(next.value);
+    setCaret(next.caret);
+    // The value change re-renders the field; put focus and caret back where the
+    // completion left them so typing continues without a click.
+    requestAnimationFrame(() => {
+      field.current?.focus();
+      field.current?.setSelectionRange(next.caret, next.caret);
+    });
+  };
+
+  const syncCaret = () => setCaret(field.current?.selectionStart ?? null);
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (!open) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlight((h) => Math.min(h + 1, matches.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      insert(matches[chosen]);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setCaret(null);
+    }
+  };
+
+  const shared = {
+    ref: field,
+    className: 'flow-node-input',
+    'aria-label': label,
+    value,
+    placeholder,
+    onChange: (event: React.ChangeEvent<HTMLTextAreaElement & HTMLInputElement>) => {
+      onChange(event.target.value);
+      setCaret(event.target.selectionStart);
+      setHighlight(0);
+    },
+    onKeyUp: syncCaret,
+    onClick: syncCaret,
+    onKeyDown,
+    onBlur: () => setCaret(null),
+  };
+
+  return (
+    <label className="flow-node-field">
+      <span className="flow-node-field-label">
+        {label}
+        {hint && <span className="flow-node-hint-inline">{hint}</span>}
+      </span>
+      <div className="flow-ref-field-anchor">
+        {multiline ? <textarea rows={rows ?? 3} {...shared} /> : <input {...shared} />}
+        {open && (
+          <ul className="flow-picker-list flow-ref-complete" data-testid="flow-ref-complete">
+            {matches.map((reference, index) => (
+              <li key={reference}>
+                <button
+                  type="button"
+                  className={`flow-picker-option${index === chosen ? ' flow-ref-complete-active' : ''}`}
+                  // Mouse-down, not click: click would land after the field's
+                  // blur has already closed the list.
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    insert(reference);
+                  }}
+                >
+                  {reference}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </label>
   );
 }
 

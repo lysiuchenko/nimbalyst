@@ -972,6 +972,23 @@
   line-height: 1.3;
 }
 
+/* The reference completer floats over the fields below it so opening it does
+   not shove the rest of the node down and back. */
+.flow-ref-field-anchor {
+  position: relative;
+}
+
+.flow-ref-complete {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+}
+
+.flow-ref-complete-active {
+  background: var(--flow-surface-hover);
+}
+
 .flow-run-result {
   max-width: 280px;
   overflow: hidden;

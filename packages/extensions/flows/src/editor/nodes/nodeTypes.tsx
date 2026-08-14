@@ -5,7 +5,7 @@ import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
-import { CatalogPicker, ReferenceChips, ToolPicker } from './NodeFields';
+import { CatalogPicker, ReferenceChips, RefField, ToolPicker } from './NodeFields';
 import { configBadges, summarize } from './summarize';
 
 /** How each node type presents its one essential field. */
@@ -295,66 +295,44 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
           onChange={(value) => patch({ [chrome.field]: value })}
         />
       ) : (
-        <label className="flow-node-field">
-          <span className="flow-node-field-label">{chrome.fieldLabel}</span>
-          {chrome.input === 'textarea' ? (
-            <textarea
-              className="flow-node-input"
-              aria-label={chrome.fieldLabel}
-              rows={3}
-              value={fieldValue}
-              placeholder={chrome.placeholder}
-              onChange={(event) => patch({ [chrome.field]: event.target.value })}
-            />
-          ) : (
-            <input
-              className="flow-node-input"
-              aria-label={chrome.fieldLabel}
-              value={fieldValue}
-              placeholder={chrome.placeholder}
-              onChange={(event) => patch({ [chrome.field]: event.target.value })}
-            />
-          )}
-        </label>
+        <RefField
+          label={chrome.fieldLabel}
+          value={fieldValue}
+          references={references}
+          placeholder={chrome.placeholder}
+          multiline={chrome.input === 'textarea'}
+          onChange={(value) => patch({ [chrome.field]: value })}
+        />
       )}
 
       {writeFile && (
-        <label className="flow-node-field">
-          <span className="flow-node-field-label">
-            Content
-            <span className="flow-node-hint-inline">usually a reference</span>
-          </span>
-          {/* A textarea because the content is a document: an input would strip
-              the newlines out of whatever the previous step produced. */}
-          <textarea
-            className="flow-node-input"
-            aria-label="Content"
-            rows={3}
-            value={writeFile.content ?? ''}
-            placeholder="{{draft.notes}}"
-            onChange={(event) => patch({ content: event.target.value })}
-          />
-        </label>
+        // A textarea because the content is a document: an input would strip
+        // the newlines out of whatever the previous step produced.
+        <RefField
+          label="Content"
+          value={writeFile.content ?? ''}
+          references={references}
+          placeholder="{{draft.notes}}"
+          hint="usually a reference"
+          multiline
+          onChange={(value) => patch({ content: value })}
+        />
       )}
 
       {fanOut && (
         <>
-          <label className="flow-node-field">
-            <span className="flow-node-field-label">
-              Fan out over
-              <span className="flow-node-hint-inline">one item per line</span>
-            </span>
-            {/* A textarea, not an input: the list is one item per line and an
-                input silently strips the newlines that separate them. */}
-            <textarea
-              className="flow-node-input"
-              aria-label="Fan out over"
-              rows={2}
-              value={fanOut.over ?? ''}
-              placeholder="{{list.files}}"
-              onChange={(event) => patch({ over: event.target.value })}
-            />
-          </label>
+          {/* A textarea, not an input: the list is one item per line and an
+              input silently strips the newlines that separate them. */}
+          <RefField
+            label="Fan out over"
+            value={fanOut.over ?? ''}
+            references={references}
+            placeholder="{{list.files}}"
+            hint="one item per line"
+            multiline
+            rows={2}
+            onChange={(value) => patch({ over: value })}
+          />
           <label className="flow-node-field">
             <span className="flow-node-field-label">At once</span>
             <input
