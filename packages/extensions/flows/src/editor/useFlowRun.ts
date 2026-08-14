@@ -12,6 +12,7 @@ import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import type { ChildProgress, NodeExecution, NodeStatus, RunState } from '../runner/types';
 import { gateNotification, runNotification } from './runNotifications';
 import { tailLine } from './liveTail';
+import { pickSessionForNode } from './sessionMatch';
 
 export interface PendingGate {
   nodeId: string;
@@ -77,8 +78,9 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
   const [isDry, setIsDry] = useState(false);
   const [liveTails, setLiveTails] = useState<Record<string, string>>({});
   const abortRef = useRef<AbortController | null>(null);
-  /** The flow being run, for mapping running node ids to session titles. */
+  /** The flow being run, for mapping running node ids to their sessions. */
   const runningFlowRef = useRef<Flow | null>(null);
+  const runStartedAtRef = useRef(0);
 
   // A heartbeat per running agent step: find its session by title, read the
   // transcript tail, show the last line. Read-only polling — a failed lookup
@@ -99,14 +101,23 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
       const flow = runningFlowRef.current;
       if (!flow) return;
       const tails: Record<string, string> = {};
-      for (const node of flow.nodes) {
-        if (statuses[node.id] !== 'running') continue;
-        if (node.type !== 'agent' && node.type !== 'fan-out') continue;
+      const running = flow.nodes.filter(
+        (node) => statuses[node.id] === 'running' && (node.type === 'agent' || node.type === 'fan-out')
+      );
+      if (running.length === 0) {
+        setLiveTails({});
+        return;
+      }
+      let sessions: { id: string; title?: string; updatedAt?: number }[] | null = null;
+      for (const node of running) {
         try {
           let sessionId = sessionIds.get(node.id);
           if (!sessionId) {
-            sessionId = await sessionHost.findNewestSessionByTitle(
-              `Flow: ${node.label ?? node.id}`
+            sessions ??= await sessionHost.listSessions();
+            sessionId = pickSessionForNode(
+              sessions,
+              node as { prompt?: string },
+              runStartedAtRef.current
             );
             if (sessionId) sessionIds.set(node.id, sessionId);
           }
@@ -141,6 +152,7 @@ export function useFlowRun(host: EditorHost): FlowRunControls {
 
       setIsRunning(true);
       runningFlowRef.current = flow;
+      runStartedAtRef.current = Date.now();
       setRunError(null);
       setStatuses(Object.fromEntries(flow.nodes.map((node) => [node.id, 'queued' as NodeStatus])));
       setLiveNodes({});
