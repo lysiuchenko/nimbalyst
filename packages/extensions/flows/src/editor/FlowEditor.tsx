@@ -939,6 +939,23 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <button
               type="button"
               className="flow-toolbar-button"
+              data-testid="flow-edge-toggle-failure"
+              title="Route this wire on failure instead of success (also: double-click the wire)"
+              onClick={() => {
+                const canvasEdge = getEdges().find(
+                  (edge) => edge.source === inspectedEdge.from && edge.target === inspectedEdge.to
+                );
+                if (canvasEdge) {
+                  onEdgeDoubleClick({} as React.MouseEvent, canvasEdge);
+                  setInspectedEdge({ ...inspectedEdge, on: inspectedEdge.on === 'failure' ? undefined : 'failure' });
+                }
+              }}
+            >
+              {inspectedEdge.on === 'failure' ? 'On failure' : 'On success'}
+            </button>
+            <button
+              type="button"
+              className="flow-toolbar-button"
               data-testid="flow-edge-payload-close"
               aria-label="Close the payload panel"
               onClick={() => setInspectedEdge(null)}

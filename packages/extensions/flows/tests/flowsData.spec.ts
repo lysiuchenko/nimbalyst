@@ -1146,6 +1146,7 @@ test.describe('draft with AI', () => {
     await flows.page.locator('[data-testid="flow-ai-edit-toggle"]').click();
     await expect(flows.page.locator('[data-testid="flow-ai-edit"]')).toBeVisible();
   });
+
 });
 
 /**
@@ -1247,6 +1248,12 @@ test.describe('resuming an interrupted run', () => {
     await expect(panel).toContainText('{{first.note}}');
     // The seeded output from the resumed run — the actual hand-off value.
     await expect(panel.locator('.flow-edge-payload-value')).toContainText('wrote FIRST.md');
+
+    // The panel can flip the wire to a failure route in place.
+    await flows.page.locator('[data-testid="flow-edge-toggle-failure"]').click();
+    await expect(flows.page.locator('.flow-edge-failure')).toHaveCount(1);
+    await flows.page.locator('[data-testid="flow-edge-toggle-failure"]').click();
+    await expect(flows.page.locator('.flow-edge-failure')).toHaveCount(0);
 
     await flows.page.locator('[data-testid="flow-edge-payload-close"]').click();
     await expect(panel).toHaveCount(0);
