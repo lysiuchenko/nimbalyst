@@ -1162,6 +1162,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                         key={child.label}
                                         className="flow-run-child"
                                         data-run-child={child.label}
+                                        title={child.error ?? child.output}
                                       >
                                         <strong>{child.label}</strong> {child.error ?? child.output}
                                       </span>

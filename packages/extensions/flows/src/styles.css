@@ -724,6 +724,7 @@
 
 .flow-run-steps li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   white-space: normal;
@@ -802,8 +803,10 @@
   font-size: 11px;
 }
 
-/* One row, one line: wrapping here turned a six-row table into a page. */
-.flow-run-table td,
+/* One row, one line: wrapping here turned a six-row table into a page. Scoped
+   to the summary rows — the expanded detail cell must wrap, or a long agent
+   output runs off the pane instead of clipping. */
+.flow-run-row td,
 .flow-run-table th {
   white-space: nowrap;
 }
@@ -1479,15 +1482,23 @@
   color: var(--flow-text-faint);
 }
 
-/* A child's preview inside the run detail: indented under its step. */
+/* A child's preview inside the run detail: its own line under the step, wrapped
+   and clamped so a long agent output reads as a few lines instead of running off
+   the pane. `flex-basis:100%` breaks it onto a fresh row in the flex step; the
+   full text is on hover and one click away in the session. */
 .flow-run-child {
-  display: block;
+  flex-basis: 100%;
+  min-width: 0;
   margin: 2px 0 0 22px;
   font-size: 11px;
   color: var(--flow-text-muted);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .flow-subagent-label {
