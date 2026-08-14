@@ -213,6 +213,31 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </button>
       </header>
 
+      {/* A failure answers "so what now?" on the spot rather than dead-ending. */}
+      {status === 'failed' && (
+        <div className="flow-node-failure-actions">
+          {onRunFrom && (
+            <button
+              type="button"
+              className="flow-toolbar-button"
+              data-node-retry={id}
+              title="Re-run this step and everything below it; upstream is reused"
+              onClick={() => onRunFrom(id)}
+            >
+              Retry step
+            </button>
+          )}
+          <button
+            type="button"
+            className="flow-toolbar-button"
+            data-node-edit={id}
+            onClick={() => setOpen(true)}
+          >
+            Edit step
+          </button>
+        </div>
+      )}
+
       {/* Closed, a node is something to read: what this step does, plus the
           settings someone chose. Opening it is what asks for the editor. */}
       {!open && (

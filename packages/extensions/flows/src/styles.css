@@ -1013,6 +1013,17 @@
   word-break: break-word;
 }
 
+/* A failed step offers its own way forward. */
+.flow-node-failure-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 2px;
+}
+
+.flow-run-progress-eta {
+  color: var(--flow-text-muted);
+}
+
 /* The one-line answer to "how far along is this run?". */
 .flow-run-progress {
   display: flex;

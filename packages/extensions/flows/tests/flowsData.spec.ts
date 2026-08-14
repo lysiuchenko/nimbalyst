@@ -1469,6 +1469,10 @@ test.describe('gate markdown and decision notes', () => {
       'wrong quarter in the summary'
     );
     expect(fs.existsSync(path.join(flows.workspace, 'PUBLISHED.md'))).toBe(false);
+
+    // The failed step answers "so what now?" on the card itself.
+    await expect(flows.page.locator('[data-node-retry="review"]')).toBeVisible();
+    await expect(flows.page.locator('[data-node-edit="review"]')).toBeVisible();
   });
 
   test('the overflow menu hides the minimap, and the theme control lives there now', async () => {

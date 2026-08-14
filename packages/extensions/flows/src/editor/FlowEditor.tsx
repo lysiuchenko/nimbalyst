@@ -53,6 +53,7 @@ import { edgePayload, nodeReliability } from './observability';
 import { Markdown } from './markdown';
 import { replayDuration, replayStatuses } from './replay';
 import { runProgress } from './runProgress';
+import { stepEtas } from './stepEta';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
 import { draftFlow, editFlow } from './aiDraft';
@@ -606,6 +607,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     return () => window.clearInterval(timer);
   }, [run.isRunning]);
   const progress = run.isRunning ? runProgress(run.statuses) : null;
+  const etas = useMemo(() => stepEtas(pastRuns), [pastRuns]);
 
   // Replay: scrub through a finished run's timeline. Purely a read over the
   // record, so the slider can jump anywhere; a live run always wins the canvas.
@@ -883,6 +885,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               onClick={() => fitView({ nodes: [{ id: nodeId }], maxZoom: 1.1, duration: 300 })}
             >
               {nodeId}
+              {etas[nodeId] !== undefined && (
+                <span className="flow-run-progress-eta"> · usually ~{formatDuration(etas[nodeId])}</span>
+              )}
             </button>
           ))}
           {run.runState?.startedAt !== undefined && (
