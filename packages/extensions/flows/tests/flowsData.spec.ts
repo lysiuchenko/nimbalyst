@@ -1439,6 +1439,12 @@ test.describe('gate markdown and decision notes', () => {
     const gate = flows.page.locator('[data-testid="flow-gate"]');
     await expect(gate).toBeVisible({ timeout: 60_000 });
 
+    // The run is paused at the gate, so the progress strip is stably visible.
+    const strip = flows.page.locator('[data-testid="flow-run-progress"]');
+    await expect(strip).toBeVisible();
+    await expect(strip).toContainText(/step \d+ of \d+/);
+    await expect(strip.locator('[data-progress-node="review"]')).toBeVisible();
+
     // A list item element, not a raw "- " line: markdown became structure.
     await expect(gate.locator('.flow-markdown li', { hasText: 'check the numbers first' })).toBeVisible();
   });
@@ -1454,5 +1460,14 @@ test.describe('gate markdown and decision notes', () => {
       'wrong quarter in the summary'
     );
     expect(fs.existsSync(path.join(flows.workspace, 'PUBLISHED.md'))).toBe(false);
+  });
+
+  test('the overflow menu hides the minimap, and the theme control lives there now', async () => {
+    await expect(flows.page.locator('.react-flow__minimap')).toBeVisible();
+
+    await flows.page.locator('[data-testid="flow-more"] summary').click();
+    await expect(flows.page.locator('[data-testid="flow-theme"]')).toBeVisible();
+    await flows.page.locator('[data-testid="flow-minimap-toggle"]').click();
+    await expect(flows.page.locator('.react-flow__minimap')).toHaveCount(0);
   });
 });

@@ -52,6 +52,7 @@ import { resumeOffer } from './resumeOffer';
 import { edgePayload, nodeReliability } from './observability';
 import { Markdown } from './markdown';
 import { replayDuration, replayStatuses } from './replay';
+import { runProgress } from './runProgress';
 import { WorktreeChip } from './WorktreeChip';
 import { gateContext } from './gateContext';
 import { draftFlow, editFlow } from './aiDraft';
@@ -595,6 +596,17 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // The note travelling with the next gate decision; cleared when it lands.
   const [gateComment, setGateComment] = useState('');
 
+  const [showMinimap, setShowMinimap] = useState(true);
+
+  // Elapsed ticker for the progress strip; lives outside the canvas store.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!run.isRunning) return;
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [run.isRunning]);
+  const progress = run.isRunning ? runProgress(run.statuses) : null;
+
   // Replay: scrub through a finished run's timeline. Purely a read over the
   // record, so the slider can jump anywhere; a live run always wins the canvas.
   const [replay, setReplay] = useState<{ record: RunRecord; atMs: number } | null>(null);
@@ -684,21 +696,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <span className="material-symbols-outlined">{NODE_TYPE_ICONS[type]}</span>
           </button>
         ))}
-        <button
-          type="button"
-          className="flow-toolbar-button"
-          data-testid="flow-theme"
-          data-flow-theme-current={theme}
-          title={FLOW_THEMES.find((entry) => entry.id === theme)?.description}
-          onClick={() => {
-            const next = nextTheme(theme);
-            setTheme(next);
-            host.storage.set(THEME_STORAGE_KEY, next);
-          }}
-        >
-          <span className="material-symbols-outlined">palette</span>
-          {FLOW_THEMES.find((entry) => entry.id === theme)?.label}
-        </button>
+        <span className="flow-toolbar-divider" aria-hidden="true" />
         <button
           type="button"
           className="flow-toolbar-button"
@@ -825,6 +823,37 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             Retry failed steps
           </button>
         )}
+        <details className="flow-toolbar-more" data-testid="flow-more">
+          <summary className="flow-toolbar-button flow-toolbar-icon" aria-label="More options">
+            <span className="material-symbols-outlined">more_horiz</span>
+          </summary>
+          <div className="flow-toolbar-menu">
+            <button
+              type="button"
+              className="flow-toolbar-button"
+              data-testid="flow-theme"
+              data-flow-theme-current={theme}
+              title={FLOW_THEMES.find((entry) => entry.id === theme)?.description}
+              onClick={() => {
+                const next = nextTheme(theme);
+                setTheme(next);
+                host.storage.set(THEME_STORAGE_KEY, next);
+              }}
+            >
+              <span className="material-symbols-outlined">palette</span>
+              {FLOW_THEMES.find((entry) => entry.id === theme)?.label}
+            </button>
+            <button
+              type="button"
+              className="flow-toolbar-button"
+              data-testid="flow-minimap-toggle"
+              onClick={() => setShowMinimap((was) => !was)}
+            >
+              <span className="material-symbols-outlined">map</span>
+              {showMinimap ? 'Hide minimap' : 'Show minimap'}
+            </button>
+          </div>
+        </details>
         <button
           type="button"
           className="flow-toolbar-run"
@@ -835,6 +864,34 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           {run.isRunning ? 'Cancel' : 'Run'}
         </button>
       </div>
+
+      {progress && (
+        <div className="flow-run-progress" data-testid="flow-run-progress" role="status">
+          <span className="material-symbols-outlined flow-run-progress-spin" aria-hidden="true">
+            progress_activity
+          </span>
+          <span>
+            step {Math.min(progress.settled + 1, progress.total)} of {progress.total}
+          </span>
+          {progress.running.map((nodeId) => (
+            <button
+              key={nodeId}
+              type="button"
+              className="flow-run-progress-node"
+              data-progress-node={nodeId}
+              title="Show this step on the canvas"
+              onClick={() => fitView({ nodes: [{ id: nodeId }], maxZoom: 1.1, duration: 300 })}
+            >
+              {nodeId}
+            </button>
+          ))}
+          {run.runState?.startedAt !== undefined && (
+            <span className="flow-run-progress-elapsed">
+              {formatDuration(Math.max(nowTick - run.runState.startedAt, 0))}
+            </span>
+          )}
+        </div>
+      )}
 
       {offer && offer.record.runId !== dismissedResume && (
         <div className="flow-resume-banner" data-testid="flow-resume-banner" role="status">
@@ -1528,11 +1585,11 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             <Controls />
             {/* Typed so the map carries the same colour key as the canvas;
                 the colours themselves stay in CSS, next to the node rules. */}
-            <MiniMap
+            {showMinimap && <MiniMap
               pannable
               zoomable
               nodeClassName={(node) => `flow-minimap-node flow-minimap-${node.type}`}
-            />
+            />}
             <SubAgentLayer subAgents={run.children} onOpenSession={showSession} />
           </ReactFlow>
           {isEmpty && (

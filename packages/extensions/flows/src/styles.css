@@ -1013,6 +1013,87 @@
   word-break: break-word;
 }
 
+/* The one-line answer to "how far along is this run?". */
+.flow-run-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--flow-border);
+  background: color-mix(in srgb, var(--flow-accent) 7%, var(--flow-surface));
+  font-size: 12px;
+  color: var(--flow-text);
+}
+
+.flow-run-progress-spin {
+  font-size: 15px;
+  color: var(--flow-accent);
+  animation: flow-progress-spin 1.2s linear infinite;
+}
+
+@keyframes flow-progress-spin {
+  to { transform: rotate(360deg); }
+}
+
+.flow-run-progress-node {
+  padding: 1px 8px;
+  border: 1px solid var(--flow-border);
+  border-radius: 10px;
+  background: var(--flow-bg);
+  color: var(--flow-accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.flow-run-progress-elapsed {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--flow-text-muted);
+}
+
+/* Toolbar clusters and the overflow menu. */
+.flow-toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--flow-border);
+}
+
+.flow-toolbar-more {
+  position: relative;
+}
+
+.flow-toolbar-more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.flow-toolbar-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.flow-toolbar-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--flow-border);
+  border-radius: var(--flow-radius);
+  background: var(--flow-surface);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+}
+
+/* Smaller footprint: the map is a locator, not a second canvas. */
+.flow-canvas .react-flow__minimap {
+  width: 140px;
+  height: 96px;
+}
+
 /* Gate decisions read markdown and may carry a note. */
 .flow-markdown p { margin: 4px 0; }
 .flow-markdown h4, .flow-markdown h5, .flow-markdown h6 { margin: 6px 0 2px; font-size: 12px; }
