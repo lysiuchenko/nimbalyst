@@ -22,9 +22,17 @@ interface TriggerEngineDeps {
  * themselves — never triggers: a flow that ran because it wrote its own record
  * would loop forever. A flow-file change refreshes the trigger list instead,
  * so editing a trigger takes effect without a restart.
+ *
+ * Metadata files are not the only echo. A run that writes a *content* file
+ * matching its own trigger glob gets that change back from the watcher after it
+ * ends — past the in-flight drop, which only covers events whose timer fires
+ * while the run is still going. So each completion opens a settle window: a
+ * matching event that happened at or before the run finished is that run's own
+ * echo and is dropped, while a genuine edit made after it still fires.
  */
 export class TriggerEngine {
   private pending = new Map<string, ReturnType<typeof setTimeout>>();
+  private completedAt = new Map<string, number>();
   private flows: TriggeredFlow[] | null = null;
   private disposed = false;
 
@@ -52,9 +60,19 @@ export class TriggerEngine {
         setTimeout(() => {
           this.pending.delete(flowPath);
           if (this.deps.isRunning(flowPath)) return;
-          this.deps.runFlow(flowPath).catch((error) => {
-            console.warn(`[flows] triggered run of ${flowPath} failed:`, error);
-          });
+          // This fire was armed `quiet` ago, so the event happened at
+          // `now - quiet`. If that is at or before the last run's completion,
+          // the event is that run's own echo — swallow it instead of looping.
+          const settledAt = this.completedAt.get(flowPath);
+          if (settledAt !== undefined && Date.now() - quiet <= settledAt) return;
+          void this.deps
+            .runFlow(flowPath)
+            .catch((error) => {
+              console.warn(`[flows] triggered run of ${flowPath} failed:`, error);
+            })
+            .finally(() => {
+              this.completedAt.set(flowPath, Date.now());
+            });
         }, quiet)
       );
     }
@@ -64,5 +82,6 @@ export class TriggerEngine {
     this.disposed = true;
     for (const timer of this.pending.values()) clearTimeout(timer);
     this.pending.clear();
+    this.completedAt.clear();
   }
 }

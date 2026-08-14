@@ -84,6 +84,42 @@ describe('TriggerEngine', () => {
     expect(runs).toEqual([]);
   });
 
+  it('absorbs the echo of its own run — a flow that writes its own trigger target settles', async () => {
+    const runs: string[] = [];
+    let engine: TriggerEngine;
+    engine = new TriggerEngine({
+      listTriggered: async () => [{ flowPath: 'a.flow.json', trigger: trigger() }],
+      isRunning: () => false,
+      runFlow: async (flowPath) => {
+        runs.push(flowPath);
+        // The run writes a file that matches its own trigger. The watcher
+        // delivers that change after the run ends, past the in-flight drop.
+        await engine.fileChanged('/w/notes/out.md');
+      },
+    });
+
+    await engine.fileChanged('/w/notes/a.md');
+    await vi.advanceTimersByTimeAsync(11_000); // fires the run, which writes an echo
+    await vi.advanceTimersByTimeAsync(11_000); // the echo would fire a second run
+    await vi.advanceTimersByTimeAsync(11_000);
+
+    expect(runs).toEqual(['a.flow.json']);
+  });
+
+  it('still fires on a genuine edit made after the run settles', async () => {
+    const { engine, runs } = engineWith();
+
+    await engine.fileChanged('/w/notes/a.md');
+    await vi.advanceTimersByTimeAsync(11_000); // one run
+    expect(runs).toEqual(['a.flow.json']);
+
+    // A real edit that arrives well after the run completed is not an echo.
+    await vi.advanceTimersByTimeAsync(20_000);
+    await engine.fileChanged('/w/notes/b.md');
+    await vi.advanceTimersByTimeAsync(11_000);
+    expect(runs).toEqual(['a.flow.json', 'a.flow.json']);
+  });
+
   it('editing a flow refreshes the trigger list', async () => {
     let globNow = 'notes/*.md';
     const { engine, runs } = engineWith({
