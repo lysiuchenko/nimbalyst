@@ -131,14 +131,22 @@ export class NimbalystSessionHost implements SessionUsageReader {
 
   async getTokenUsage(
     sessionId: string
-  ): Promise<{ inputTokens: number; outputTokens: number } | undefined> {
+  ): Promise<{ inputTokens: number; outputTokens: number; costUsd?: number } | undefined> {
+    type StoredUsage = { inputTokens?: number; outputTokens?: number; costUSD?: number };
     const result = (await this.ipc.invoke('sessions:get', sessionId)) as {
-      session?: { tokenUsage?: { inputTokens?: number; outputTokens?: number } };
+      session?: { tokenUsage?: StoredUsage; metadata?: { tokenUsage?: StoredUsage } };
     };
-    const usage = result?.session?.tokenUsage;
+    // `updateSessionTokenUsage` persists into the row's metadata; the
+    // top-level field exists only on the in-memory current session. Reading
+    // only the top level was why every flow node reported 0 tokens.
+    const usage = result?.session?.metadata?.tokenUsage ?? result?.session?.tokenUsage;
     if (!usage || usage.inputTokens === undefined || usage.outputTokens === undefined) {
       return undefined;
     }
-    return { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens };
+    return {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      ...(usage.costUSD !== undefined ? { costUsd: usage.costUSD } : {}),
+    };
   }
 }

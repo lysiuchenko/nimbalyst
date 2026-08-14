@@ -19,7 +19,7 @@ import type { AgentClient, AgentRunRequest, AgentRunResult } from '../runner/por
 export interface SessionUsageReader {
   getTokenUsage(
     sessionId: string
-  ): Promise<{ inputTokens: number; outputTokens: number } | undefined>;
+  ): Promise<{ inputTokens: number; outputTokens: number; costUsd?: number } | undefined>;
   /** Whether the session is sitting on a tool-permission prompt. */
   hasPendingPermission?(sessionId: string): Promise<boolean>;
 }
@@ -116,7 +116,11 @@ export class NimbalystAgentClient implements AgentClient {
     try {
       const usage = await this.sessions.getTokenUsage(sessionId);
       if (!usage) return undefined;
-      return { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens };
+      return {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        ...(usage.costUsd !== undefined ? { costUsd: usage.costUsd } : {}),
+      };
     } catch {
       return undefined;
     }

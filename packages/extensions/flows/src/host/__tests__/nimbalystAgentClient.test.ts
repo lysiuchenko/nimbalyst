@@ -122,6 +122,17 @@ describe('NimbalystAgentClient', () => {
     expect(result.usage).toEqual({ inputTokens: 900, outputTokens: 120 });
   });
 
+  it('carries the session cost onto the node usage, so records can price a run', async () => {
+    const ai = aiService();
+    const sessions = {
+      getTokenUsage: vi.fn(async () => ({ inputTokens: 900, outputTokens: 120, costUsd: 0.037 })),
+    };
+
+    const result = await new NimbalystAgentClient(ai, sessions).run(request, new AbortController().signal);
+
+    expect(result.usage).toEqual({ inputTokens: 900, outputTokens: 120, costUsd: 0.037 });
+  });
+
   it('still returns the node result when the session reports no usage', async () => {
     const ai = aiService();
     const sessions = { getTokenUsage: vi.fn(async () => undefined) };

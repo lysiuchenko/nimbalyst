@@ -115,6 +115,22 @@ describe('NimbalystSessionHost', () => {
     expect(usage).toEqual({ inputTokens: 90, outputTokens: 12 });
   });
 
+  it('reads usage where the host actually writes it: metadata.tokenUsage', async () => {
+    // updateSessionTokenUsage persists into the row's metadata; the top-level
+    // field only exists on the in-memory current session. Reading only the
+    // top level is why every flow node reported 0 tokens.
+    const { api } = electronApi({
+      'sessions:get': {
+        success: true,
+        session: { metadata: { tokenUsage: { inputTokens: 1200, outputTokens: 300, costUSD: 0.042 } } },
+      },
+    });
+
+    const usage = await new NimbalystSessionHost(api, '/repo').getTokenUsage('session-1');
+
+    expect(usage).toEqual({ inputTokens: 1200, outputTokens: 300, costUsd: 0.042 });
+  });
+
   it('returns no usage when the session has none rather than reporting zero', async () => {
     const { api } = electronApi({ 'sessions:get': { success: true, session: {} } });
 
