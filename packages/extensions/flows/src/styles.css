@@ -1741,8 +1741,12 @@
   background: var(--flow-surface);
   border: 1px solid var(--flow-border);
   border-radius: var(--flow-radius);
-  /* An overview is worth less than the canvas under it, until it is wanted. */
-  opacity: 0.55;
+  /* Clip the node svg to the rounded card; xyflow fits the graph tightly, so
+     edge nodes otherwise bleed past the frame onto the canvas. */
+  overflow: hidden;
+  /* An overview is worth less than the canvas under it, but at 0.55 the pale
+     node fills washed out to near-empty; keep it legible at rest, full on hover. */
+  opacity: 0.9;
   transition: opacity 140ms ease;
 }
 
@@ -1754,18 +1758,26 @@
   fill: color-mix(in srgb, var(--flow-bg) 70%, transparent);
 }
 
-.react-flow__minimap-node {
+/* Scoped under .flow-editor so these beat @xyflow's own minimap-node CSS.
+   Unscoped, they tie it on specificity and lose on import order, so every node
+   paints the library's default grey (#e2e2e2) and the type key is lost. */
+.flow-editor .react-flow__minimap-node {
   fill: var(--flow-text-faint);
-  stroke: none;
+  /* A hairline outline so pale type fills keep an edge on the light surface
+     instead of dissolving into it. */
+  stroke: var(--flow-border);
+  stroke-width: 1;
 }
 
-/* The canvas key, at map scale: shape of the flow *and* what is in it. */
-.flow-minimap-agent { fill: var(--flow-type-agent); }
-.flow-minimap-fan-out { fill: var(--flow-type-fan-out); }
-.flow-minimap-slash-command { fill: var(--flow-type-slash-command); }
-.flow-minimap-skill { fill: var(--flow-type-skill); }
-.flow-minimap-shell { fill: var(--flow-type-shell); }
-.flow-minimap-human-gate { fill: var(--flow-type-human-gate); }
+/* The canvas key, at map scale: shape of the flow *and* what is in it. The
+   type class is combined onto .react-flow__minimap-node (both sit on the same
+   rect) so it outranks the base fill above. */
+.flow-editor .react-flow__minimap-node.flow-minimap-agent { fill: var(--flow-type-agent); }
+.flow-editor .react-flow__minimap-node.flow-minimap-fan-out { fill: var(--flow-type-fan-out); }
+.flow-editor .react-flow__minimap-node.flow-minimap-slash-command { fill: var(--flow-type-slash-command); }
+.flow-editor .react-flow__minimap-node.flow-minimap-skill { fill: var(--flow-type-skill); }
+.flow-editor .react-flow__minimap-node.flow-minimap-shell { fill: var(--flow-type-shell); }
+.flow-editor .react-flow__minimap-node.flow-minimap-human-gate { fill: var(--flow-type-human-gate); }
 
 /* Cards have to read as cards: a surface lift plus a shadow, not just a hue. */
 .flow-node {

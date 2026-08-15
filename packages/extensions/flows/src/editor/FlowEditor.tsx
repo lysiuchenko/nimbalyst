@@ -6,6 +6,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
   useReactFlow,
   type Connection,
   type EdgeChange,
@@ -83,6 +84,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     FlowCanvasNode,
     FlowCanvasEdge
   >();
+  // True once xyflow has measured the custom nodes' real dimensions. Used to
+  // refit only after measurement, since fitting against unmeasured (zero-size)
+  // nodes under-frames the graph.
+  const nodesInitialized = useNodesInitialized();
 
   // Document-level fields the canvas does not own (name, variables) plus the
   // ports of edges already on disk. Held in a ref so editing never re-renders
@@ -191,10 +196,19 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     getCurrentContent: () => graphToFlow(baseRef.current, readGraph()),
     onSave,
     onLoaded: () => {
-      fitView({ padding: 0.2, maxZoom: 1 });
       refreshAnalysis();
     },
   });
+
+  // Frame the graph once xyflow reports the nodes measured. The `fitView` prop
+  // and onLoaded both run before the custom nodes have real dimensions, so they
+  // fit against zero-size nodes and under-frame; nodesInitialized flips
+  // false->true on each remount (keyed by loaded.revision) after measurement.
+  useEffect(() => {
+    if (nodesInitialized) {
+      fitView({ padding: 0.2, maxZoom: 1 });
+    }
+  }, [nodesInitialized, fitView]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowCanvasNode>[]) => {
@@ -1668,6 +1682,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             deleteKeyCode={['Backspace', 'Delete']}
             proOptions={{ hideAttribution: false }}
             fitView
+            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           >
             {/* Explicit rather than default: the stock dot colour is a fixed
                 grey that all but disappears on a light brand surface. */}
