@@ -26,7 +26,12 @@ const EFFORT_SUPPORTING_PROVIDERS = new Set<string>(['claude-code', 'openai-code
 
 /** The effort choices for a provider, or `[]` when the provider ignores effort. */
 export function effortLevelsForProvider(provider: string): { key: EffortLevel; label: string }[] {
-  return EFFORT_SUPPORTING_PROVIDERS.has(provider) ? EFFORT_LEVELS : [];
+  if (!EFFORT_SUPPORTING_PROVIDERS.has(provider)) return [];
+  // Codex's transport aliases 'max' to 'xhigh' (see CodexAppServerProtocol /
+  // CodexSDKProtocol), so a 'max' entry would duplicate 'xhigh' in its picker.
+  // claude-code passes all five verbatim as CLAUDE_CODE_EFFORT_LEVEL.
+  if (provider === 'openai-codex') return EFFORT_LEVELS.filter((level) => level.key !== 'max');
+  return EFFORT_LEVELS;
 }
 
 export const DEFAULT_EFFORT_LEVEL: EffortLevel = 'high';

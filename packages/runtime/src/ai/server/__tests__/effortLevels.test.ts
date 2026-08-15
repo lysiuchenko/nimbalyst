@@ -10,9 +10,19 @@ import {
 } from '../effortLevels';
 
 describe('effortLevelsForProvider', () => {
-  it('offers the full effort scale for providers that honor it', () => {
+  it('offers the full effort scale to claude-code', () => {
     expect(effortLevelsForProvider('claude-code')).toEqual(EFFORT_LEVELS);
-    expect(effortLevelsForProvider('openai-codex')).toEqual(EFFORT_LEVELS);
+  });
+
+  it('drops max for openai-codex, whose transport aliases max to xhigh', () => {
+    // Codex has no distinct 'max' (the protocol maps max -> xhigh), so offering
+    // both would be two picker entries that do the same thing.
+    expect(effortLevelsForProvider('openai-codex').map((e) => e.key)).toEqual([
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+    ]);
   });
 
   it('offers no effort for providers that ignore it', () => {
