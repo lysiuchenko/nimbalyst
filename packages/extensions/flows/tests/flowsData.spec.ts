@@ -1484,3 +1484,70 @@ test.describe('gate markdown and decision notes', () => {
     await expect(flows.page.locator('.react-flow__minimap')).toHaveCount(0);
   });
 });
+
+/**
+ * Diff-at-approval: a side-effectful run is reviewed before it starts; a
+ * read-only flow is not gated.
+ */
+test.describe('diff at approval', () => {
+  let flows: FlowsApp;
+
+  test.beforeAll(async () => {
+    flows = await launchFlowsApp(
+      createWorkspace({
+        'writes.flow.json': {
+          version: 1, name: 'writes', variables: {},
+          nodes: [{ id: 'save', type: 'write-file', path: 'GATED.md', content: 'hi' }],
+          edges: [],
+        },
+        'shows.flow.json': {
+          version: 1, name: 'shows', variables: {},
+          nodes: [{ id: 'run', type: 'shell', run: 'npm test' }],
+          edges: [],
+        },
+        'readonly.flow.json': {
+          version: 1, name: 'readonly', variables: {},
+          nodes: [{ id: 'g', type: 'human-gate', message: 'ok?' }],
+          edges: [],
+        },
+      })
+    );
+  });
+
+  test.afterAll(async () => { await flows?.close(); });
+
+  test('a shell flow shows its command in the gate', async () => {
+    await openFlow(flows.page, 'shows.flow.json');
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    const gate = flows.page.locator('[data-testid="flow-run-gate"]');
+    await expect(gate).toBeVisible();
+    await expect(gate).toContainText('npm test');
+    await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
+    await expect(gate).toBeHidden();
+  });
+
+  test('cancel runs nothing; approve writes the file', async () => {
+    await openFlow(flows.page, 'writes.flow.json');
+
+    // Cancel: nothing on disk.
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
+    expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(false);
+
+    // Approve: the file lands and a run record exists.
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    await flows.page.locator('[data-testid="flow-run-gate-approve"]').click();
+    await expect
+      .poll(() => nodeStatuses(flows.page).then((s) => s.save), { timeout: 60_000 })
+      .toBe('done');
+    expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(true);
+  });
+
+  test('a read-only flow is not gated', async () => {
+    await openFlow(flows.page, 'readonly.flow.json');
+    await flows.page.locator('[data-testid="flow-run"]').click();
+    // Straight to the run-pause card; the approval gate never appears.
+    await expect(flows.page.locator('[data-testid="flow-gate"]')).toBeVisible({ timeout: 30_000 });
+    await expect(flows.page.locator('[data-testid="flow-run-gate"]')).toHaveCount(0);
+  });
+});
