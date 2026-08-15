@@ -1221,6 +1221,42 @@
   resize: vertical;
 }
 
+.flow-run-gate-group {
+  margin: 8px 0;
+}
+.flow-run-gate-group h4 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--flow-muted, #8a8f98);
+}
+.flow-run-gate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.flow-run-gate-node {
+  font-weight: 600;
+}
+.flow-run-gate-meta {
+  color: var(--flow-muted, #8a8f98);
+}
+.flow-run-gate-symbolic {
+  color: var(--flow-muted, #8a8f98);
+  font-style: italic;
+}
+.flow-run-gate-flag {
+  color: var(--flow-danger, #d1453b);
+  font-weight: 600;
+}
+.flow-run-gate-preview {
+  margin-right: auto;
+}
+
 /* The flow library on the Flows home. */
 .flows-library {
   margin: 0 0 18px;
