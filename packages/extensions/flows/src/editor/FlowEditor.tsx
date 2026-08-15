@@ -47,7 +47,9 @@ import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
 import { LiveTailContext, NodeChildrenContext, NodeReliabilityContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
 import { prepareSave } from './saveFlow';
-import { useFlowRun } from './useFlowRun';
+import { useFlowRun, SHELL_ALLOWLIST } from './useFlowRun';
+import { flowEffects } from '../runner/flowEffects';
+import { FlowRunGate } from './FlowRunGate';
 import { EMPTY_FLOW, flowErrorsOf, parseFlowOrThrow } from './flowParseError';
 import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
@@ -559,6 +561,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [applyDraft]
   );
 
+  // The prepared flow awaiting approval. Run state, never the xyflow store —
+  // this must not dirty the document.
+  const [pendingRun, setPendingRun] = useState<Flow | null>(null);
+
   // Run what is on the canvas, not what is on disk, but refuse to run something
   // that would not survive a save.
   const startRun = useCallback(() => {
@@ -568,7 +574,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       return;
     }
     setSaveErrors(null);
-    void run.start(prepared.flow);
+    const summary = flowEffects(prepared.flow, { shellAllowlist: SHELL_ALLOWLIST });
+    if (summary.empty) {
+      void run.start(prepared.flow); // read-only flow: nothing to review
+      return;
+    }
+    setPendingRun(prepared.flow);
   }, [readGraph, run]);
 
   // What flowed through a clicked wire. Live outputs win over the record so
@@ -1528,6 +1539,24 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             </button>
           </div>
         </div>
+      )}
+
+      {pendingRun && (
+        <FlowRunGate
+          summary={flowEffects(pendingRun, { shellAllowlist: SHELL_ALLOWLIST })}
+          problems={analysis.issues}
+          onApprove={() => {
+            const flow = pendingRun;
+            setPendingRun(null);
+            void run.start(flow);
+          }}
+          onCancel={() => setPendingRun(null)}
+          onPreview={() => {
+            const flow = pendingRun;
+            setPendingRun(null);
+            void run.dryRun(flow); // rehearsal plays on the canvas; re-press Run to gate again
+          }}
+        />
       )}
 
       {run.runError && (

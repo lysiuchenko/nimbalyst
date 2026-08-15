@@ -58,7 +58,7 @@ export interface FlowRunControls {
 }
 
 /** Executables a flow may run. Deliberately short; see docs/flows-security.md. */
-const SHELL_ALLOWLIST = ['npm', 'npx', 'node', 'git', 'echo', 'ls', 'pwd', 'cat'];
+export const SHELL_ALLOWLIST = ['npm', 'npx', 'node', 'git', 'echo', 'ls', 'pwd', 'cat'];
 
 /**
  * Runs the flow on the canvas and reports progress back to it.
