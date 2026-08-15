@@ -15,10 +15,10 @@ import { parseEdgeCondition } from '../runner/edgeCondition';
 const WEEKDAY_SET = new Set<unknown>(WEEKDAYS);
 
 const NODE_SHAPES: Record<NodeType, { required: string; optional: readonly string[] }> = {
-  agent: { required: 'prompt', optional: ['model', 'provider', 'tools', 'worktree'] },
+  agent: { required: 'prompt', optional: ['model', 'provider', 'effortLevel', 'tools', 'worktree'] },
   'fan-out': {
     required: 'prompt',
-    optional: ['over', 'concurrency', 'model', 'provider', 'tools', 'worktree'],
+    optional: ['over', 'concurrency', 'model', 'provider', 'effortLevel', 'tools', 'worktree'],
   },
   'slash-command': { required: 'command', optional: ['args'] },
   skill: { required: 'skill', optional: ['input'] },
@@ -329,6 +329,30 @@ function validateNodeBody(entry: Json, type: NodeType, path: string, fail: Fail)
       fail(
         `${path}.tools`,
         `${entry.provider} does not honor a tool allowlist — remove tools or use claude-code for this step`
+      );
+    }
+  }
+
+  if (entry.effortLevel !== undefined) {
+    if (type !== 'agent' && type !== 'fan-out') {
+      fail(`${path}.effortLevel`, `a ${type} step does not run an agent, so it has no effort level`);
+    } else if (
+      entry.effortLevel !== 'low' &&
+      entry.effortLevel !== 'medium' &&
+      entry.effortLevel !== 'high' &&
+      entry.effortLevel !== 'xhigh' &&
+      entry.effortLevel !== 'max'
+    ) {
+      fail(
+        `${path}.effortLevel`,
+        `effortLevel must be "low", "medium", "high", "xhigh" or "max", got ${JSON.stringify(entry.effortLevel)}`
+      );
+    } else if (entry.provider === 'copilot-cli') {
+      // Verified against CopilotCLIProvider: it has no reasoning-effort control,
+      // so the level would be silently ignored — the same honesty rule as tools.
+      fail(
+        `${path}.effortLevel`,
+        `copilot-cli does not honor a reasoning effort level — remove effortLevel or use claude-code or openai-codex for this step`
       );
     }
   }

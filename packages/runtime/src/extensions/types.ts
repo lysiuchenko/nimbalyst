@@ -69,6 +69,7 @@ export type {
   ThemeContribution,
   ThemeColorKey,
   ExtensionAIModel,
+  ExtensionProviderCapabilities,
   ChatCompletionMessage,
   ChatCompletionOptions,
   ChatCompletionResult,

@@ -484,3 +484,68 @@ describe('per-step provider', () => {
     expect(result.valid).toBe(false);
   });
 });
+
+describe('per-step effort level', () => {
+  const flowWith = (node: Record<string, unknown>) => ({
+    version: 1,
+    name: 'effort',
+    nodes: [node],
+    edges: [],
+  });
+
+  it('accepts a valid effort level on agent and fan-out steps', () => {
+    const agent = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', effortLevel: 'high' })
+    );
+    const fanOut = validateFlow(
+      flowWith({ id: 'f', type: 'fan-out', prompt: 'p {{item}}', over: 'x', effortLevel: 'max' })
+    );
+
+    expect(agent.valid).toBe(true);
+    expect(agent.valid && agent.flow.nodes[0]).toMatchObject({ effortLevel: 'high' });
+    expect(fanOut.valid).toBe(true);
+    expect(fanOut.valid && fanOut.flow.nodes[0]).toMatchObject({ effortLevel: 'max' });
+  });
+
+  it('accepts an effort level together with openai-codex, which honors it', () => {
+    const result = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'openai-codex', effortLevel: 'low' })
+    );
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects an effort level outside the five levels', () => {
+    const result = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', effortLevel: 'ultra' })
+    );
+
+    expect(result.valid).toBe(false);
+  });
+
+  // Verified against CopilotCLIProvider: it has no reasoning-effort control, so
+  // the level would be silently ignored — the same honesty rule as tools.
+  it('refuses an effort level together with copilot-cli', () => {
+    const result = validateFlow(
+      flowWith({ id: 'a', type: 'agent', prompt: 'p', provider: 'copilot-cli', effortLevel: 'high' })
+    );
+
+    expect(result.valid).toBe(false);
+    expect(!result.valid && result.errors[0].message).toContain('effort');
+  });
+
+  it('absence means the host default, so every existing flow is unchanged', () => {
+    const result = validateFlow(flowWith({ id: 'a', type: 'agent', prompt: 'p' }));
+
+    expect(result.valid).toBe(true);
+    expect(result.valid && 'effortLevel' in result.flow.nodes[0]).toBe(false);
+  });
+
+  it('rejects an effort level on a step type that never runs an agent', () => {
+    const result = validateFlow(
+      flowWith({ id: 's', type: 'shell', run: 'ls', effortLevel: 'high' })
+    );
+
+    expect(result.valid).toBe(false);
+  });
+});

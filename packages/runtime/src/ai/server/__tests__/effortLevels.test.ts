@@ -2,10 +2,25 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_EFFORT_LEVEL,
   DEFAULT_THINKING_MODE,
+  EFFORT_LEVELS,
+  effortLevelsForProvider,
   parseThinkingMode,
   resolveEffortLevel,
   resolveThinkingMode,
 } from '../effortLevels';
+
+describe('effortLevelsForProvider', () => {
+  it('offers the full effort scale for providers that honor it', () => {
+    expect(effortLevelsForProvider('claude-code')).toEqual(EFFORT_LEVELS);
+    expect(effortLevelsForProvider('openai-codex')).toEqual(EFFORT_LEVELS);
+  });
+
+  it('offers no effort for providers that ignore it', () => {
+    // Copilot CLI has no effort slider; the picker should hide the control.
+    expect(effortLevelsForProvider('copilot-cli')).toEqual([]);
+    expect(effortLevelsForProvider('claude')).toEqual([]);
+  });
+});
 
 describe('resolveEffortLevel', () => {
   it('uses the explicit per-session effort when set', () => {

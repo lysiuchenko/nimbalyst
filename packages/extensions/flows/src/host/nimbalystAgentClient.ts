@@ -72,6 +72,7 @@ export class NimbalystAgentClient implements AgentClient {
       // The flow reports at run level — gates, completion — not once per step.
       suppressTurnNotification: true,
       ...(request.model ? { model: request.model } : {}),
+      ...(request.effortLevel ? { effortLevel: request.effortLevel } : {}),
       ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       ...(worktree ? { worktreeId: worktree.id } : {}),
     });

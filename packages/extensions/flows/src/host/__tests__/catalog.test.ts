@@ -2,12 +2,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadCatalog, TOOL_CHOICES } from '../catalog';
 
-function ipc(commands: unknown[], models: { id: string; name: string }[] = []) {
+type Capabilities = {
+  models: { id: string; name: string }[];
+  effortLevels: { key: string; label: string }[];
+};
+
+function ipc(commands: unknown[], capabilities: Record<string, Capabilities> = {}) {
   return {
     invoke: vi.fn(async (channel: string): Promise<unknown> =>
       channel === 'slash-command:list' ? commands : []
     ),
-    listModels: vi.fn(async () => models),
+    getProviderCapabilities: vi.fn(
+      async (provider: string): Promise<Capabilities> =>
+        capabilities[provider] ?? { models: [], effortLevels: [] }
+    ),
   };
 }
 
@@ -66,18 +74,34 @@ describe('loadCatalog', () => {
     expect(catalog.skills[0].value).toBe('brainstorming');
   });
 
-  it('offers the models the user actually has enabled', async () => {
-    const host = ipc(entries, [
-      { id: 'claude-code:opus', name: 'Opus' },
-      { id: 'claude-code:sonnet', name: 'Sonnet' },
-    ]);
+  it('offers each provider its own live models and effort levels', async () => {
+    const host = ipc(entries, {
+      'claude-code': {
+        models: [
+          { id: 'claude-code:opus', name: 'Opus' },
+          { id: 'claude-code:sonnet', name: 'Sonnet' },
+        ],
+        effortLevels: [
+          { key: 'high', label: 'High' },
+          { key: 'max', label: 'Max' },
+        ],
+      },
+      // Verified against CopilotCLIProvider: it lists models but has no effort
+      // control, so the host reports an empty effortLevels for it.
+      'copilot-cli': { models: [{ id: 'gpt-5', name: 'GPT-5' }], effortLevels: [] },
+    });
 
     const catalog = await loadCatalog(host, host, '/repo');
 
-    expect(catalog.models).toEqual([
+    expect(catalog.agentCapabilities['claude-code'].models).toEqual([
       { value: 'claude-code:opus', label: 'Opus' },
       { value: 'claude-code:sonnet', label: 'Sonnet' },
     ]);
+    expect(catalog.agentCapabilities['claude-code'].effortLevels).toEqual([
+      { key: 'high', label: 'High' },
+      { key: 'max', label: 'Max' },
+    ]);
+    expect(catalog.agentCapabilities['copilot-cli'].effortLevels).toEqual([]);
   });
 
   it('still returns a usable catalog when the host cannot list anything', async () => {
@@ -85,14 +109,15 @@ describe('loadCatalog', () => {
       invoke: vi.fn(async (): Promise<unknown> => {
         throw new Error('no workspace');
       }),
-      listModels: vi.fn(async (): Promise<{ id: string; name: string }[]> => {
+      getProviderCapabilities: vi.fn(async (): Promise<Capabilities> => {
         throw new Error('no provider');
       }),
     };
 
     const catalog = await loadCatalog(broken, broken, '/repo');
 
-    expect(catalog).toMatchObject({ skills: [], commands: [], models: [] });
+    expect(catalog).toMatchObject({ skills: [], commands: [] });
+    expect(catalog.agentCapabilities['claude-code']).toEqual({ models: [], effortLevels: [] });
     expect(catalog.tools).toEqual(TOOL_CHOICES);
   });
 

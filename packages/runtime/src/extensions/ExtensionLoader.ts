@@ -38,6 +38,7 @@ import type {
   ChatCompletionStreamHandle,
   ChatCompletionStreamChunk,
   ExtensionAIModel,
+  ExtensionProviderCapabilities,
   VoiceContextProvider,
 } from './types';
 import type { CollabContentAdapter } from '@nimbalyst/extension-sdk';
@@ -1082,6 +1083,13 @@ function createExtensionContext(
           throw new Error('electronAPI not available for listModels');
         }
         return electronAPI.invoke('extensions:ai-list-models');
+      },
+      getProviderCapabilities: async (provider: string): Promise<ExtensionProviderCapabilities> => {
+        const electronAPI = (window as any).electronAPI;
+        if (!electronAPI) {
+          throw new Error('electronAPI not available for getProviderCapabilities');
+        }
+        return electronAPI.invoke('extensions:ai-provider-capabilities', { provider });
       },
       chatCompletion: async (options: ChatCompletionOptions): Promise<ChatCompletionResult> => {
         const electronAPI = (window as any).electronAPI;

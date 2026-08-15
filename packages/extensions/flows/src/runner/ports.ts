@@ -18,6 +18,8 @@ export interface AgentRunRequest {
   sessionName: string;
   prompt: string;
   model?: string | null;
+  /** Reasoning effort for providers that honor it. Undefined means "host default". */
+  effortLevel?: string;
   /** Tool allowlist for this node. Undefined means "host default". */
   tools?: string[];
   /** Run this node in its own git worktree. */

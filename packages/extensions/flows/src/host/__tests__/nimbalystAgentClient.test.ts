@@ -110,6 +110,25 @@ describe('NimbalystAgentClient', () => {
     expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).not.toHaveProperty('model');
   });
 
+  it('passes a node effort level through to the provider that honors it', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(
+      { ...request, effortLevel: 'high' },
+      new AbortController().signal
+    );
+
+    expect(ai.sendPrompt).toHaveBeenCalledWith(expect.objectContaining({ effortLevel: 'high' }));
+  });
+
+  it('omits effortLevel so the host uses its default when the node declares none', async () => {
+    const ai = aiService();
+
+    await new NimbalystAgentClient(ai).run(request, new AbortController().signal);
+
+    expect(vi.mocked(ai.sendPrompt).mock.calls[0][0]).not.toHaveProperty('effortLevel');
+  });
+
   it('reads token usage back off the session the prompt created', async () => {
     const ai = aiService();
     const sessions = {

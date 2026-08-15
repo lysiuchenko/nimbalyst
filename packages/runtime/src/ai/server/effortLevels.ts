@@ -16,6 +16,19 @@ export const EFFORT_LEVELS: { key: EffortLevel; label: string }[] = [
   { key: 'max', label: 'Max' },
 ];
 
+/**
+ * Providers whose agents honor the effort slider. Claude Code and OpenAI Codex
+ * both read a session's effort level at init; other providers ignore it, so a
+ * picker should hide the control for them. Kept here, beside the levels, so the
+ * "does this provider have effort" answer lives in one place.
+ */
+const EFFORT_SUPPORTING_PROVIDERS = new Set<string>(['claude-code', 'openai-codex']);
+
+/** The effort choices for a provider, or `[]` when the provider ignores effort. */
+export function effortLevelsForProvider(provider: string): { key: EffortLevel; label: string }[] {
+  return EFFORT_SUPPORTING_PROVIDERS.has(provider) ? EFFORT_LEVELS : [];
+}
+
 export const DEFAULT_EFFORT_LEVEL: EffortLevel = 'high';
 // Default to 'enabled' so the app omits the SDK thinking option and preserves
 // the SDK's default adaptive thinking (Claude decides depth) on supported

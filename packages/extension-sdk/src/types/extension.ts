@@ -1178,6 +1178,13 @@ export interface ExtensionAIService {
     /** Model ID (e.g. 'claude-code:opus', 'openai-codex:gpt-5.6-sol'). Uses provider default if omitted. */
     model?: string;
     /**
+     * Reasoning effort for providers that honor it (claude-code, openai-codex):
+     * 'low' | 'medium' | 'high' | 'xhigh' | 'max'. Recorded on the session so
+     * the provider applies it at init. Ignored by providers without an effort
+     * slider (e.g. copilot-cli). Omit to use the app-wide default.
+     */
+    effortLevel?: string;
+    /**
      * How the agent decides tool permissions.
      *
      * Defaults to the interactive behaviour, which prompts for each tool and
@@ -1224,6 +1231,16 @@ export interface ExtensionAIService {
   listModels(): Promise<ExtensionAIModel[]>;
 
   /**
+   * Capabilities for a single agent provider: its live model list and the
+   * effort levels it honors (`[]` when it has none). Unlike listModels(), which
+   * covers chat providers, this serves the agent providers a session can run on
+   * (claude-code, openai-codex, copilot-cli) — their models come from the
+   * CLI/SDK and need no API key. On failure returns empty lists rather than
+   * throwing, so a caller can fall back to free-text entry.
+   */
+  getProviderCapabilities(provider: string): Promise<ExtensionProviderCapabilities>;
+
+  /**
    * Stateless chat completion. Sends messages to a model and returns the full response.
    * Does not create a session in the session history.
    */
@@ -1247,6 +1264,16 @@ export interface ExtensionAIModel {
   name: string;
   /** Provider type (e.g. "claude", "openai", "lmstudio") */
   provider: string;
+}
+
+/**
+ * What an agent provider can be configured with, from getProviderCapabilities().
+ */
+export interface ExtensionProviderCapabilities {
+  /** The provider's live models (empty if it exposes none or the lookup failed). */
+  models: ExtensionAIModel[];
+  /** Effort choices the provider honors, or empty when it has no effort slider. */
+  effortLevels: { key: string; label: string }[];
 }
 
 /**

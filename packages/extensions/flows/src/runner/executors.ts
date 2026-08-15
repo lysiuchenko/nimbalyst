@@ -54,6 +54,7 @@ export function createAgentExecutor(client: AgentClient): NodeExecutor {
         prompt: context.resolved.prompt ?? '',
         model: node.model,
         provider: node.provider,
+        effortLevel: node.effortLevel,
         tools: node.tools,
         worktree: node.worktree,
       },
@@ -165,6 +166,7 @@ export function createFanOutExecutor(client: AgentClient): NodeExecutor {
               prompt: (context.resolved.prompt ?? '').split('{{item}}').join(item),
               model: node.model,
               provider: node.provider,
+              effortLevel: node.effortLevel,
               tools: node.tools,
               // Per sub-agent, not per node: concurrent workers sharing one
               // checkout would overwrite each other's edits.

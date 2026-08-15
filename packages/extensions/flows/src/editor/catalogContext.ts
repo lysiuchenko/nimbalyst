@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react';
 import type { Catalog } from '../host/catalog';
-import { TOOL_CHOICES } from '../host/catalog';
+import { EMPTY_AGENT_CAPABILITIES, TOOL_CHOICES } from '../host/catalog';
 
 export const EMPTY_CATALOG: Catalog = {
   skills: [],
   commands: [],
-  models: [],
+  agentCapabilities: EMPTY_AGENT_CAPABILITIES,
   tools: TOOL_CHOICES,
 };
 

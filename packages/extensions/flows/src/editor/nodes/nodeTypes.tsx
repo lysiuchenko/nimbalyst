@@ -1,12 +1,11 @@
 import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
 import { useCallback, useState } from 'react';
-import type { AgentNode, FanOutNode, FlowNode, NodeType, WriteFileNode } from '../../schema/types';
+import type { AgentNode, FanOutNode, FlowNode, NodeType, StepProvider, WriteFileNode } from '../../schema/types';
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, RefField, ToolPicker } from './NodeFields';
-import { modelOptionsForProvider } from './agentModels';
 import { configBadges, summarize } from './summarize';
 
 /** How each node type presents its one essential field. */
@@ -116,6 +115,14 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const fieldValue = String(fields[chrome.field] ?? '');
   const agent = node.type === 'agent' ? (node as AgentNode) : undefined;
   const fanOut = node.type === 'fan-out' ? (node as FanOutNode) : undefined;
+  const agentOrFanOut = agent ?? fanOut;
+  // Provider absent means the host default (Claude Code) — the same key the
+  // capabilities map uses — so resolve it before reading models and effort.
+  const selectedProvider: StepProvider = agentOrFanOut?.provider ?? 'claude-code';
+  const providerCapabilities = catalog.agentCapabilities[selectedProvider] ?? {
+    models: [],
+    effortLevels: [],
+  };
   const writeFile = node.type === 'write-file' ? (node as WriteFileNode) : undefined;
   const children = useNodeChildren(id);
   const badges = configBadges(node);
@@ -429,11 +436,16 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
               <select
                 className="flow-node-input"
                 aria-label="Provider"
-                value={(agent ?? fanOut)?.provider ?? ''}
+                value={agentOrFanOut?.provider ?? ''}
                 onChange={(event) =>
-                  // Clear the model too: each provider offers its own list, so a
-                  // claude-code:* id must not linger on a node switched to Codex.
-                  patch({ provider: event.target.value === '' ? undefined : event.target.value, model: null })
+                  // Clear model and effort too: each provider offers its own
+                  // lists, so a claude-code:* id or an effort level must not
+                  // linger on a node switched to another provider.
+                  patch({
+                    provider: event.target.value === '' ? undefined : event.target.value,
+                    model: null,
+                    effortLevel: undefined,
+                  })
                 }
               >
                 <option value="">Claude Code (default)</option>
@@ -446,17 +458,38 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
               <select
                 className="flow-node-input"
                 aria-label="Model"
-                value={(agent ?? fanOut)?.model ?? ''}
+                value={agentOrFanOut?.model ?? ''}
                 onChange={(event) => patch({ model: event.target.value || null })}
               >
                 <option value="">Host default</option>
-                {modelOptionsForProvider((agent ?? fanOut)?.provider).map((model) => (
+                {providerCapabilities.models.map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
                   </option>
                 ))}
               </select>
             </label>
+            {/* Only claude-code and openai-codex report effort levels; the
+                control is hidden for providers that report none rather than
+                offering a setting the CLI would ignore. */}
+            {providerCapabilities.effortLevels.length > 0 && (
+              <label className="flow-node-field">
+                <span className="flow-node-field-label">Effort</span>
+                <select
+                  className="flow-node-input"
+                  aria-label="Effort"
+                  value={agentOrFanOut?.effortLevel ?? ''}
+                  onChange={(event) => patch({ effortLevel: event.target.value || undefined })}
+                >
+                  <option value="">Host default</option>
+                  {providerCapabilities.effortLevels.map((effort) => (
+                    <option key={effort.key} value={effort.key}>
+                      {effort.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <ToolPicker
               value={(agent ?? fanOut)?.tools}
               choices={catalog.tools}

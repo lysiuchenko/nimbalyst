@@ -55,12 +55,20 @@ interface FlowNodeCommon {
  */
 export type StepProvider = 'claude-code' | 'openai-codex' | 'copilot-cli';
 
+/**
+ * Reasoning effort for providers that honor it (claude-code, openai-codex).
+ * Absent means the host default. copilot-cli has no effort control, so it is
+ * rejected there — the same shape as `tools`, which only claude-code honors.
+ */
+export type StepEffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
 export interface AgentNode extends FlowNodeCommon {
   type: 'agent';
   prompt: string;
   /** `null` means "let the host pick the model". */
   model?: string | null;
   provider?: StepProvider;
+  effortLevel?: StepEffortLevel;
   tools?: string[];
   worktree?: boolean;
 }
@@ -81,6 +89,7 @@ export interface FanOutNode extends FlowNodeCommon {
   concurrency?: number;
   model?: string | null;
   provider?: StepProvider;
+  effortLevel?: StepEffortLevel;
   tools?: string[];
   /**
    * Give every sub-agent its own git worktree.

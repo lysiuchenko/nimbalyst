@@ -29,7 +29,7 @@ import { isModelEnabled } from './modelEnablementFilter';
 import { getSessionStateManager } from '@nimbalyst/runtime/ai/server/SessionStateManager';
 import { parseContextUsageMessage } from '@nimbalyst/runtime/ai/server/utils/contextUsage';
 import { isBedrockToolSearchError } from '@nimbalyst/runtime/ai/server/utils/errorDetection';
-import { resolveEffortLevel, resolveThinkingMode } from '@nimbalyst/runtime/ai/server/effortLevels';
+import { effortLevelsForProvider, resolveEffortLevel, resolveThinkingMode } from '@nimbalyst/runtime/ai/server/effortLevels';
 import type { SessionStore } from '@nimbalyst/runtime';
 import {
   ModelIdentifier,
@@ -3942,13 +3942,14 @@ export class AIService {
         sessionName?: string;
         provider?: string;
         model?: string;
+        effortLevel?: string;
         mode?: SessionMode;
         tools?: string[];
         suppressTurnNotification?: boolean;
         worktreeId?: string;
       }
     ) => {
-      const { prompt, sessionName, worktreeId, mode, tools } = options;
+      const { prompt, sessionName, worktreeId, mode, tools, effortLevel } = options;
       const provider = (options.provider || 'claude-code') as AIProviderType;
       if (!prompt) {
         throw new Error('prompt is required');
@@ -4017,6 +4018,15 @@ export class AIService {
         worktree?.worktreePath,
         worktree?.worktreeProjectPath,
       );
+
+      // Persist the per-node effort level before streaming inits the provider.
+      // The stream path reloads the session by id and reads
+      // session.metadata.effortLevel (claude-code / codex honor it; others
+      // ignore it), so this must land in metadata before sendMessageHandler.
+      if (effortLevel) {
+        const { AISessionsRepository } = await import('@nimbalyst/runtime/storage/repositories/AISessionsRepository');
+        await AISessionsRepository.updateMetadata(session.id, { metadata: { effortLevel } });
+      }
 
       // Set session title
       if (sessionName) {
@@ -4142,6 +4152,28 @@ export class AIService {
       }
 
       return allModels;
+    });
+
+    // Extension SDK: capabilities for a single provider — the live model list
+    // plus the effort choices it honors. Unlike ai-list-models (chat providers,
+    // key-gated), this serves the agent providers a flow node runs on
+    // (claude-code / openai-codex / copilot-cli), whose model lists come from
+    // the CLI/SDK and need no API key. Failures degrade to an empty list so the
+    // node's picker falls back to free-text rather than failing to open.
+    safeHandle('extensions:ai-provider-capabilities', async (_event, args: { provider?: string }) => {
+      const provider = (args?.provider ?? 'claude-code') as AIProviderType;
+      const globalApiKeys = this.getSettingsStore().get('apiKeys', {}) as Record<string, string>;
+      const apiKey = provider === 'openai-codex' ? globalApiKeys['openai'] : undefined;
+
+      let models: Array<{ id: string; name: string; provider: string }> = [];
+      try {
+        const found = await ModelRegistry.getModelsForProvider(provider, apiKey);
+        models = found.map((model) => ({ id: model.id, name: model.name, provider: model.provider }));
+      } catch {
+        models = [];
+      }
+
+      return { models, effortLevels: effortLevelsForProvider(provider) };
     });
 
     // Extension SDK: Stateless chat completion (full response)
