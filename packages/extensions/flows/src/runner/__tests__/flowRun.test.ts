@@ -78,6 +78,61 @@ describe('runFlow', () => {
     expect(prompts).toEqual(['Plan the API', 'Build PLAN BODY']);
   });
 
+  it('threads each node its own provider, model and effort across a mixed-provider flow', async () => {
+    const seen: Record<string, { provider?: string; model?: string | null; effortLevel?: string }> = {};
+    const mixed: Flow = {
+      version: 1,
+      name: 'cross-provider',
+      nodes: [
+        {
+          id: 'draft',
+          type: 'agent',
+          prompt: 'Draft',
+          provider: 'claude-code',
+          model: 'claude-code:opus',
+          effortLevel: 'high',
+          output: 'draft_md',
+        },
+        {
+          id: 'review',
+          type: 'agent',
+          prompt: 'Review {{draft.draft_md}}',
+          provider: 'openai-codex',
+          model: 'openai-codex:gpt-5.6-sol',
+          effortLevel: 'max',
+          output: 'review_md',
+        },
+        // copilot-cli has no effort concept; the node carries none, so the
+        // request must too.
+        { id: 'polish', type: 'agent', prompt: 'Polish {{review.review_md}}', provider: 'copilot-cli', model: 'copilot-cli:gpt-5' },
+      ],
+      edges: [
+        { from: 'draft', to: 'review', port: 'draft_md' },
+        { from: 'review', to: 'polish', port: 'review_md' },
+      ],
+      variables: {},
+    };
+    const { deps: d } = deps({
+      agent: {
+        run: async (request) => {
+          seen[request.nodeId] = {
+            provider: request.provider,
+            model: request.model,
+            effortLevel: request.effortLevel,
+          };
+          return { sessionId: `s-${request.nodeId}`, response: `${request.nodeId} done` };
+        },
+      },
+    });
+
+    const record = await runFlow(mixed, '/repo/cross.flow.json', d, { runId: 'run-x' });
+
+    expect(record.status).toBe('done');
+    expect(seen.draft).toEqual({ provider: 'claude-code', model: 'claude-code:opus', effortLevel: 'high' });
+    expect(seen.review).toEqual({ provider: 'openai-codex', model: 'openai-codex:gpt-5.6-sol', effortLevel: 'max' });
+    expect(seen.polish).toEqual({ provider: 'copilot-cli', model: 'copilot-cli:gpt-5', effortLevel: undefined });
+  });
+
   it('totals cost across the run for the cost panel', async () => {
     const { deps: d } = deps();
 
