@@ -6,6 +6,7 @@ import { useNodeChildren } from '../runContext';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, RefField, ToolPicker } from './NodeFields';
+import { modelOptionsForProvider } from './agentModels';
 import { configBadges, summarize } from './summarize';
 
 /** How each node type presents its one essential field. */
@@ -430,7 +431,9 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
                 aria-label="Provider"
                 value={(agent ?? fanOut)?.provider ?? ''}
                 onChange={(event) =>
-                  patch({ provider: event.target.value === '' ? undefined : event.target.value })
+                  // Clear the model too: each provider offers its own list, so a
+                  // claude-code:* id must not linger on a node switched to Codex.
+                  patch({ provider: event.target.value === '' ? undefined : event.target.value, model: null })
                 }
               >
                 <option value="">Claude Code (default)</option>
@@ -447,7 +450,7 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
                 onChange={(event) => patch({ model: event.target.value || null })}
               >
                 <option value="">Host default</option>
-                {catalog.models.map((model) => (
+                {modelOptionsForProvider((agent ?? fanOut)?.provider).map((model) => (
                   <option key={model.value} value={model.value}>
                     {model.label}
                   </option>
