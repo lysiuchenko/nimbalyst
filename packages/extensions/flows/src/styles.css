@@ -1229,7 +1229,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--flow-muted, #8a8f98);
+  color: var(--flow-text-muted);
 }
 .flow-run-gate-row {
   display: flex;
@@ -1243,10 +1243,10 @@
   font-weight: 600;
 }
 .flow-run-gate-meta {
-  color: var(--flow-muted, #8a8f98);
+  color: var(--flow-text-muted);
 }
 .flow-run-gate-symbolic {
-  color: var(--flow-muted, #8a8f98);
+  color: var(--flow-text-muted);
   font-style: italic;
 }
 .flow-run-gate-flag {
