@@ -182,16 +182,12 @@ export class AnalyticsService {
   }
 
   public allowedToSendAnalytics(): boolean {
-    // Check if user has enabled analytics in settings
-    try {
-      const enabled = isAnalyticsEnabled();
-      return enabled;
-    } catch (error) {
-      this.log.error('[Analytics] Error checking analytics enabled state', { error });
-      // Fail open - if we can't read the setting, allow analytics
-      // This ensures analytics works even if store initialization fails
-      return true;
-    }
+    // Fork override: telemetry is permanently disabled in this personal build.
+    // This is the single gate both the main-process service (sendEvent) and the
+    // renderer (which reads it over IPC to drive posthog-js opt_out + consent)
+    // consult, so returning false here stops every capture path. Unlike upstream
+    // it neither reads the setting nor fails open.
+    return false;
   }
 
   /**

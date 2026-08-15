@@ -236,6 +236,10 @@ const posthogClient = posthog.init(
     capture_heatmaps: false,
     disable_session_recording: true,
     capture_exceptions: false,
+    // Fork: telemetry is disabled, so suppress posthog-js's init-time flags/decide
+    // request too -- opt_out_capturing() below stops event traffic but can land
+    // after init has already dispatched that one network call.
+    advanced_disable_flags: true,
     session_idle_timeout_seconds: 30 * 60, // 30 minutes
     loaded: (posthog) => {
       console.log(`[RENDERER] PostHog loaded (analytics ID: ${posthog.get_distinct_id()}, session: ${posthog.get_session_id()}, official build: ${isOfficialBuild})`);
