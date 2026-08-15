@@ -1487,24 +1487,67 @@ test.describe('gate markdown and decision notes', () => {
 
 /**
  * Diff-at-approval: a side-effectful run is reviewed before it starts; a
- * read-only flow is not gated.
+ * read-only flow is not gated. Each test gets its own single-flow app so only
+ * one flow-editor is ever mounted (Nimbalyst keeps prior tabs mounted, which
+ * would make the shared locators ambiguous across flows).
  */
 test.describe('diff at approval', () => {
-  let flows: FlowsApp;
+  test('a shell flow shows its command in the gate', async () => {
+    const flows = await launchFlowsApp(
+      createWorkspace({
+        'shows.flow.json': {
+          version: 1, name: 'shows', variables: {},
+          nodes: [{ id: 'run', type: 'shell', run: 'npm test' }],
+          edges: [],
+        },
+      })
+    );
+    try {
+      await openFlow(flows.page, 'shows.flow.json');
+      await flows.page.locator('[data-testid="flow-run"]').click();
+      const gate = flows.page.locator('[data-testid="flow-run-gate"]');
+      await expect(gate).toBeVisible();
+      await expect(gate).toContainText('npm test');
+      await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
+      await expect(gate).toBeHidden();
+    } finally {
+      await flows.close();
+    }
+  });
 
-  test.beforeAll(async () => {
-    flows = await launchFlowsApp(
+  test('cancel runs nothing; approve writes the file', async () => {
+    const flows = await launchFlowsApp(
       createWorkspace({
         'writes.flow.json': {
           version: 1, name: 'writes', variables: {},
           nodes: [{ id: 'save', type: 'write-file', path: 'GATED.md', content: 'hi' }],
           edges: [],
         },
-        'shows.flow.json': {
-          version: 1, name: 'shows', variables: {},
-          nodes: [{ id: 'run', type: 'shell', run: 'npm test' }],
-          edges: [],
-        },
+      })
+    );
+    try {
+      await openFlow(flows.page, 'writes.flow.json');
+
+      // Cancel: nothing on disk.
+      await flows.page.locator('[data-testid="flow-run"]').click();
+      await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
+      expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(false);
+
+      // Approve: the file lands and the node reaches done.
+      await flows.page.locator('[data-testid="flow-run"]').click();
+      await flows.page.locator('[data-testid="flow-run-gate-approve"]').click();
+      await expect
+        .poll(() => nodeStatuses(flows.page).then((s) => s.save), { timeout: 60_000 })
+        .toBe('done');
+      expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(true);
+    } finally {
+      await flows.close();
+    }
+  });
+
+  test('a read-only flow is not gated', async () => {
+    const flows = await launchFlowsApp(
+      createWorkspace({
         'readonly.flow.json': {
           version: 1, name: 'readonly', variables: {},
           nodes: [{ id: 'g', type: 'human-gate', message: 'ok?' }],
@@ -1512,42 +1555,14 @@ test.describe('diff at approval', () => {
         },
       })
     );
-  });
-
-  test.afterAll(async () => { await flows?.close(); });
-
-  test('a shell flow shows its command in the gate', async () => {
-    await openFlow(flows.page, 'shows.flow.json');
-    await flows.page.locator('[data-testid="flow-run"]').click();
-    const gate = flows.page.locator('[data-testid="flow-run-gate"]');
-    await expect(gate).toBeVisible();
-    await expect(gate).toContainText('npm test');
-    await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
-    await expect(gate).toBeHidden();
-  });
-
-  test('cancel runs nothing; approve writes the file', async () => {
-    await openFlow(flows.page, 'writes.flow.json');
-
-    // Cancel: nothing on disk.
-    await flows.page.locator('[data-testid="flow-run"]').click();
-    await flows.page.locator('[data-testid="flow-run-gate-cancel"]').click();
-    expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(false);
-
-    // Approve: the file lands and a run record exists.
-    await flows.page.locator('[data-testid="flow-run"]').click();
-    await flows.page.locator('[data-testid="flow-run-gate-approve"]').click();
-    await expect
-      .poll(() => nodeStatuses(flows.page).then((s) => s.save), { timeout: 60_000 })
-      .toBe('done');
-    expect(fs.existsSync(path.join(flows.workspace, 'GATED.md'))).toBe(true);
-  });
-
-  test('a read-only flow is not gated', async () => {
-    await openFlow(flows.page, 'readonly.flow.json');
-    await flows.page.locator('[data-testid="flow-run"]').click();
-    // Straight to the run-pause card; the approval gate never appears.
-    await expect(flows.page.locator('[data-testid="flow-gate"]')).toBeVisible({ timeout: 30_000 });
-    await expect(flows.page.locator('[data-testid="flow-run-gate"]')).toHaveCount(0);
+    try {
+      await openFlow(flows.page, 'readonly.flow.json');
+      await flows.page.locator('[data-testid="flow-run"]').click();
+      // Straight to the run-pause card; the approval gate never appears.
+      await expect(flows.page.locator('[data-testid="flow-gate"]')).toBeVisible({ timeout: 30_000 });
+      await expect(flows.page.locator('[data-testid="flow-run-gate"]')).toHaveCount(0);
+    } finally {
+      await flows.close();
+    }
   });
 });
