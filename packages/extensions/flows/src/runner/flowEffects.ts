@@ -110,7 +110,14 @@ export function flowEffects(
           ...(node.type === 'fan-out' ? { over: resolveTemplate(node.over, variables) } : {}),
         });
         break;
-      // human-gate has no side effect.
+      case 'human-gate':
+        break; // no side effect
+      default: {
+        // A future side-effectful NodeType added to the union without a case
+        // here would compile and silently bypass the gate — make it a type error.
+        const unhandled: never = node;
+        throw new Error(`flowEffects: unhandled node type ${JSON.stringify(unhandled)}`);
+      }
     }
   }
 

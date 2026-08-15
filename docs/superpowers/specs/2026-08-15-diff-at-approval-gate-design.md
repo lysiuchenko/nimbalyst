@@ -104,8 +104,9 @@ A blocking modal reusing the existing `flow-gate` CSS shape: grouped **Files**,
 at run time"), **Agents** (kind, provider, `tools` or `project default`, `main
 working tree` / `isolated`), and **Reference problems** (from `issuesByNode`,
 when present). Buttons: **Approve → run** (primary), **Cancel**. A secondary
-**Preview resolved commands** button fires the existing `run.dryRun` for a
-rehearsal without closing the gate. `data-testid="flow-run-gate"`.
+**Preview resolved commands** button clears the gate, then fires the existing
+`run.dryRun` so the rehearsal is visible on the canvas the modal would otherwise
+cover (re-press Run to gate again). `data-testid="flow-run-gate"`.
 
 Wiring interposes in `startRun`:
 
@@ -123,7 +124,7 @@ const startRun = useCallback(() => {
 ```
 
 The gate renders when `pendingRun !== null`. Approve → `run.start(pendingRun)`
-then clear; Cancel → clear; Preview → `run.dryRun(pendingRun)`. The summary is
+then clear; Cancel → clear; Preview → clear then `run.dryRun(pendingRun)`. The summary is
 recomputed pure on render from `pendingRun`, so there is no extra state to
 drift and the doc is never dirtied. `problems` are shown but do not block
 Approve — hard-invalid flows never reach the gate (validation stops them at
