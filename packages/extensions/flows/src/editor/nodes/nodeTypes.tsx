@@ -187,6 +187,20 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             {reliability.ok}/{reliability.total}
           </span>
         )}
+        {/* The red border says "something's wrong"; this says what and how many,
+            legible even zoomed out where the issue list below is a red smear. */}
+        {issues.length > 0 && (
+          <span
+            className="flow-node-issue-flag"
+            data-issue-flag={id}
+            title={issues.join('\n')}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              error
+            </span>
+            {issues.length}
+          </span>
+        )}
         <button
           type="button"
           className="flow-node-expand"

@@ -919,6 +919,23 @@
   line-height: 1.4;
 }
 
+/* Header counterpart to the issue list: a fixed-size mark that stays readable
+   when the card itself is too small to read. Icon, not colour alone, so the
+   signal survives a red-blind eye and a zoomed-out canvas. */
+.flow-node-issue-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--flow-danger);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.flow-node-issue-flag .material-symbols-outlined {
+  font-size: 15px;
+}
+
 .flow-picker-chosen {
   display: flex;
   align-items: center;
