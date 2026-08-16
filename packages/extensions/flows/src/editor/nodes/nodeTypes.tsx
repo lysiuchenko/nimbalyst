@@ -1,8 +1,9 @@
 import { Handle, Position, useReactFlow, type NodeProps, type NodeTypes } from '@xyflow/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentNode, FanOutNode, FlowNode, NodeType, StepProvider, WriteFileNode } from '../../schema/types';
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
+import { formatElapsed } from '../elapsed';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, RefField, ToolPicker } from './NodeFields';
@@ -90,8 +91,21 @@ interface FlowNodeCardProps extends NodeProps<FlowCanvasNode> {
   onDuplicate: (id: string) => void;
 }
 
+/** Whole seconds since `startedAt`, ticking once a second while a run is live. */
+function useElapsed(startedAt: number | undefined): number | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (startedAt === undefined) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  if (startedAt === undefined) return null;
+  return Math.max(0, Math.floor((now - startedAt) / 1000));
+}
+
 function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: FlowNodeCardProps) {
-  const { updateNodeData } = useReactFlow<FlowCanvasNode>();
+  const { updateNodeData, getNode, setCenter, setNodes } = useReactFlow<FlowCanvasNode>();
   const node = data.node;
   const status = useNodeStatus(id);
   const result = useNodeResult(id);
@@ -99,9 +113,45 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   const reliability = useNodeReliability(id);
   const liveTail = useLiveTail(id);
   const [resultOpen, setResultOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const catalog = useCatalog();
   const references = useReferences(id);
   const issues = useNodeIssues(id);
+  const elapsed = useElapsed(status === 'running' ? result?.startedAt : undefined);
+
+  // The issue flag is a shortcut to the node it sits on: select it and pan the
+  // canvas to it, the same move the toolbar's "N to fix" chip makes.
+  const focusSelf = useCallback(() => {
+    const self = getNode(id);
+    if (!self) return;
+    setNodes((nodes) => nodes.map((candidate) => ({ ...candidate, selected: candidate.id === id })));
+    const width = self.measured?.width ?? self.width ?? 240;
+    const height = self.measured?.height ?? self.height ?? 100;
+    setCenter(self.position.x + width / 2, self.position.y + height / 2, { zoom: 1, duration: 300 });
+  }, [getNode, id, setCenter, setNodes]);
+
+  // Copy the whole product, not the two lines the strip shows — the output is
+  // usually what you carry into the next step or a bug report.
+  const copyResult = useCallback(async () => {
+    const text = result?.error ?? result?.output ?? '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // Clipboard access denied; nothing to recover, leave the icon unchanged.
+    }
+  }, [result]);
+
+  // While a step streams, keep the newest line in view without stealing the
+  // scroll position the moment it stops.
+  const resultRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (status !== 'running') return;
+    const el = resultRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [status, result?.output]);
 
   const patch = useCallback(
     (changes: Record<string, unknown>) => {
@@ -172,7 +222,12 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         {/* The type is already carried by the icon and, closed, by the summary
             sentence — spelling it out again costs the label the room it needs. */}
         {status ? (
-          <span className={`flow-node-badge flow-node-badge-${status}`}>{status}</span>
+          <span className={`flow-node-badge flow-node-badge-${status}`}>
+            {status}
+            {status === 'running' && elapsed !== null && (
+              <span className="flow-node-badge-elapsed">{formatElapsed(elapsed)}</span>
+            )}
+          </span>
         ) : (
           open && <span className="flow-node-type">{node.type}</span>
         )}
@@ -190,16 +245,22 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         {/* The red border says "something's wrong"; this says what and how many,
             legible even zoomed out where the issue list below is a red smear. */}
         {issues.length > 0 && (
-          <span
+          <button
+            type="button"
             className="flow-node-issue-flag"
             data-issue-flag={id}
-            title={issues.join('\n')}
+            title={`Focus this step\n${issues.join('\n')}`}
+            aria-label={`Focus this step; ${issues.length} issue${issues.length === 1 ? '' : 's'} to fix`}
+            onClick={(event) => {
+              event.stopPropagation();
+              focusSelf();
+            }}
           >
             <span className="material-symbols-outlined" aria-hidden="true">
               error
             </span>
             {issues.length}
-          </span>
+          </button>
         )}
         <button
           type="button"
@@ -291,20 +352,37 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
           lines; a click swaps clamp for scroll. Errors take the same strip so
           a failure is readable where it happened, not only in the history. */}
       {result && (result.output || result.error) && (
-        <button
-          type="button"
-          className="flow-node-result"
-          data-node-result={id}
-          data-kind={result.error ? 'error' : 'output'}
-          data-expanded={resultOpen}
-          title={resultOpen ? 'Collapse' : 'Expand'}
-          onClick={(event) => {
-            event.stopPropagation();
-            setResultOpen((was) => !was);
-          }}
-        >
-          <pre>{result.error ?? result.output}</pre>
-        </button>
+        <div className="flow-node-result-wrap" data-kind={result.error ? 'error' : 'output'}>
+          <button
+            type="button"
+            className="flow-node-result"
+            data-node-result={id}
+            data-kind={result.error ? 'error' : 'output'}
+            data-expanded={resultOpen}
+            title={resultOpen ? 'Collapse' : 'Expand'}
+            onClick={(event) => {
+              event.stopPropagation();
+              setResultOpen((was) => !was);
+            }}
+          >
+            <pre ref={resultRef}>{result.error ?? result.output}</pre>
+          </button>
+          <button
+            type="button"
+            className="flow-node-result-copy"
+            data-result-copy={id}
+            title={copied ? 'Copied' : 'Copy output'}
+            aria-label="Copy output"
+            onClick={(event) => {
+              event.stopPropagation();
+              void copyResult();
+            }}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {copied ? 'check' : 'content_copy'}
+            </span>
+          </button>
+        </div>
       )}
 
       {open && (

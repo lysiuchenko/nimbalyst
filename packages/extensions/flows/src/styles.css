@@ -393,6 +393,38 @@
   color: var(--flow-danger);
 }
 
+/* The copy control rides the strip's corner, appearing on hover so a clean
+   node stays uncluttered until you reach for it. */
+.flow-node-result-wrap {
+  position: relative;
+}
+
+.flow-node-result-copy {
+  position: absolute;
+  top: 10px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 1px solid var(--flow-border);
+  border-radius: 5px;
+  background: var(--flow-surface);
+  color: var(--flow-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.flow-node-result-wrap:hover .flow-node-result-copy,
+.flow-node-result-copy:focus-visible {
+  opacity: 1;
+}
+
+.flow-node-result-copy .material-symbols-outlined {
+  font-size: 13px;
+}
+
 .flow-node-summary {
   display: flex;
   flex-direction: column;
@@ -656,6 +688,14 @@
   text-transform: capitalize;
   background: var(--flow-surface-strong);
   color: var(--flow-text-faint);
+}
+
+/* The running clock rides inside the badge; tabular figures so the width
+   doesn't jitter as the seconds tick. */
+.flow-node-badge-elapsed {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
 }
 
 .flow-node-badge-running {
@@ -976,10 +1016,19 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
   color: var(--flow-danger);
+  font: inherit;
   font-size: 11px;
   font-weight: 600;
-  cursor: default;
+  cursor: pointer;
+}
+
+.flow-node-issue-flag:hover {
+  background: color-mix(in srgb, var(--flow-danger) 12%, transparent);
 }
 
 .flow-node-issue-flag .material-symbols-outlined {
