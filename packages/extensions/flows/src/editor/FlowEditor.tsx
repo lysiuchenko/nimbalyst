@@ -51,7 +51,8 @@ import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
 import { getHostServices } from '../host/hostServices';
-import { LiveTailContext, NodeChildrenContext, NodeReliabilityContext, NodeResultsContext, RunFromContext, RunStatusContext } from './runContext';
+import { NodeRunStoreContext, RunFromContext } from './runContext';
+import { createNodeRunStore } from './nodeRunStore';
 import { prepareSave } from './saveFlow';
 import { useFlowRun, SHELL_ALLOWLIST } from './useFlowRun';
 import { flowEffects } from '../runner/flowEffects';
@@ -812,6 +813,16 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     () => (replayActive ? replayStatuses(replay.record, replay.atMs) : run.statuses),
     [replay, replayActive, run.statuses]
   );
+
+  // One store, fed from the maps FlowEditor already derives. It fans each
+  // change out to only the affected card, replacing five whole-map contexts
+  // that re-rendered every card on every per-node update.
+  const runStore = useMemo(() => createNodeRunStore(), []);
+  useEffect(() => runStore.setStatuses(canvasStatuses), [runStore, canvasStatuses]);
+  useEffect(() => runStore.setResults(run.liveNodes), [runStore, run.liveNodes]);
+  useEffect(() => runStore.setChildren(run.children), [runStore, run.children]);
+  useEffect(() => runStore.setTails(run.liveTails), [runStore, run.liveTails]);
+  useEffect(() => runStore.setReliability(reliability), [runStore, reliability]);
 
   // The Flows home launches runs by recording an intent and opening the flow;
   // the editor owns the run itself. Checked when loading ends (a fresh tab)
@@ -1833,12 +1844,8 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <CatalogContext.Provider value={catalog}>
           <ReferencesContext.Provider value={analysis.references}>
           <NodeIssuesContext.Provider value={analysis.issues}>
-          <NodeChildrenContext.Provider value={run.children}>
-          <RunStatusContext.Provider value={canvasStatuses}>
-          <NodeResultsContext.Provider value={run.liveNodes}>
+          <NodeRunStoreContext.Provider value={runStore}>
           <RunFromContext.Provider value={runFrom}>
-          <NodeReliabilityContext.Provider value={reliability}>
-          <LiveTailContext.Provider value={run.liveTails}>
           <DisclosureContext.Provider value={disclosure}>
           <ReactFlow
             key={loaded.revision}
@@ -1944,12 +1951,8 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               </p>
             </div>
           )}
-          </LiveTailContext.Provider>
-          </NodeReliabilityContext.Provider>
           </RunFromContext.Provider>
-          </NodeResultsContext.Provider>
-          </RunStatusContext.Provider>
-          </NodeChildrenContext.Provider>
+          </NodeRunStoreContext.Provider>
           </NodeIssuesContext.Provider>
           </ReferencesContext.Provider>
           </CatalogContext.Provider>

@@ -1,62 +1,65 @@
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
 import type { ChildProgress, NodeExecution, NodeStatus } from '../runner/types';
+import type { NodeRunStore, Reliability } from './nodeRunStore';
 
 /**
- * Per-node run status, published to the node components.
+ * The per-node run store. One subscription per card slice, so a node update
+ * wakes only that node's card — never the whole canvas.
  *
- * Kept out of the xyflow store on purpose: writing status into node data would
- * look like a document edit, mark the file dirty, and put run state into the
- * saved `.flow.json`.
+ * Kept out of the xyflow store on purpose: run state must never look like a
+ * document edit, mark the file dirty, or land in the saved `.flow.json`.
  */
-export const RunStatusContext = createContext<Record<string, NodeStatus>>({});
+export const NodeRunStoreContext = createContext<NodeRunStore | null>(null);
+
+function useNodeRunStore(): NodeRunStore {
+  const store = useContext(NodeRunStoreContext);
+  if (!store) throw new Error('NodeRunStoreContext is missing a provider');
+  return store;
+}
 
 export function useNodeStatus(nodeId: string): NodeStatus | undefined {
-  return useContext(RunStatusContext)[nodeId];
+  const store = useNodeRunStore();
+  const subscribe = useCallback(
+    (cb: () => void) => store.subscribe('status', nodeId, cb),
+    [store, nodeId]
+  );
+  return useSyncExternalStore(subscribe, () => store.getStatus(nodeId));
 }
 
-/**
- * Sub-agents of a fan-out node, live.
- *
- * Separate from status because they arrive mid-node: a fan-out decides how many
- * sub-agents it needs only once its list resolves.
- */
-export const NodeChildrenContext = createContext<Record<string, ChildProgress[]>>({});
-
-export function useNodeChildren(nodeId: string): ChildProgress[] {
-  return useContext(NodeChildrenContext)[nodeId] ?? [];
+export function useNodeChildren(nodeId: string): readonly ChildProgress[] {
+  const store = useNodeRunStore();
+  const subscribe = useCallback(
+    (cb: () => void) => store.subscribe('children', nodeId, cb),
+    [store, nodeId]
+  );
+  return useSyncExternalStore(subscribe, () => store.getChildren(nodeId));
 }
-
-/**
- * Each node's live execution — output and error included — as the run
- * progresses. What lets a card answer "what did this step just produce?"
- * without opening a session or waiting for the history table.
- *
- * Same rule as status: never written into the xyflow store, because run state
- * must not dirty the document.
- */
-export const NodeResultsContext = createContext<Record<string, NodeExecution>>({});
 
 export function useNodeResult(nodeId: string): NodeExecution | undefined {
-  return useContext(NodeResultsContext)[nodeId];
+  const store = useNodeRunStore();
+  const subscribe = useCallback(
+    (cb: () => void) => store.subscribe('result', nodeId, cb),
+    [store, nodeId]
+  );
+  return useSyncExternalStore(subscribe, () => store.getResult(nodeId));
 }
-
-/** One line per running agent step: the transcript tail's heartbeat. */
-export const LiveTailContext = createContext<Record<string, string>>({});
 
 export function useLiveTail(nodeId: string): string | undefined {
-  return useContext(LiveTailContext)[nodeId];
+  const store = useNodeRunStore();
+  const subscribe = useCallback(
+    (cb: () => void) => store.subscribe('tail', nodeId, cb),
+    [store, nodeId]
+  );
+  return useSyncExternalStore(subscribe, () => store.getTail(nodeId));
 }
 
-/**
- * Per-node outcome counts across the recorded runs, for the reliability chip.
- * A node missing from the map has no recorded outcomes.
- */
-export const NodeReliabilityContext = createContext<
-  Record<string, { ok: number; total: number }>
->({});
-
-export function useNodeReliability(nodeId: string): { ok: number; total: number } | undefined {
-  return useContext(NodeReliabilityContext)[nodeId];
+export function useNodeReliability(nodeId: string): Reliability | undefined {
+  const store = useNodeRunStore();
+  const subscribe = useCallback(
+    (cb: () => void) => store.subscribe('reliability', nodeId, cb),
+    [store, nodeId]
+  );
+  return useSyncExternalStore(subscribe, () => store.getReliability(nodeId));
 }
 
 /**
