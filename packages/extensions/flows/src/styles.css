@@ -521,11 +521,22 @@
   resize: vertical;
 }
 
-.flow-node-handle {
-  width: 8px;
-  height: 8px;
+/* Scoped under .flow-editor to outrank xyflow's own .react-flow__handle, which
+   is injected after this sheet and would otherwise win the 6px default on a
+   tie. Same specificity fix the edge labels and minimap needed. Bigger dot =
+   an easier grab at the zoom a whole flow is read at. */
+.flow-editor .flow-node-handle {
+  width: 11px;
+  height: 11px;
   background: var(--flow-accent);
-  border: none;
+  border: 2px solid var(--flow-surface);
+  transition: box-shadow 0.1s ease-out;
+}
+
+/* A ring on hover says "this is a port" without moving it — box-shadow only,
+   so xyflow's edge-centering transform stays untouched. */
+.flow-editor .flow-node-handle:hover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--flow-accent) 30%, transparent);
 }
 
 .flow-toolbar-run {
@@ -1739,7 +1750,9 @@
   border-left: 3px solid var(--flow-accent-2);
 }
 
-.flow-node-handle {
+/* Fan-out ports carry the fan-out hue; scoped past the base handle rule, which
+   is itself scoped under .flow-editor to clear xyflow. */
+.flow-editor .flow-node-fan-out .flow-node-handle {
   background: var(--flow-accent-2);
 }
 
