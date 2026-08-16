@@ -630,6 +630,25 @@
 .flow-node-badge-running {
   background: var(--flow-accent);
   color: var(--flow-accent-contrast);
+  /* A run is the one time a node changes on its own; motion is how the eye
+     finds the live step in a graph full of still ones. */
+  animation: flow-node-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes flow-node-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-node-badge-running {
+    animation: none;
+  }
 }
 
 .flow-node-badge-done {
