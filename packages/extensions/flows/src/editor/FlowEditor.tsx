@@ -12,6 +12,7 @@ import {
   type EdgeChange,
   type FinalConnectionState,
   type NodeChange,
+  type Viewport,
 } from '@xyflow/react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES, type Flow, type NodeType } from '../schema/types';
@@ -19,12 +20,15 @@ import {
   edgeVisual,
   flowToGraph,
   graphToFlow,
+  hasDownstreamDependents,
   isValidFlowConnection,
   placeNewNode,
   type FlowCanvasEdge,
   type FlowCanvasNode,
   type FlowGraph,
 } from './flowGraph';
+import { DisclosureContext, nextDisclosure, type Disclosure } from './disclosure';
+import { parseViewState, viewStateKey, type FlowViewState } from './viewState';
 import { EdgeConditionEditor } from './EdgeConditionEditor';
 import { createNode, createNodeTypes, NODE_TYPE_ICONS, NODE_TYPE_LABELS } from './nodes/nodeTypes';
 import { formatDuration, previewOf } from './nodes/entryFilter';
@@ -406,6 +410,76 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     [addNodes, getNodes, markDirty, refreshAnalysis, remember]
   );
 
+  // Collapse-all / expand-all and the Esc/Enter shortcuts reach the cards
+  // through a broadcast command rather than by writing their open state into
+  // the store — run state and view state must never dirty the document.
+  const [disclosure, setDisclosure] = useState<Disclosure>({ epoch: 0, open: false });
+  const [bodiesExpanded, setBodiesExpanded] = useState(false);
+  const disclose = useCallback((open: boolean, target?: readonly string[]) => {
+    setDisclosure((current) => nextDisclosure(current, open, target));
+  }, []);
+  const toggleAllBodies = useCallback(() => {
+    setBodiesExpanded((wasExpanded) => {
+      disclose(!wasExpanded);
+      return !wasExpanded;
+    });
+  }, [disclose]);
+
+  const selectedNodeIds = useCallback(
+    () => getNodes().filter((node) => node.selected).map((node) => node.id),
+    [getNodes]
+  );
+
+  // Esc collapses (the selection, or everything when nothing is picked), Enter
+  // opens the selection, Cmd/Ctrl+D duplicates it. Skipped while typing or with
+  // a control focused so the shortcuts never fight a text field or a button.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('input, textarea, select, button, a, [contenteditable="true"], .flow-gate')
+      ) {
+        return;
+      }
+      if (event.key === 'Escape') {
+        const selected = selectedNodeIds();
+        disclose(false, selected.length > 0 ? selected : undefined);
+        return;
+      }
+      if (event.key === 'Enter') {
+        const selected = selectedNodeIds();
+        if (selected.length === 0) return;
+        event.preventDefault();
+        disclose(true, selected);
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+        const selected = selectedNodeIds();
+        if (selected.length === 0) return;
+        event.preventDefault();
+        for (const nodeId of selected) onDuplicate(nodeId);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [disclose, onDuplicate, selectedNodeIds]);
+
+  // Deleting a step that still feeds a surviving one strands its output; ask
+  // first. A leaf, or a whole sub-graph removed together, deletes silently.
+  const onBeforeDelete = useCallback(
+    async ({ nodes }: { nodes: FlowCanvasNode[]; edges: FlowCanvasEdge[] }) => {
+      if (nodes.length === 0) return true;
+      const deletedIds = new Set(nodes.map((node) => node.id));
+      if (!hasDownstreamDependents(deletedIds, getEdges())) return true;
+      const label = nodes.length === 1 ? 'this step' : `these ${nodes.length} steps`;
+      return window.confirm(
+        `Delete ${label}? A later step still depends on it and will lose its input.`
+      );
+    },
+    [getEdges]
+  );
+
   // Dropping a connection on empty canvas creates the next node already wired,
   // which is the fastest way to extend a flow.
   const onConnectEnd = useCallback(
@@ -693,7 +767,32 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // The note travelling with the next gate decision; cleared when it lands.
   const [gateComment, setGateComment] = useState('');
 
-  const [showMinimap, setShowMinimap] = useState(true);
+  // Where this flow was last panned/zoomed and whether its minimap showed —
+  // read once so the canvas reopens where you left it instead of re-fitting.
+  const storedView = useMemo(
+    () => parseViewState(host.storage.get(viewStateKey(host.filePath))),
+    [host.filePath, host.storage]
+  );
+  const persistView = useCallback(
+    (patch: Partial<FlowViewState>) => {
+      const key = viewStateKey(host.filePath);
+      const current = parseViewState(host.storage.get(key));
+      host.storage.set(key, { ...current, ...patch });
+    },
+    [host.filePath, host.storage]
+  );
+  const onMoveEnd = useCallback(
+    (_event: unknown, viewport: Viewport) => persistView({ viewport }),
+    [persistView]
+  );
+
+  const [showMinimap, setShowMinimap] = useState(() => storedView.minimap ?? true);
+  const toggleMinimap = useCallback(() => {
+    setShowMinimap((was) => {
+      persistView({ minimap: !was });
+      return !was;
+    });
+  }, [persistView]);
 
   // Elapsed ticker for the progress strip; lives outside the canvas store.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -945,10 +1044,21 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               type="button"
               className="flow-toolbar-button"
               data-testid="flow-minimap-toggle"
-              onClick={() => setShowMinimap((was) => !was)}
+              onClick={toggleMinimap}
             >
               <span className="material-symbols-outlined">map</span>
               {showMinimap ? 'Hide minimap' : 'Show minimap'}
+            </button>
+            <button
+              type="button"
+              className="flow-toolbar-button"
+              data-testid="flow-collapse-all"
+              onClick={toggleAllBodies}
+            >
+              <span className="material-symbols-outlined">
+                {bodiesExpanded ? 'unfold_less' : 'unfold_more'}
+              </span>
+              {bodiesExpanded ? 'Collapse all' : 'Expand all'}
             </button>
           </div>
         </details>
@@ -1729,6 +1839,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <RunFromContext.Provider value={runFrom}>
           <NodeReliabilityContext.Provider value={reliability}>
           <LiveTailContext.Provider value={run.liveTails}>
+          <DisclosureContext.Provider value={disclosure}>
           <ReactFlow
             key={loaded.revision}
             defaultNodes={loaded.graph.nodes}
@@ -1741,6 +1852,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             onEdgeClick={onEdgeClick}
             onEdgeDoubleClick={onEdgeDoubleClick}
             onConnectEnd={onConnectEnd}
+            onBeforeDelete={onBeforeDelete}
             deleteKeyCode={['Backspace', 'Delete']}
             // A wider radius lets a wire snap to a port without pixel-perfect
             // aim; snapping to a 16px grid keeps hand-dragged nodes aligned.
@@ -1748,7 +1860,11 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             snapToGrid
             snapGrid={[16, 16]}
             proOptions={{ hideAttribution: false }}
-            fitView
+            onMoveEnd={onMoveEnd}
+            // A saved viewport wins; only a flow opened for the first time gets
+            // the auto-fit, so reopening lands where you left off.
+            defaultViewport={storedView.viewport}
+            fitView={!storedView.viewport}
             fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           >
             {/* Explicit rather than default: the stock dot colour is a fixed
@@ -1764,6 +1880,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             />}
             <SubAgentLayer subAgents={run.children} onOpenSession={showSession} />
           </ReactFlow>
+          </DisclosureContext.Provider>
           {isEmpty && (
             <div className="flow-empty" data-testid="flow-empty">
               <h2 className="flow-empty-title">Start from a shape that already works</h2>

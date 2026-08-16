@@ -104,6 +104,18 @@ export function isValidFlowConnection(
 }
 
 /**
+ * Whether removing `deletedIds` would cut a step still fed by them — i.e. some
+ * node being deleted has an edge to a node that survives. The delete gate uses
+ * this to ask before a removal quietly strands the steps downstream of it.
+ */
+export function hasDownstreamDependents(
+  deletedIds: ReadonlySet<string>,
+  edges: readonly { source: string; target: string }[]
+): boolean {
+  return edges.some((edge) => deletedIds.has(edge.source) && !deletedIds.has(edge.target));
+}
+
+/**
  * Project a flow onto the canvas.
  *
  * Nodes without a stored position get a deterministic layered layout — column

@@ -4,6 +4,7 @@ import type { AgentNode, FanOutNode, FlowNode, NodeType, StepProvider, WriteFile
 import { useCatalog, useNodeIssues, useReferences } from '../catalogContext';
 import { useNodeChildren } from '../runContext';
 import { formatElapsed } from '../elapsed';
+import { shouldApplyDisclosure, useDisclosure } from '../disclosure';
 import type { FlowCanvasNode, FlowNodeData } from '../flowGraph';
 import { useLiveTail, useNodeReliability, useNodeResult, useNodeStatus, useRunFrom } from '../runContext';
 import { CatalogPicker, ReferenceChips, RefField, ToolPicker } from './NodeFields';
@@ -182,6 +183,18 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
   // friction. A node loaded from a file starts closed, however deep its
   // configuration, because the canvas is there to be read first.
   const [open, setOpen] = useState(() => fieldValue.trim() === '');
+  // Collapse-all / expand-all and the Esc/Enter shortcuts reach the card here,
+  // once per command, so a global gesture opens or closes it without touching
+  // the xyflow store (which would dirty the file). The ref remembers the last
+  // command consumed, and a card that mounts mid-sequence starts already caught
+  // up so it is not retroactively collapsed.
+  const disclosure = useDisclosure();
+  const appliedEpoch = useRef(disclosure.epoch);
+  useEffect(() => {
+    const next = shouldApplyDisclosure(disclosure, appliedEpoch.current, id);
+    appliedEpoch.current = disclosure.epoch;
+    if (next !== null) setOpen(next);
+  }, [disclosure, id]);
   // Kept beside `open` rather than left to the <details> element: closing the
   // node unmounts it, and an author who opened Advanced should find it open
   // when they come back to the same node.
@@ -199,8 +212,8 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
       {/* Two targets and two sources: a flow laid out top-down would otherwise
           route every edge out to the right and back, because the only ports
           were on the sides. */}
-      <Handle type="target" position={Position.Left} id="left" className="flow-node-handle" />
-      <Handle type="target" position={Position.Top} id="top" className="flow-node-handle flow-node-handle-vertical" />
+      <Handle type="target" position={Position.Left} id="left" className="flow-node-handle" title="Input — wire in from a previous step" />
+      <Handle type="target" position={Position.Top} id="top" className="flow-node-handle flow-node-handle-vertical" title="Input — wire in from a previous step" />
 
       <header className="flow-node-header" onDoubleClick={() => setOpen((wasOpen) => !wasOpen)}>
         <span className="flow-node-icon material-symbols-outlined">{chrome.icon}</span>
@@ -636,8 +649,8 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         </ul>
       )}
 
-      <Handle type="source" position={Position.Right} id="right" className="flow-node-handle" />
-      <Handle type="source" position={Position.Bottom} id="bottom" className="flow-node-handle flow-node-handle-vertical" />
+      <Handle type="source" position={Position.Right} id="right" className="flow-node-handle" title="Output — drag out to the next step" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="flow-node-handle flow-node-handle-vertical" title="Output — drag out to the next step" />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   edgeVisual,
   flowToGraph,
   graphToFlow,
+  hasDownstreamDependents,
   isValidFlowConnection,
   placeNewNode,
 } from '../flowGraph';
@@ -353,5 +354,28 @@ describe('isValidFlowConnection', () => {
     expect(isValidFlowConnection({ source: 'b', target: 'a' }, [{ source: 'a', target: 'b' }])).toBe(
       false
     );
+  });
+});
+
+describe('hasDownstreamDependents', () => {
+  const chain = [
+    { source: 'a', target: 'b' },
+    { source: 'b', target: 'c' },
+  ];
+
+  it('is true when a deleted node still feeds a surviving one', () => {
+    expect(hasDownstreamDependents(new Set(['b']), chain)).toBe(true);
+  });
+
+  it('is false for a leaf with nothing downstream', () => {
+    expect(hasDownstreamDependents(new Set(['c']), chain)).toBe(false);
+  });
+
+  it('is false when both ends of the edge are deleted together', () => {
+    expect(hasDownstreamDependents(new Set(['b', 'c']), chain)).toBe(false);
+  });
+
+  it('is false with no edges at all', () => {
+    expect(hasDownstreamDependents(new Set(['a']), [])).toBe(false);
   });
 });
