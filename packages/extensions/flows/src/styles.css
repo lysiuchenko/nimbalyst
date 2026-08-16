@@ -553,6 +553,26 @@
   cursor: pointer;
 }
 
+/* A flow with flagged nodes cannot run; the button says so by going quiet and
+   refusing the pointer, while the chip beside it offers the way to fix it. */
+.flow-toolbar-run:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.flow-toolbar-invalid {
+  border-color: color-mix(in srgb, var(--flow-danger) 35%, transparent);
+  color: var(--flow-danger);
+}
+
+.flow-toolbar-invalid:hover {
+  background: color-mix(in srgb, var(--flow-danger) 8%, var(--flow-surface));
+}
+
+.flow-toolbar-invalid .material-symbols-outlined {
+  font-size: 14px;
+}
+
 .flow-toolbar-cost {
   margin-right: 10px;
   color: var(--flow-text-muted);

@@ -81,7 +81,7 @@ export function FlowEditor({ host }: EditorHostProps) {
 }
 
 function FlowCanvas({ host }: { host: EditorHost }) {
-  const { getNodes, getEdges, addNodes, addEdges, setNodes, setEdges, fitView, screenToFlowPosition } = useReactFlow<
+  const { getNodes, getEdges, addNodes, addEdges, setNodes, setEdges, fitView, setCenter, screenToFlowPosition } = useReactFlow<
     FlowCanvasNode,
     FlowCanvasEdge
   >();
@@ -606,6 +606,37 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     setPendingRun(prepared.flow);
   }, [readGraph, run]);
 
+  // Nodes the analysis flagged — the same set the header issue-flags mark. Used
+  // to gate Run and to let the toolbar walk the user to each one.
+  const invalidNodeIds = useMemo(
+    () => Object.entries(analysis.issues).filter(([, list]) => list.length > 0).map(([id]) => id),
+    [analysis.issues]
+  );
+
+  // Select a node and pan it to the centre. Selection lives in the xyflow store,
+  // not the file, so this never dirties the document.
+  const focusNode = useCallback(
+    (id: string) => {
+      const node = getNodes().find((candidate) => candidate.id === id);
+      if (!node) return;
+      setNodes((nodes) => nodes.map((candidate) => ({ ...candidate, selected: candidate.id === id })));
+      const width = node.measured?.width ?? node.width ?? 240;
+      const height = node.measured?.height ?? node.height ?? 100;
+      setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: 1, duration: 300 });
+    },
+    [getNodes, setNodes, setCenter]
+  );
+
+  // The toolbar chip walks through the flagged nodes one click at a time, so a
+  // long list is reachable without hunting the canvas.
+  const invalidCursor = useRef(0);
+  const focusNextInvalid = useCallback(() => {
+    if (invalidNodeIds.length === 0) return;
+    const index = invalidCursor.current % invalidNodeIds.length;
+    invalidCursor.current = index + 1;
+    focusNode(invalidNodeIds[index]);
+  }, [invalidNodeIds, focusNode]);
+
   // What flowed through a clicked wire. Live outputs win over the record so
   // the panel updates as a run streams; selection survives until closed or
   // replaced. Never in the xyflow store — run state must not dirty the doc.
@@ -921,10 +952,30 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             </button>
           </div>
         </details>
+        {!run.isRunning && invalidNodeIds.length > 0 && (
+          <button
+            type="button"
+            className="flow-toolbar-button flow-toolbar-invalid"
+            data-testid="flow-invalid-count"
+            title="Jump to the next node that needs attention before this flow can run"
+            onClick={focusNextInvalid}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              error
+            </span>
+            {invalidNodeIds.length} to fix
+          </button>
+        )}
         <button
           type="button"
           className="flow-toolbar-run"
           data-testid="flow-run"
+          disabled={!run.isRunning && invalidNodeIds.length > 0}
+          title={
+            !run.isRunning && invalidNodeIds.length > 0
+              ? `${invalidNodeIds.length} node${invalidNodeIds.length === 1 ? ' needs' : 's need'} attention before this flow can run`
+              : undefined
+          }
           onClick={run.isRunning ? run.cancel : startRun}
         >
           <span className="material-symbols-outlined">{run.isRunning ? 'stop' : 'play_arrow'}</span>
