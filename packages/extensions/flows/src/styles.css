@@ -1815,8 +1815,17 @@
   fill: var(--flow-bg);
 }
 
-.react-flow__edge-text {
+/* Scoped under .flow-editor (0,2,0) so it outranks xyflow's own
+   .react-flow__edge-text (0,1,0), which is injected after ours and would
+   otherwise win the font-size on source order alone. */
+.flow-editor .react-flow__edge-text {
   fill: var(--flow-text-muted);
+  /* Edge labels live inside the zoomable viewport, so at fit-view zoom the
+     xyflow-default 10px renders around 7px on screen. Bump the size and weight
+     so a port label ("summary", "failure") stays readable when the graph is
+     framed, without looking oversized once zoomed to 100%. */
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .react-flow__controls-button svg {
@@ -2424,7 +2433,7 @@
 }
 
 .flow-editor .react-flow__edge.flow-edge-when .react-flow__edge-text {
-  font-size: 9px;
+  font-size: 10px;
   font-style: italic;
 }
 
@@ -2439,5 +2448,5 @@
 
 .flow-editor .react-flow__edge.flow-edge-failure .react-flow__edge-text {
   fill: var(--flow-danger);
-  font-size: 10px;
+  font-size: 11px;
 }
