@@ -485,6 +485,16 @@
   gap: 8px;
 }
 
+/* Provider / Model / Effort now sit in the open node body, above the Advanced
+   fold — the run target is the first thing you decide, not a buried setting.
+   Same column layout the Advanced panel uses so the fields read identically. */
+.flow-node-run-with {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .flow-node-field {
   display: block;
   margin-top: 6px;

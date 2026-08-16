@@ -387,6 +387,73 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
         onInsert={(token) => patch({ [chrome.field]: `${fieldValue}${token}` })}
       />
 
+      {/* Which model runs the step and how hard it thinks are the knobs a flow
+          author actually reaches for, so they sit in the body rather than folded
+          under Advanced. Tools, retries and isolation stay advanced. */}
+      {(agent || fanOut) && (
+        <div className="flow-node-run-with">
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">Provider</span>
+            <select
+              className="flow-node-input"
+              aria-label="Provider"
+              value={agentOrFanOut?.provider ?? ''}
+              onChange={(event) =>
+                // Clear model and effort too: each provider offers its own
+                // lists, so a claude-code:* id or an effort level must not
+                // linger on a node switched to another provider.
+                patch({
+                  provider: event.target.value === '' ? undefined : event.target.value,
+                  model: null,
+                  effortLevel: undefined,
+                })
+              }
+            >
+              <option value="">Claude Code (default)</option>
+              <option value="openai-codex">OpenAI Codex — no tool allowlist</option>
+              <option value="copilot-cli">GitHub Copilot CLI — no tool allowlist</option>
+            </select>
+          </label>
+          <label className="flow-node-field">
+            <span className="flow-node-field-label">Model</span>
+            <select
+              className="flow-node-input"
+              aria-label="Model"
+              value={agentOrFanOut?.model ?? ''}
+              onChange={(event) => patch({ model: event.target.value || null })}
+            >
+              <option value="">Host default</option>
+              {providerCapabilities.models.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* Only claude-code and openai-codex report effort levels; the control
+              is hidden for providers that report none rather than offering a
+              setting the CLI would ignore. */}
+          {providerCapabilities.effortLevels.length > 0 && (
+            <label className="flow-node-field">
+              <span className="flow-node-field-label">Effort</span>
+              <select
+                className="flow-node-input"
+                aria-label="Effort"
+                value={agentOrFanOut?.effortLevel ?? ''}
+                onChange={(event) => patch({ effortLevel: event.target.value || undefined })}
+              >
+                <option value="">Host default</option>
+                {providerCapabilities.effortLevels.map((effort) => (
+                  <option key={effort.key} value={effort.key}>
+                    {effort.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
+
       {/* Everything below decides how the step runs rather than what it does.
           Folded away by default: someone reading or writing a flow needs the
           work described first, and defaults are right for most nodes. */}
@@ -433,65 +500,6 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
 
         {(agent || fanOut) && (
           <>
-            <label className="flow-node-field">
-              <span className="flow-node-field-label">Provider</span>
-              <select
-                className="flow-node-input"
-                aria-label="Provider"
-                value={agentOrFanOut?.provider ?? ''}
-                onChange={(event) =>
-                  // Clear model and effort too: each provider offers its own
-                  // lists, so a claude-code:* id or an effort level must not
-                  // linger on a node switched to another provider.
-                  patch({
-                    provider: event.target.value === '' ? undefined : event.target.value,
-                    model: null,
-                    effortLevel: undefined,
-                  })
-                }
-              >
-                <option value="">Claude Code (default)</option>
-                <option value="openai-codex">OpenAI Codex — no tool allowlist</option>
-                <option value="copilot-cli">GitHub Copilot CLI — no tool allowlist</option>
-              </select>
-            </label>
-            <label className="flow-node-field">
-              <span className="flow-node-field-label">Model</span>
-              <select
-                className="flow-node-input"
-                aria-label="Model"
-                value={agentOrFanOut?.model ?? ''}
-                onChange={(event) => patch({ model: event.target.value || null })}
-              >
-                <option value="">Host default</option>
-                {providerCapabilities.models.map((model) => (
-                  <option key={model.value} value={model.value}>
-                    {model.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* Only claude-code and openai-codex report effort levels; the
-                control is hidden for providers that report none rather than
-                offering a setting the CLI would ignore. */}
-            {providerCapabilities.effortLevels.length > 0 && (
-              <label className="flow-node-field">
-                <span className="flow-node-field-label">Effort</span>
-                <select
-                  className="flow-node-input"
-                  aria-label="Effort"
-                  value={agentOrFanOut?.effortLevel ?? ''}
-                  onChange={(event) => patch({ effortLevel: event.target.value || undefined })}
-                >
-                  <option value="">Host default</option>
-                  {providerCapabilities.effortLevels.map((effort) => (
-                    <option key={effort.key} value={effort.key}>
-                      {effort.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
             <ToolPicker
               value={(agent ?? fanOut)?.tools}
               choices={catalog.tools}
