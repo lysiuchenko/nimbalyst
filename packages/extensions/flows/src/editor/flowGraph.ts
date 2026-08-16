@@ -66,6 +66,44 @@ export function edgeVisual(edge: { port?: string; on?: string; when?: string }):
 }
 
 /**
+ * Whether a connection the user is drawing may be added.
+ *
+ * A flow is a DAG, so three shapes are refused before xyflow commits them to
+ * its store: a self-loop, a duplicate of an edge already present, and any wire
+ * that would close a cycle (the target can already reach the source). Rejecting
+ * here — rather than repairing on save — keeps the canvas honest as it is drawn.
+ */
+export function isValidFlowConnection(
+  connection: { source: string | null; target: string | null },
+  edges: readonly { source: string; target: string }[]
+): boolean {
+  const { source, target } = connection;
+  if (!source || !target) return false;
+  if (source === target) return false;
+  if (edges.some((edge) => edge.source === source && edge.target === target)) return false;
+
+  // Would source -> target close a loop? It does iff target can already reach
+  // source along existing edges. Walk forward from target and look for source.
+  const outgoing = new Map<string, string[]>();
+  for (const edge of edges) {
+    const list = outgoing.get(edge.source);
+    if (list) list.push(edge.target);
+    else outgoing.set(edge.source, [edge.target]);
+  }
+  const stack = [target];
+  const seen = new Set<string>();
+  while (stack.length > 0) {
+    const node = stack.pop() as string;
+    if (node === source) return false;
+    if (seen.has(node)) continue;
+    seen.add(node);
+    const next = outgoing.get(node);
+    if (next) stack.push(...next);
+  }
+  return true;
+}
+
+/**
  * Project a flow onto the canvas.
  *
  * Nodes without a stored position get a deterministic layered layout — column

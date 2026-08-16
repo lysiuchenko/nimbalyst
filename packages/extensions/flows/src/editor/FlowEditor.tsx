@@ -19,6 +19,7 @@ import {
   edgeVisual,
   flowToGraph,
   graphToFlow,
+  isValidFlowConnection,
   placeNewNode,
   type FlowCanvasEdge,
   type FlowCanvasNode,
@@ -241,6 +242,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       refreshAnalysis();
     },
     [markDirty, refreshAnalysis]
+  );
+
+  // Gate a connection before xyflow commits it: no self-loops, no duplicates,
+  // no cycles. Reads live edges so an in-session redraw is judged against the
+  // current graph, not a stale snapshot.
+  const isValidConnection = useCallback(
+    (connection: Connection | FlowCanvasEdge) =>
+      isValidFlowConnection(connection, getEdges()),
+    [getEdges]
   );
 
   // Double-click flips an edge between the success path and the failure path.
@@ -1676,10 +1686,16 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            isValidConnection={isValidConnection}
             onEdgeClick={onEdgeClick}
             onEdgeDoubleClick={onEdgeDoubleClick}
             onConnectEnd={onConnectEnd}
             deleteKeyCode={['Backspace', 'Delete']}
+            // A wider radius lets a wire snap to a port without pixel-perfect
+            // aim; snapping to a 16px grid keeps hand-dragged nodes aligned.
+            connectionRadius={30}
+            snapToGrid
+            snapGrid={[16, 16]}
             proOptions={{ hideAttribution: false }}
             fitView
             fitViewOptions={{ padding: 0.2, maxZoom: 1 }}

@@ -2,7 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Flow } from '../../schema/types';
 import { validateFlow } from '../../schema/validate';
-import { edgeVisual, flowToGraph, graphToFlow, placeNewNode } from '../flowGraph';
+import {
+  edgeVisual,
+  flowToGraph,
+  graphToFlow,
+  isValidFlowConnection,
+  placeNewNode,
+} from '../flowGraph';
 
 const pipeline: Flow = {
   version: 1,
@@ -312,5 +318,40 @@ describe('when conditions on the canvas', () => {
     expect(visual.label).toBe('note contains "ok"');
     expect(visual.className).toBe('flow-edge-when');
     expect(visual.data).toEqual({ when: '{{first.note}} contains "ok"' });
+  });
+});
+
+describe('isValidFlowConnection', () => {
+  const chain = [
+    { source: 'a', target: 'b' },
+    { source: 'b', target: 'c' },
+  ];
+
+  it('allows a fresh connection between two unconnected nodes', () => {
+    expect(isValidFlowConnection({ source: 'a', target: 'c' }, chain)).toBe(true);
+  });
+
+  it('rejects a connection missing an endpoint', () => {
+    expect(isValidFlowConnection({ source: 'a', target: null }, chain)).toBe(false);
+    expect(isValidFlowConnection({ source: null, target: 'b' }, chain)).toBe(false);
+  });
+
+  it('rejects a self-loop', () => {
+    expect(isValidFlowConnection({ source: 'a', target: 'a' }, chain)).toBe(false);
+  });
+
+  it('rejects a duplicate of an edge that already exists', () => {
+    expect(isValidFlowConnection({ source: 'a', target: 'b' }, chain)).toBe(false);
+  });
+
+  it('rejects a connection that would close a cycle', () => {
+    // c already reaches back to a through the chain, so c->a would loop.
+    expect(isValidFlowConnection({ source: 'c', target: 'a' }, chain)).toBe(false);
+  });
+
+  it('rejects a two-node cycle', () => {
+    expect(isValidFlowConnection({ source: 'b', target: 'a' }, [{ source: 'a', target: 'b' }])).toBe(
+      false
+    );
   });
 });
