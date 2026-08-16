@@ -423,7 +423,9 @@
   padding: 1px 7px;
   border: 1px solid var(--flow-border);
   border-radius: 999px;
-  color: var(--flow-text-faint);
+  /* Muted, not faint: at 10px the faint grey (~3.3:1 on the light surface) is
+     below the readable threshold, so these config chips looked switched-off. */
+  color: var(--flow-text-muted);
   font-size: 10px;
   white-space: nowrap;
 }
@@ -1187,18 +1189,23 @@
 }
 
 /* Card actions appear when the pointer arrives; status and the reliability
-   chip stay — they are information, not controls. */
-.flow-node .flow-node-expand,
-.flow-node .flow-node-duplicate {
-  opacity: 0;
-  transition: opacity 120ms ease;
+   chip stay — they are information, not controls. At rest the controls leave
+   the row entirely (display:none, not just opacity:0) so the label reads
+   full-length instead of truncating against invisible buttons that still hold
+   their width. */
+.flow-node:not(:hover):not(:focus-within) .flow-node-expand,
+.flow-node:not(:hover):not(:focus-within) .flow-node-duplicate {
+  display: none;
 }
 
-.flow-node:hover .flow-node-expand,
-.flow-node:hover .flow-node-duplicate,
-.flow-node:focus-within .flow-node-expand,
-.flow-node:focus-within .flow-node-duplicate {
-  opacity: 1;
+.flow-node .flow-node-expand,
+.flow-node .flow-node-duplicate {
+  animation: flow-node-action-in 120ms ease;
+}
+
+@keyframes flow-node-action-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Gate decisions read markdown and may carry a note. */

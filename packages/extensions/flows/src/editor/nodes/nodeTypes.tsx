@@ -165,7 +165,9 @@ function FlowNodeCard({ id, data, selected, chrome, onEdited, onDuplicate }: Flo
             onChange={(event) => patch({ label: event.target.value || undefined })}
           />
         ) : (
-          <span className="flow-node-label flow-node-label-static">{node.label ?? id}</span>
+          <span className="flow-node-label flow-node-label-static" title={node.label ?? id}>
+            {node.label ?? id}
+          </span>
         )}
         {/* The type is already carried by the icon and, closed, by the summary
             sentence — spelling it out again costs the label the room it needs. */}
