@@ -83,6 +83,7 @@ export function configBadges(node: FlowNode): ConfigBadge[] {
   const configurable = node as Partial<{
     model: string | null;
     provider: string;
+    effortLevel: string;
     tools: string[];
     worktree: boolean;
   }>;
@@ -105,6 +106,15 @@ export function configBadges(node: FlowNode): ConfigBadge[] {
     badges.push({
       label: configurable.model.split(':').pop() ?? configurable.model,
       title: `Model: ${configurable.model}`,
+    });
+  }
+
+  // Effort spends tokens as surely as the model does, and a step moved off the
+  // default deserves to say so where the model already does — on the closed card.
+  if (configurable.effortLevel) {
+    badges.push({
+      label: `effort ${configurable.effortLevel}`,
+      title: `Reasoning effort: ${configurable.effortLevel}`,
     });
   }
 

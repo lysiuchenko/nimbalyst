@@ -92,4 +92,12 @@ describe('configBadges', () => {
 
     expect(badges.map((badge) => badge.label)).toContain('3 at a time');
   });
+
+  it('surfaces a chosen reasoning effort', () => {
+    const badges = configBadges(
+      node({ id: 'p', type: 'agent', prompt: 'go', effortLevel: 'high' })
+    );
+
+    expect(badges).toContainEqual({ label: 'effort high', title: 'Reasoning effort: high' });
+  });
 });
