@@ -13,6 +13,10 @@ interface SubAgentLayerProps {
   subAgents: Record<string, ChildProgress[]>;
   /** Opens a sub-agent's session; absent while the host offers no way to. */
   onOpenSession?: (sessionId: string) => void;
+  /** Opens a child's worktree diff panel; fires only for children with a worktree. */
+  onInspectDiff?: (parentId: string, child: ChildProgress) => void;
+  /** parentId -> winning child.label, for the pick-winner marker. */
+  winners?: Record<string, string>;
 }
 
 /**
@@ -24,7 +28,7 @@ interface SubAgentLayerProps {
  * dirty and persist a run into `.flow.json`. These exist only while the run
  * does.
  */
-export function SubAgentLayer({ subAgents, onOpenSession }: SubAgentLayerProps) {
+export function SubAgentLayer({ subAgents, onOpenSession, onInspectDiff, winners }: SubAgentLayerProps) {
   const nodes = useNodes();
   const { getNode, fitBounds } = useReactFlow();
   const spawning = Object.entries(subAgents).filter(
@@ -125,6 +129,7 @@ export function SubAgentLayer({ subAgents, onOpenSession }: SubAgentLayerProps) 
                     }}
                     data-child-status={child.status}
                     data-subagent-of={parentId}
+                    data-winner={winners?.[parentId] === child.label ? 'yes' : 'no'}
                     {...(child.sessionId ? { 'data-subagent-session': child.sessionId } : {})}
                     role={child.sessionId ? 'button' : undefined}
                     tabIndex={child.sessionId ? 0 : undefined}
@@ -152,6 +157,17 @@ export function SubAgentLayer({ subAgents, onOpenSession }: SubAgentLayerProps) 
                       <span className="flow-subagent-preview" data-subagent-preview={child.label}>
                         {child.error ?? child.output}
                       </span>
+                    )}
+                    {child.worktree && child.status === 'done' && onInspectDiff && (
+                      <button
+                        type="button"
+                        className="flow-subagent-diff"
+                        data-subagent-diff={child.label}
+                        title={`${child.worktree.branch} — review changes`}
+                        onClick={(event) => { event.stopPropagation(); onInspectDiff(parentId, child); }}
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">difference</span>
+                      </button>
                     )}
                   </div>
                 </div>

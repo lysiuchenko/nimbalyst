@@ -47,6 +47,8 @@ import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } 
 import type { RunRecord } from '../runner/runStore';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { SubAgentLayer } from './SubAgentLayer';
+import { WorktreeDiffPanel } from './WorktreeDiffPanel';
+import type { ChildProgress } from '../runner/types';
 import { issuesByNode, referencesByNode } from './references';
 import { loadCatalog, type Catalog } from '../host/catalog';
 import { scanWorkspaceCatalog } from '../host/workspaceScan';
@@ -767,6 +769,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   // The note travelling with the next gate decision; cleared when it lands.
   const [gateComment, setGateComment] = useState('');
+
+  // The sub-agent whose worktree diff is open, and the fan-out's picked
+  // winner. Editor-local, never in the xyflow store: winners are a manual,
+  // non-destructive marker, not a merge.
+  const [diffChild, setDiffChild] = useState<{ parentId: string; child: ChildProgress } | null>(null);
+  const [winners, setWinners] = useState<Record<string, string>>({});
 
   // Where this flow was last panned/zoomed and whether its minimap showed —
   // read once so the canvas reopens where you left it instead of re-fitting.
@@ -1737,6 +1745,15 @@ function FlowCanvas({ host }: { host: EditorHost }) {
         </div>
       )}
 
+      {diffChild && diffChild.child.worktree && (
+        <WorktreeDiffPanel
+          child={diffChild.child}
+          isWinner={winners[diffChild.parentId] === diffChild.child.label}
+          onPick={() => setWinners((prev) => ({ ...prev, [diffChild.parentId]: diffChild.child.label }))}
+          onClose={() => setDiffChild(null)}
+        />
+      )}
+
       {pendingRun && (
         <FlowRunGate
           summary={flowEffects(pendingRun, { shellAllowlist: SHELL_ALLOWLIST })}
@@ -1885,7 +1902,12 @@ function FlowCanvas({ host }: { host: EditorHost }) {
               zoomable
               nodeClassName={(node) => `flow-minimap-node flow-minimap-${node.type}`}
             />}
-            <SubAgentLayer subAgents={run.children} onOpenSession={showSession} />
+            <SubAgentLayer
+              subAgents={run.children}
+              onOpenSession={showSession}
+              onInspectDiff={(parentId, child) => setDiffChild({ parentId, child })}
+              winners={winners}
+            />
           </ReactFlow>
           </DisclosureContext.Provider>
           {isEmpty && (
