@@ -120,3 +120,15 @@ describe('replaySlicesFor', () => {
     expect(slices?.results.plan.output).toBe('final plan');
   });
 });
+
+import { advanceReplay, REPLAY_SPEED } from '../replay';
+
+describe('advanceReplay', () => {
+  it('advances by elapsed * speed', () => {
+    expect(advanceReplay(0, 100, 2, 10_000)).toBe(200);
+  });
+  it('clamps at the duration', () => {
+    expect(advanceReplay(9_900, 100, REPLAY_SPEED, 10_000)).toBe(10_000);
+    expect(advanceReplay(10_000, 100, REPLAY_SPEED, 10_000)).toBe(10_000);
+  });
+});

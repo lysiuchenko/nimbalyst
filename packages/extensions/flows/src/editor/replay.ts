@@ -78,3 +78,11 @@ export function replayTimelineDuration(timeline: RunTimeline): number {
   const { frames } = timeline;
   return frames.length ? frames[frames.length - 1].at - frames[0].at : 0;
 }
+
+/** Playback speed multiple over the recorded wall-clock. */
+export const REPLAY_SPEED = 2;
+
+/** Next replay position after `elapsedMs` of playback, clamped to [0, duration]. */
+export function advanceReplay(atMs: number, elapsedMs: number, speed: number, duration: number): number {
+  return Math.min(Math.max(atMs + elapsedMs * speed, 0), duration);
+}

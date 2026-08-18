@@ -1593,6 +1593,10 @@
   color: var(--flow-text-muted);
 }
 
+.flow-replay-play[aria-pressed='true'] {
+  color: var(--nim-accent, currentColor);
+}
+
 /* Worn only by a step with a recorded failure. */
 .flow-node-reliability {
   padding: 1px 5px;

@@ -65,7 +65,7 @@ import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
 import { edgePayload, nodeReliability } from './observability';
 import { Markdown } from './markdown';
-import { replayDuration, replaySlicesFor, replayStatuses } from './replay';
+import { advanceReplay, REPLAY_SPEED, replayDuration, replaySlicesFor, replayStatuses, replayTimelineDuration } from './replay';
 import { runProgress } from './runProgress';
 import { stepEtas } from './stepEta';
 import { WorktreeChip } from './WorktreeChip';
@@ -817,6 +817,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // Replay: scrub through a finished run's timeline. Purely a read over the
   // record, so the slider can jump anywhere; a live run always wins the canvas.
   const [replay, setReplay] = useState<{ record: RunRecord; atMs: number; timeline: RunTimeline | null } | null>(null);
+  const [playing, setPlaying] = useState(false);
   const replayActive = replay !== null && !run.isRunning;
   const replaySlices = useMemo(
     () => (replayActive ? replaySlicesFor(replay.timeline, replay.atMs) : null),
@@ -828,6 +829,22 @@ function FlowCanvas({ host }: { host: EditorHost }) {
       : run.statuses),
     [replayActive, replaySlices, replay, run.statuses]
   );
+  // Auto-advance the scrubber while playing, at REPLAY_SPEED over the recorded
+  // wall-clock. Stops itself once it reaches the end of the run/timeline.
+  useEffect(() => {
+    if (!playing || !replayActive || !replay) return;
+    const duration = replay.timeline ? replayTimelineDuration(replay.timeline) : replayDuration(replay.record);
+    const TICK = 100;
+    const id = setInterval(() => {
+      setReplay((prev) => {
+        if (!prev) return prev;
+        const next = advanceReplay(prev.atMs, TICK, REPLAY_SPEED, duration);
+        if (next >= duration) setPlaying(false);
+        return { ...prev, atMs: next };
+      });
+    }, TICK);
+    return () => clearInterval(id);
+  }, [playing, replayActive, replay]);
 
   // One store, fed from the maps FlowEditor already derives. It fans each
   // change out to only the affected card, replacing five whole-map contexts
@@ -1239,6 +1256,18 @@ function FlowCanvas({ host }: { host: EditorHost }) {
           <span className="flow-replay-label">
             Replaying {relativeWhen(replay.record.startedAt)} run
           </span>
+          <button
+            type="button"
+            className="flow-toolbar-button flow-replay-play"
+            data-testid="flow-replay-play"
+            aria-label={playing ? 'Pause replay' : 'Play replay'}
+            aria-pressed={playing}
+            onClick={() => setPlaying((p) => !p)}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {playing ? 'pause' : 'play_arrow'}
+            </span>
+          </button>
           <input
             className="flow-replay-slider"
             type="range"
@@ -1247,6 +1276,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             max={replayDuration(replay.record)}
             step={100}
             value={replay.atMs}
+            onPointerDown={() => setPlaying(false)}
             onChange={(event) =>
               setReplay(replay && { ...replay, atMs: Number(event.target.value) })
             }
@@ -1259,7 +1289,10 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             className="flow-toolbar-button"
             data-testid="flow-replay-close"
             aria-label="Stop replaying"
-            onClick={() => setReplay(null)}
+            onClick={() => {
+              setReplay(null);
+              setPlaying(false);
+            }}
           >
             <span className="material-symbols-outlined" aria-hidden="true">
               close
