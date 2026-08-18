@@ -1,6 +1,7 @@
 import type { RunFileWriter, RunRecord } from '../runner/runStore';
 import { repairStale } from '../runner/staleRuns';
 import type { WorkspaceFiles } from '../host/workspaceScan';
+import type { RunTimeline } from '../runner/runTimeline';
 
 /** Enough runs to see a trend, few enough to render. */
 const MAX_RUNS = 20;
@@ -67,6 +68,38 @@ async function readRecord(files: WorkspaceFiles, path: string): Promise<RunRecor
     return typeof parsed?.runId === 'string' ? parsed : null;
   } catch {
     // A half-written or hand-edited record should not break the panel.
+    return null;
+  }
+}
+
+/**
+ * `<flow-dir>/.flow-runs/<runId>.timeline.json` — matches `RunStore.pathFor`
+ * (`runStore.ts:84-88`) with `.json` swapped for `.timeline.json`, the path
+ * the timeline writer actually writes to. Unlike `runsGlobFor`, this builds
+ * the absolute on-disk path `readFile` expects, so it is workspaceRoot-independent.
+ */
+function timelinePathFor(flowPath: string, runId: string): string {
+  const directory = flowPath.slice(0, Math.max(flowPath.lastIndexOf('/'), 0));
+  const prefix = directory ? `${directory}/` : '';
+  return `${prefix}.flow-runs/${runId}.timeline.json`;
+}
+
+/**
+ * A run's per-node timeline, for replay's scrubber.
+ *
+ * Returns `null` for a missing or unparseable file — an old run predating the
+ * timeline writer, or a half-written one — rather than throwing.
+ */
+export async function loadRunTimeline(
+  files: WorkspaceFiles,
+  flowPath: string,
+  runId: string,
+  _workspaceRoot?: string
+): Promise<RunTimeline | null> {
+  try {
+    const parsed = JSON.parse(await files.readFile(timelinePathFor(flowPath, runId))) as RunTimeline;
+    return typeof parsed?.runId === 'string' && Array.isArray(parsed?.frames) ? parsed : null;
+  } catch {
     return null;
   }
 }

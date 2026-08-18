@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { loadRunHistory } from '../runHistory';
+import { loadRunHistory, loadRunTimeline } from '../runHistory';
+import type { RunTimeline } from '../../runner/runTimeline';
+import type { WorkspaceFiles } from '../../host/workspaceScan';
 
 function record(overrides: Record<string, unknown> = {}) {
   return JSON.stringify({
@@ -111,5 +113,36 @@ describe('loadRunHistory', () => {
 
     expect(runs).toHaveLength(20);
     expect(runs[0].runId).toBe('run-39');
+  });
+});
+
+const timeline: RunTimeline = { runId: 'run1', flowPath: '/w/f.flow.json', frames: [{ at: 0, nodeId: 'a', status: 'done' }] };
+
+function filesReturning(map: Record<string, string>): WorkspaceFiles {
+  return {
+    findFiles: async () => Object.keys(map),
+    readFile: async (path: string) => {
+      if (path in map) return map[path];
+      throw new Error(`ENOENT ${path}`);
+    },
+  } as unknown as WorkspaceFiles;
+}
+
+describe('loadRunTimeline', () => {
+  it('reads and parses <runId>.timeline.json next to the record', async () => {
+    const files = filesReturning({ '/w/.flow-runs/run1.timeline.json': JSON.stringify(timeline) });
+    const loaded = await loadRunTimeline(files, '/w/f.flow.json', 'run1');
+    expect(loaded?.runId).toBe('run1');
+    expect(loaded?.frames).toHaveLength(1);
+  });
+
+  it('returns null when the timeline file is missing', async () => {
+    const files = filesReturning({});
+    expect(await loadRunTimeline(files, '/w/f.flow.json', 'run1')).toBeNull();
+  });
+
+  it('returns null on malformed JSON', async () => {
+    const files = filesReturning({ '/w/.flow-runs/run1.timeline.json': '{ not json' });
+    expect(await loadRunTimeline(files, '/w/f.flow.json', 'run1')).toBeNull();
   });
 });
