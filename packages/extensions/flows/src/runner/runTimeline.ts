@@ -1,4 +1,4 @@
-import type { ChildProgress, NodeStatus } from './types';
+import type { ChildProgress, NodeExecution, NodeStatus, RunState } from './types';
 import type { RunFileWriter } from './runStore';
 
 /** Max chars kept per frame `output`. Matches CHILD_PREVIEW_LIMIT (executors.ts). */
@@ -70,4 +70,45 @@ export function createTimelineWriter(
       await writer.write(pathFor(runId), `${JSON.stringify(timeline, null, 2)}\n`);
     },
   };
+}
+
+/** Project a node execution onto a timeline frame (status/output/children only). */
+export function nodeFrame(execution: NodeExecution, at: number): TimelineFrame {
+  const frame: TimelineFrame = { at, nodeId: execution.nodeId, status: execution.status };
+  if (execution.output !== undefined) frame.output = execution.output;
+  if (execution.children) frame.children = execution.children.map((c) => ({ label: c.label, status: c.status }));
+  return frame;
+}
+
+function childrenEqual(a: TimelineFrame['children'], b: TimelineFrame['children']): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((child, i) => child.label === b[i].label && child.status === b[i].status);
+}
+
+/** True when the meaningful slice changed (ignores `at`). */
+export function frameChanged(prev: TimelineFrame | undefined, next: TimelineFrame): boolean {
+  if (!prev) return true;
+  return prev.status !== next.status || prev.output !== next.output || !childrenEqual(prev.children, next.children);
+}
+
+/**
+ * Record a frame for every node whose slice changed since its last frame.
+ * `flowPath` is passed in — `RunState` carries no flowPath (`types.ts:116-128`);
+ * the run's path is known at the call site in `flowRun.ts`. Mutates `lastFrame`.
+ */
+export function recordStateFrames(
+  timeline: TimelineWriter,
+  lastFrame: Record<string, TimelineFrame>,
+  state: RunState,
+  flowPath: string,
+  at: number,
+): void {
+  for (const execution of Object.values(state.nodes)) {
+    const frame = nodeFrame(execution, at);
+    if (frameChanged(lastFrame[execution.nodeId], frame)) {
+      lastFrame[execution.nodeId] = frame;
+      timeline.record(state.runId, flowPath, frame);
+    }
+  }
 }

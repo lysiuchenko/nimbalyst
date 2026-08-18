@@ -2,10 +2,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createTimelineWriter,
+  frameChanged,
   FRAME_PREVIEW_LIMIT,
   MAX_TIMELINE_FRAMES,
+  nodeFrame,
+  recordStateFrames,
   type TimelineFrame,
 } from '../runTimeline';
+import type { RunState } from '../types';
 
 function frame(nodeId: string, at: number, output?: string): TimelineFrame {
   return { at, nodeId, status: 'running', ...(output !== undefined ? { output } : {}) };
@@ -62,5 +66,40 @@ describe('createTimelineWriter', () => {
     expect(lastB).toBe(total - 1); // last odd index
     // Frames stay in ascending `at` order (only removals, never reorders).
     for (let i = 1; i < frames.length; i++) expect(frames[i].at).toBeGreaterThanOrEqual(frames[i - 1].at);
+  });
+});
+
+function state(nodes: RunState['nodes']): RunState {
+  return {
+    runId: 'r', flowName: 'f', status: 'running', startedAt: 0,
+    nodes, outputs: {}, usage: { inputTokens: 0, outputTokens: 0 },
+  };
+}
+
+describe('state → frames', () => {
+  it('frameChanged ignores `at` and detects status/output/children-shape changes', () => {
+    const base = nodeFrame({ nodeId: 'a', status: 'running', output: 'x' }, 10);
+    expect(frameChanged(base, nodeFrame({ nodeId: 'a', status: 'running', output: 'x' }, 99))).toBe(false);
+    expect(frameChanged(base, nodeFrame({ nodeId: 'a', status: 'done', output: 'x' }, 10))).toBe(true);
+    expect(frameChanged(base, nodeFrame({ nodeId: 'a', status: 'running', output: 'y' }, 10))).toBe(true);
+    expect(frameChanged(undefined, base)).toBe(true);
+    const withKids = nodeFrame({ nodeId: 'a', status: 'running', children: [{ label: 'c1', status: 'running' }] }, 10);
+    expect(frameChanged(withKids, nodeFrame({ nodeId: 'a', status: 'running', children: [{ label: 'c1', status: 'done' }] }, 10))).toBe(true);
+  });
+
+  it('recordStateFrames dedupes unchanged nodes and flushes changed ones', async () => {
+    const writes: string[] = [];
+    const writer = { write: async (_p: string, c: string) => { writes.push(c); } };
+    const t = createTimelineWriter(writer, (id) => `/w/${id}.timeline.json`);
+    const last: Record<string, TimelineFrame> = {};
+    recordStateFrames(t, last, state({ a: { nodeId: 'a', status: 'running', output: 'p' } }), '/w/f.flow.json', 0);
+    // Same slice next tick → no new frame.
+    recordStateFrames(t, last, state({ a: { nodeId: 'a', status: 'running', output: 'p' } }), '/w/f.flow.json', 5);
+    // Output advances → one new frame.
+    recordStateFrames(t, last, state({ a: { nodeId: 'a', status: 'done', output: 'pq' } }), '/w/f.flow.json', 10);
+    await t.flush();
+    const frames: TimelineFrame[] = JSON.parse(writes[0]).frames;
+    expect(frames.map((f) => f.at)).toEqual([0, 10]);
+    expect(frames[1].status).toBe('done');
   });
 });

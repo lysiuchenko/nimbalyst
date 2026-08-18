@@ -11,6 +11,7 @@ import {
 } from './executors';
 import type { AgentClient, GateController, ShellClient } from './ports';
 import { RunStore, type RunFileWriter, type RunRecord } from './runStore';
+import { createTimelineWriter, recordStateFrames, type TimelineFrame } from './runTimeline';
 import { planResume, planRunFrom } from './resume';
 import { safeWorkspacePath } from './safeWorkspacePath';
 import type { NodeExecutor } from './types';
@@ -111,15 +112,31 @@ export async function runFlow(
     pending = pending.then(() => store.save(snapshot)).then(() => undefined);
   };
 
+  // Best-effort per-node timeline for the replay scrubber. Never allowed to
+  // fail the run: a lost timeline just means no scrubbing, not a lost record.
+  const nowFn = runOptions.now ?? Date.now;
+  const timeline = createTimelineWriter(writer, (id) => store.pathFor(id).replace(/\.json$/, '.timeline.json'));
+  const lastFrame: Record<string, TimelineFrame> = {};
+  const recordTimeline = (current: Parameters<NonNullable<RunOptions['onStateChange']>>[0]) => {
+    try {
+      recordStateFrames(timeline, lastFrame, current, flowPath, nowFn());
+    } catch {
+      // Timeline is best-effort; the RunRecord is the source of truth.
+    }
+  };
+
   const state = await runner.run(flow, {
     ...runOptions,
     ...(seed ? { seed } : {}),
     onStateChange: (current) => {
       persist(current);
+      recordTimeline(current);
       options.onStateChange?.(current);
     },
   });
 
   await pending;
+  recordTimeline(state);
+  await timeline.flush().catch(() => {});
   return store.save(state);
 }
