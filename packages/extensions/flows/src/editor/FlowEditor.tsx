@@ -36,7 +36,7 @@ import { applyTemplate, FLOW_TEMPLATES, type FlowTemplate } from './templates';
 import { FLOW_THEMES, nextTheme, readTheme, THEME_STORAGE_KEY, type FlowThemeId } from './theme';
 import { duplicateNode, renameVariable, uniqueNodeId, validVariableName } from './canvasActions';
 import { createHistory } from './history';
-import { loadRunHistory } from './runHistory';
+import { loadRunHistory, loadRunTimeline } from './runHistory';
 import { deleteRunRecord } from './deleteRunRecord';
 import { openSession } from './openSession';
 import type { HostIpc } from '../host/nimbalystSessionHost';
@@ -45,6 +45,7 @@ import type { FlowTrigger } from '../trigger/types';
 import { scheduleLabel } from '../schedule/label';
 import { displayStatus, historySummary, relativeWhen, runOutcome, tokensLabel } from './runSummary';
 import type { RunRecord } from '../runner/runStore';
+import type { RunTimeline } from '../runner/runTimeline';
 import { CatalogContext, EMPTY_CATALOG, NodeIssuesContext, ReferencesContext } from './catalogContext';
 import { SubAgentLayer } from './SubAgentLayer';
 import { WorktreeDiffPanel } from './WorktreeDiffPanel';
@@ -64,7 +65,7 @@ import { consumeRun, RUN_INTENT_EVENT } from './runIntent';
 import { resumeOffer } from './resumeOffer';
 import { edgePayload, nodeReliability } from './observability';
 import { Markdown } from './markdown';
-import { replayDuration, replayStatuses } from './replay';
+import { replayDuration, replaySlicesFor, replayStatuses } from './replay';
 import { runProgress } from './runProgress';
 import { stepEtas } from './stepEta';
 import { WorktreeChip } from './WorktreeChip';
@@ -815,11 +816,17 @@ function FlowCanvas({ host }: { host: EditorHost }) {
 
   // Replay: scrub through a finished run's timeline. Purely a read over the
   // record, so the slider can jump anywhere; a live run always wins the canvas.
-  const [replay, setReplay] = useState<{ record: RunRecord; atMs: number } | null>(null);
+  const [replay, setReplay] = useState<{ record: RunRecord; atMs: number; timeline: RunTimeline | null } | null>(null);
   const replayActive = replay !== null && !run.isRunning;
+  const replaySlices = useMemo(
+    () => (replayActive ? replaySlicesFor(replay.timeline, replay.atMs) : null),
+    [replayActive, replay]
+  );
   const canvasStatuses = useMemo(
-    () => (replayActive ? replayStatuses(replay.record, replay.atMs) : run.statuses),
-    [replay, replayActive, run.statuses]
+    () => (replayActive
+      ? (replaySlices?.statuses ?? replayStatuses(replay.record, replay.atMs))
+      : run.statuses),
+    [replayActive, replaySlices, replay, run.statuses]
   );
 
   // One store, fed from the maps FlowEditor already derives. It fans each
@@ -827,9 +834,9 @@ function FlowCanvas({ host }: { host: EditorHost }) {
   // that re-rendered every card on every per-node update.
   const runStore = useMemo(() => createNodeRunStore(), []);
   useEffect(() => runStore.setStatuses(canvasStatuses), [runStore, canvasStatuses]);
-  useEffect(() => runStore.setResults(run.liveNodes), [runStore, run.liveNodes]);
-  useEffect(() => runStore.setChildren(run.children), [runStore, run.children]);
-  useEffect(() => runStore.setTails(run.liveTails), [runStore, run.liveTails]);
+  useEffect(() => runStore.setResults(replaySlices ? replaySlices.results : run.liveNodes), [runStore, replaySlices, run.liveNodes]);
+  useEffect(() => runStore.setChildren(replaySlices ? replaySlices.children : run.children), [runStore, replaySlices, run.children]);
+  useEffect(() => runStore.setTails(replayActive ? {} : run.liveTails), [runStore, replayActive, run.liveTails]);
   useEffect(() => runStore.setReliability(reliability), [runStore, reliability]);
 
   // The Flows home launches runs by recording an intent and opening the flow;
@@ -1241,7 +1248,7 @@ function FlowCanvas({ host }: { host: EditorHost }) {
             step={100}
             value={replay.atMs}
             onChange={(event) =>
-              setReplay({ record: replay.record, atMs: Number(event.target.value) })
+              setReplay(replay && { ...replay, atMs: Number(event.target.value) })
             }
           />
           <span className="flow-replay-time" data-testid="flow-replay-time">
@@ -1442,7 +1449,24 @@ function FlowCanvas({ host }: { host: EditorHost }) {
                                 title="Scrub through this run's timeline on the canvas"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setReplay({ record, atMs: replayDuration(record) });
+                                  const atMs = replayDuration(record);
+                                  setReplay({ record, atMs, timeline: null });
+                                  const services = getHostServices();
+                                  const root =
+                                    host.workspaceId ??
+                                    host.filePath.slice(0, Math.max(host.filePath.lastIndexOf('/'), 0));
+                                  void loadRunTimeline(
+                                    services.filesystem,
+                                    host.filePath,
+                                    record.runId,
+                                    root
+                                  ).then((timeline) => {
+                                    setReplay((prev) =>
+                                      prev && prev.record.runId === record.runId
+                                        ? { ...prev, timeline }
+                                        : prev
+                                    );
+                                  });
                                 }}
                               >
                                 <span className="material-symbols-outlined">history</span>

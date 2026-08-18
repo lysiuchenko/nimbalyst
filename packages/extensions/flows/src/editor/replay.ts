@@ -69,6 +69,11 @@ export function replayState(timeline: RunTimeline, atMs: number): ReplaySlices {
   return { statuses, results, children };
 }
 
+/** Selector for FlowEditor: replayed slices when a timeline exists, else null (status-only fallback). */
+export function replaySlicesFor(timeline: RunTimeline | null, atMs: number): ReplaySlices | null {
+  return timeline ? replayState(timeline, atMs) : null;
+}
+
 export function replayTimelineDuration(timeline: RunTimeline): number {
   const { frames } = timeline;
   return frames.length ? frames[frames.length - 1].at - frames[0].at : 0;

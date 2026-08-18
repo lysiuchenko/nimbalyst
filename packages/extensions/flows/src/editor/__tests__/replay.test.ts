@@ -54,7 +54,7 @@ describe('replayDuration', () => {
   });
 });
 
-import { replayState, replayTimelineDuration } from '../replay';
+import { replaySlicesFor, replayState, replayTimelineDuration } from '../replay';
 import type { RunTimeline } from '../../runner/runTimeline';
 
 const timeline: RunTimeline = {
@@ -108,5 +108,15 @@ describe('replayTimelineDuration', () => {
   });
   it('is 0 for an empty timeline', () => {
     expect(replayTimelineDuration({ runId: 'r', flowPath: 'f', frames: [] })).toBe(0);
+  });
+});
+
+describe('replaySlicesFor', () => {
+  it('returns null when there is no timeline (status-only fallback)', () => {
+    expect(replaySlicesFor(null, 1_000)).toBeNull();
+  });
+  it('delegates to replayState when a timeline is present', () => {
+    const slices = replaySlicesFor(timeline, 20_000);
+    expect(slices?.results.plan.output).toBe('final plan');
   });
 });
