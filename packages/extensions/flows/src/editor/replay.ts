@@ -1,5 +1,6 @@
-import type { NodeStatus } from '../runner/types';
+import type { NodeStatus, ChildProgress, NodeExecution } from '../runner/types';
 import type { RunRecord } from '../runner/runStore';
+import type { RunTimeline } from '../runner/runTimeline';
 
 /**
  * Replay: derive what the canvas looked like `atMs` into a finished run.
@@ -33,4 +34,42 @@ export function replayStatuses(record: RunRecord, atMs: number): Record<string, 
   }
 
   return statuses;
+}
+
+export interface ReplaySlices {
+  statuses: Record<string, NodeStatus>;
+  results: Record<string, NodeExecution>;
+  children: Record<string, ChildProgress[]>;
+}
+
+/**
+ * Reconstruct each node's slice at `atMs` (relative to the first frame) by
+ * keeping the latest frame per node with `frame.at <= firstAt + atMs`. Frames
+ * are appended in time order, so a single forward walk suffices. Pure.
+ */
+export function replayState(timeline: RunTimeline, atMs: number): ReplaySlices {
+  const statuses: Record<string, NodeStatus> = {};
+  const results: Record<string, NodeExecution> = {};
+  const children: Record<string, ChildProgress[]> = {};
+  const firstAt = timeline.frames[0]?.at ?? 0;
+  const cutoff = firstAt + atMs;
+
+  for (const frame of timeline.frames) {
+    if (frame.at > cutoff) break;
+    statuses[frame.nodeId] = frame.status;
+    results[frame.nodeId] = {
+      nodeId: frame.nodeId,
+      status: frame.status,
+      ...(frame.output !== undefined ? { output: frame.output } : {}),
+    };
+    if (frame.children) {
+      children[frame.nodeId] = frame.children.map((c) => ({ label: c.label, status: c.status }));
+    }
+  }
+  return { statuses, results, children };
+}
+
+export function replayTimelineDuration(timeline: RunTimeline): number {
+  const { frames } = timeline;
+  return frames.length ? frames[frames.length - 1].at - frames[0].at : 0;
 }

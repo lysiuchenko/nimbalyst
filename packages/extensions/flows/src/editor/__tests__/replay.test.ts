@@ -53,3 +53,60 @@ describe('replayDuration', () => {
     expect(replayDuration({ ...record, finishedAt: undefined } as RunRecord)).toBe(0);
   });
 });
+
+import { replayState, replayTimelineDuration } from '../replay';
+import type { RunTimeline } from '../../runner/runTimeline';
+
+const timeline: RunTimeline = {
+  runId: 'r', flowPath: '/w/f.flow.json',
+  frames: [
+    { at: 1_000, nodeId: 'plan', status: 'running' },
+    { at: 1_000, nodeId: 'plan', status: 'running', output: 'draft…' },
+    { at: 21_000, nodeId: 'plan', status: 'done', output: 'final plan' },
+    { at: 21_000, nodeId: 'fan', status: 'running', children: [
+      { label: 'c1', status: 'running' }, { label: 'c2', status: 'queued' },
+    ] },
+    { at: 41_000, nodeId: 'fan', status: 'done', children: [
+      { label: 'c1', status: 'done' }, { label: 'c2', status: 'done' },
+    ] },
+  ],
+};
+
+describe('replayState', () => {
+  it('is empty before the first frame', () => {
+    const s = replayState(timeline, -1);
+    expect(s.statuses).toEqual({});
+    expect(s.results).toEqual({});
+    expect(s.children).toEqual({});
+  });
+
+  it('carries a running node\'s partial output and fan-out children mid-run', () => {
+    const s = replayState(timeline, 20_000); // firstAt 1_000 + 20_000 = 21_000
+    expect(s.statuses.plan).toBe('done');
+    expect(s.results.plan.output).toBe('final plan');
+    expect(s.statuses.fan).toBe('running');
+    expect(s.children.fan.map((c) => c.status)).toEqual(['running', 'queued']);
+  });
+
+  it('carries final output/children past the last frame', () => {
+    const s = replayState(timeline, 999_000);
+    expect(s.results.plan.output).toBe('final plan');
+    expect(s.children.fan.map((c) => c.status)).toEqual(['done', 'done']);
+    expect(s.statuses.fan).toBe('done');
+  });
+
+  it('omits a node with no frame yet at atMs', () => {
+    const s = replayState(timeline, 5_000); // 6_000 — only plan has fired
+    expect(s.results.fan).toBeUndefined();
+    expect(s.statuses.fan).toBeUndefined();
+  });
+});
+
+describe('replayTimelineDuration', () => {
+  it('spans first to last frame', () => {
+    expect(replayTimelineDuration(timeline)).toBe(40_000);
+  });
+  it('is 0 for an empty timeline', () => {
+    expect(replayTimelineDuration({ runId: 'r', flowPath: 'f', frames: [] })).toBe(0);
+  });
+});
