@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "author": "Nimbalyst Team",
-  "description": "Electron app for Nimbalyst",
+  "description": "Electron app for Glue",
   "main": "out/main/index.js",
   "bin": {
     "nimbalyst": "./bin/nimbalyst"
@@ -166,14 +166,14 @@
   },
   "build": {
     "appId": "com.nimbalyst.electron",
-    "productName": "Nimbalyst",
+    "productName": "Glue",
     "electronVersion": "43.2.0",
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
     "npmRebuild": true,
     "protocols": [
       {
-        "name": "Nimbalyst URL",
+        "name": "Glue URL",
         "schemes": [
           "nimbalyst"
         ]
@@ -422,9 +422,9 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": false,
       "extendInfo": {
-        "NSLocalNetworkUsageDescription": "Nimbalyst needs access to local network devices for features like MCP servers and local AI model connections.",
-        "NSMicrophoneUsageDescription": "Nimbalyst uses the microphone for Voice Mode, allowing you to interact with the AI assistant using your voice.",
-        "NSAppleEventsUsageDescription": "Nimbalyst opens Terminal.app to run the Claude Code login and logout flows."
+        "NSLocalNetworkUsageDescription": "Glue needs access to local network devices for features like MCP servers and local AI model connections.",
+        "NSMicrophoneUsageDescription": "Glue uses the microphone for Voice Mode, allowing you to interact with the AI assistant using your voice.",
+        "NSAppleEventsUsageDescription": "Glue opens Terminal.app to run the Claude Code login and logout flows."
       }
     },
     "dmg": {

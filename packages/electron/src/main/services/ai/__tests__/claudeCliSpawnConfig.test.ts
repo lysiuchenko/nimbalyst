@@ -486,7 +486,7 @@ describe('buildClaudeCliSpawnConfig Windows .cmd newline handling (#684)', () =>
     expect(cfg.args.some((a) => /[\r\n]/.test(a))).toBe(false);
     const i = cfg.args.indexOf('--append-system-prompt');
     expect(i).toBeGreaterThan(-1);
-    expect(cfg.args[i + 1]).toContain('Nimbalyst');
+    expect(cfg.args[i + 1]).toContain('Glue');
     expect(/[\r\n]/.test(cfg.args[i + 1])).toBe(false);
   });
 

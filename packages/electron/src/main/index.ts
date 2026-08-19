@@ -406,7 +406,7 @@ async function checkForRestartContinuation(aiService: AIService): Promise<void> 
                 await queuedPromptsStore.create({
                     id: `restart-continuation-${sessionId}-${Date.now()}`,
                     sessionId,
-                    prompt: 'Nimbalyst has restarted. Please continue with your work.'
+                    prompt: 'Glue has restarted. Please continue with your work.'
                 });
                 successCount++;
                 logger.main.info(`[RestartContinuation] Queued continuation prompt for session ${sessionId}`);

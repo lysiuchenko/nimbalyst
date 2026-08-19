@@ -201,7 +201,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * reliability.
  */
 const CLAUDE_CLI_INTERACTIVE_TOOLS_NUDGE = [
-  'You are running inside Nimbalyst, a desktop GUI that manages your session.',
+  'You are running inside Glue, a desktop GUI that manages your session.',
   'When you need user input, a decision, or disambiguation, call the',
   'mcp__nimbalyst__AskUserQuestion tool (multiple-choice) or the',
   'mcp__nimbalyst__PromptForUserInput tool (richer structured input) —',
@@ -241,8 +241,8 @@ const CLAUDE_CLI_SYSTEM_PROMPT_APPEND = [
  * model at tools that cannot exist. It still needs to know where it is running.
  */
 const CLAUDE_CLI_MCP_LOCKDOWN_APPEND = [
-  'You are running inside Nimbalyst, a desktop GUI that manages your session.',
-  "This machine has an enterprise Claude Code MCP policy, so Nimbalyst's own tools",
+  'You are running inside Glue, a desktop GUI that manages your session.',
+  "This machine has an enterprise Claude Code MCP policy, so Glue's own tools",
   'are not available in this session. Ask questions in plain text.',
 ].join(' ');
 

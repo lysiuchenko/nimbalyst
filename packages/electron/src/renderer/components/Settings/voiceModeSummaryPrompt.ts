@@ -9,7 +9,7 @@ export const VOICE_PROJECT_SUMMARY_PATH = 'nimbalyst-local/voice-project-summary
 
 export function buildVoiceProjectSummaryPrompt(): string {
   return [
-    "Generate a voice-friendly project summary for Nimbalyst's voice mode and write it to",
+    "Generate a voice-friendly project summary for Glue's voice mode and write it to",
     `\`${VOICE_PROJECT_SUMMARY_PATH}\` using your Write tool.`,
     '',
     'The voice assistant reads this summary aloud as context during conversations, so the writing',
