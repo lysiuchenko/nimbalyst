@@ -262,9 +262,9 @@ export class OnboardingService {
           // File exists, append to it
           const content = result.content;
 
-          // Check if Nimbalyst section already exists
-          if (content.includes('## Nimbalyst Planning System')) {
-            console.log('CLAUDE.md already has Nimbalyst section, skipping');
+          // Check if Glue section already exists
+          if (content.includes('## Glue Planning System')) {
+            console.log('CLAUDE.md already has Glue section, skipping');
             return;
           }
 
@@ -346,7 +346,7 @@ ${preditorSection}`;
     const directory = plansDirectory || config.plansLocation.split('/')[0];
 
     const gitignorePath = `${workspacePath}/.gitignore`;
-    const ignoreEntry = `\n# Nimbalyst local plans (not checked into version control)\n${directory}/\n`;
+    const ignoreEntry = `\n# Glue local plans (not checked into version control)\n${directory}/\n`;
 
     try {
       // Try to read existing .gitignore
@@ -833,9 +833,9 @@ rejected (if decided not to implement)
     const plansLocation = config?.plansLocation || 'plans';
     const commandsLocation = config?.commandsLocation === 'global' ? '~/.claude' : '.claude';
 
-    return `## Nimbalyst Planning System
+    return `## Glue Planning System
 
-This project uses Nimbalyst for structured planning and task tracking.
+This project uses Glue for structured planning and task tracking.
 
 ### Custom Commands
 - \`/track [type] [description]\` - Track bugs, tasks, ideas, and decisions (see ${commandsLocation}/commands/track.md for details)
@@ -877,7 +877,7 @@ planStatus:
 
 ## Goals
 
-This is an example plan document to help you get started with Nimbalyst's planning system.
+This is an example plan document to help you get started with Glue's planning system.
 
 Key objectives:
 1. Demonstrate the plan document structure
@@ -886,7 +886,7 @@ Key objectives:
 
 ## Overview
 
-Plans in Nimbalyst are markdown documents with YAML frontmatter that track features, bugs, and other development work. The frontmatter includes metadata like status, priority, and progress that powers the plan view interface.
+Plans in Glue are markdown documents with YAML frontmatter that track features, bugs, and other development work. The frontmatter includes metadata like status, priority, and progress that powers the plan view interface.
 
 ## Implementation Details
 
