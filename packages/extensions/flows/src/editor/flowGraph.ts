@@ -270,3 +270,40 @@ export function placeNewNode(
   }
   return preferred;
 }
+
+/**
+ * The graph's nodes, roots first, in a stable Kahn topological order so a
+ * staged reveal draws upstream nodes before the nodes that depend on them.
+ * Any node left over by a cycle (which a validated flow should not contain)
+ * is appended in input order — reveal never drops a node.
+ */
+export function revealOrder(
+  nodes: FlowGraph['nodes'],
+  edges: FlowGraph['edges']
+): FlowGraph['nodes'] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const indegree = new Map(nodes.map((n) => [n.id, 0]));
+  const outgoing = new Map<string, string[]>(nodes.map((n) => [n.id, []]));
+  for (const edge of edges) {
+    if (!byId.has(edge.source) || !byId.has(edge.target)) continue;
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    outgoing.get(edge.source)!.push(edge.target);
+  }
+  // Seed the queue in input order so the sort is stable/deterministic.
+  const queue = nodes.filter((n) => (indegree.get(n.id) ?? 0) === 0).map((n) => n.id);
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ordered.push(id);
+    for (const next of outgoing.get(id) ?? []) {
+      indegree.set(next, (indegree.get(next) ?? 0) - 1);
+      if ((indegree.get(next) ?? 0) === 0) queue.push(next);
+    }
+  }
+  // Append anything a cycle left behind, in input order.
+  for (const n of nodes) if (!seen.has(n.id)) ordered.push(n.id);
+  return ordered.map((id) => byId.get(id)!);
+}

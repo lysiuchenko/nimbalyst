@@ -27,6 +27,7 @@ import {
   type FlowCanvasNode,
   type FlowGraph,
 } from './flowGraph';
+import { stageReveal, STEP_MS } from './stageReveal';
 import { DisclosureContext, nextDisclosure, type Disclosure } from './disclosure';
 import { parseViewState, viewStateKey, type FlowViewState } from './viewState';
 import { EdgeConditionEditor } from './EdgeConditionEditor';
@@ -623,14 +624,22 @@ function FlowCanvas({ host }: { host: EditorHost }) {
     (flow: Flow) => {
       remember();
       baseRef.current = { ...flow };
-      const graph = flowToGraph(flow);
-      setNodes(graph.nodes);
-      setEdges(graph.edges);
+      stageReveal(
+        flow,
+        { setNodes, setEdges, addNodes: (node) => addNodes(node) },
+        (fn, ms) => window.setTimeout(fn, ms)
+      );
       markDirty();
-      refreshAnalysis();
-      window.setTimeout(() => fitView({ padding: 0.2, maxZoom: 1 }), 0);
+      // Analysis and fit reflect the final graph — run them after the last
+      // reveal step. flowToGraph maps nodes 1:1, so the flow's node count is
+      // the reveal's step count.
+      const total = flow.nodes.length;
+      window.setTimeout(() => {
+        refreshAnalysis();
+        fitView({ padding: 0.2, maxZoom: 1 });
+      }, total * STEP_MS + 20);
     },
-    [fitView, markDirty, refreshAnalysis, remember, setEdges, setNodes]
+    [addNodes, fitView, markDirty, refreshAnalysis, remember, setEdges, setNodes]
   );
 
   const runDraft = useCallback(
