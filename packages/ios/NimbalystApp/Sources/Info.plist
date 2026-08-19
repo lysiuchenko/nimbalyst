@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nimbalyst</string>
+	<string>Glue</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -36,9 +36,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Nimbalyst uses the camera to scan QR codes for pairing with your Mac.</string>
+	<string>Glue uses the camera to scan QR codes for pairing with your Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Nimbalyst uses the microphone for voice mode to communicate with your coding agent.</string>
+	<string>Glue uses the microphone for voice mode to communicate with your coding agent.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -135,7 +135,7 @@ export const DiscordInvitation: React.FC<DiscordInvitationProps> = ({
         </button>
 
         <div className="px-8 pt-10 pb-8 text-center">
-          <img src={logoSrc} alt="Nimbalyst" className="mx-auto mb-5 h-12 w-auto object-contain" />
+          <img src={logoSrc} alt="Glue" className="mx-auto mb-5 h-12 w-auto object-contain" />
 
           <h2 id="discord-invitation-title" className="discord-invitation-title m-0 mb-3 text-2xl font-bold tracking-[-0.5px] text-[var(--nim-text)]">
             Join the Community

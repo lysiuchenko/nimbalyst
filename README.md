@@ -1,11 +1,11 @@
-# Nimbalyst is the visual workspace for building with Codex and Claude Code
+# Glue is the visual workspace for building with Codex and Claude Code
 
-[Nimbalyst](https://nimbalyst.com) is a free, open-source, local, interactive visual editor & session/task manager for developers, product managers, designers, builders. 
+[Glue](https://nimbalyst.com) is a free, open-source, local, interactive visual editor & session/task manager for developers, product managers, designers, builders. 
 - Maximize speed, bandwidth, and context with Codex, Claude Code, Opencode (alpha), Copilot (alpha) by collaborating visually on integrated files, sessions, and tasks
 - Iterate visually with coding agents in your markdown, mockups, diagrams, csv, Excalidraw, data models, and code. Approve the coding agent's changes in red/green WYSIWYG, edit, annotate.
 - Manage multiple sessions in parallel and in kanban. Search, resume, link sessions to files and files to sessions. For developers we include git management, AI commit, workstreams, worktrees, and terminal.
 - Manage tasks. Keep track of your plans, bugs, todos, etc. Have the agent edit tasks and items, add them, move them, and execute them. Humans see and edit this as well.
-- Extend Nimbalyst. Build your own custom editors and visual interfaces integrated with the rest of Nimbalyst and your agents.
+- Extend Glue. Build your own custom editors and visual interfaces integrated with the rest of Glue and your agents.
 - Mobile app. Start, manage, and respond to your Codex and Claude Code sessions while on the go.
 
 ![Version](https://img.shields.io/github/v/release/nimbalyst/nimbalyst)
@@ -89,13 +89,13 @@ Download the latest version for your platform:
 
 ## Auto-Updates
 
-Nimbalyst automatically checks for updates and notifies you when a new version is available. You can also manually check via Help → Check for Updates.
+Glue automatically checks for updates and notifies you when a new version is available. You can also manually check via Help → Check for Updates.
 
 By default, fresh installs are on the **stable** release channel and only receive promoted releases. If you want early-access builds, switch to the **alpha** channel under **Settings → Advanced → Release Channel**. Alpha builds are rougher and may break; revert to stable any time.
 
 ## Telemetry
 
-Nimbalyst sends **anonymous usage analytics** to PostHog so we can understand how the app is used and prioritize improvements. We never collect:
+Glue sends **anonymous usage analytics** to PostHog so we can understand how the app is used and prioritize improvements. We never collect:
 
 - Usernames, emails, or IP addresses (no PII)
 - File contents or file paths (categorized buckets only)
@@ -108,7 +108,7 @@ For the complete list of every event we send and its properties, see [POSTHOG_EV
 
 ## Building from Source
 
-Nimbalyst is a TypeScript / Electron monorepo using npm workspaces.
+Glue is a TypeScript / Electron monorepo using npm workspaces.
 
 ```bash
 # Install dependencies (npm 7+ required)
@@ -138,7 +138,7 @@ For deeper architecture and contributor guidance, see [CLAUDE.md](./CLAUDE.md) a
 
 - [Documentation](https://docs.nimbalyst.com/) — watch videos and read the docs
 - [Discord](https://discord.gg/FgD9S2MCYB) — join the discussion
-- [Website](https://nimbalyst.com) — learn more about Nimbalyst
+- [Website](https://nimbalyst.com) — learn more about Glue
 
 ## License
 

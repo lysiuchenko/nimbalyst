@@ -602,7 +602,7 @@ export const WorkspaceManager: React.FC = () => {
       <div className="sidebar w-[380px] bg-[var(--nim-bg-secondary)] border-r border-[var(--nim-border)] flex flex-col shrink-0">
         <div className="sidebar-header p-3 bg-[var(--nim-bg)] border-b border-[var(--nim-border)] [-webkit-app-region:no-drag]">
           <div className="app-branding flex items-center gap-2.5 mb-4">
-            <img src="./icon.png" alt="Nimbalyst" className="app-logo w-8 h-8 shrink-0 object-contain" />
+            <img src="./icon.png" alt="Glue" className="app-logo w-8 h-8 shrink-0 object-contain" />
             <h2 className="m-0 text-lg font-bold text-[var(--nim-text)] tracking-tight">Nimbalyst</h2>
           </div>
           <div className="action-buttons flex flex-wrap gap-2">
@@ -773,7 +773,7 @@ export const WorkspaceManager: React.FC = () => {
               data-component="WorkspaceManagerWelcomeCard"
             >
               <div className="workspace-manager-welcome-header mb-4 flex items-center gap-3.5">
-                <img src="./icon.png" alt="Nimbalyst" className="workspace-manager-welcome-logo h-[46px] w-[46px] shrink-0 object-contain" />
+                <img src="./icon.png" alt="Glue" className="workspace-manager-welcome-logo h-[46px] w-[46px] shrink-0 object-contain" />
                 <div className="workspace-manager-welcome-heading">
                   <h1 className="m-0 text-[26px] font-bold tracking-[-0.3px] text-[var(--nim-text)]">Welcome to Nimbalyst</h1>
                   <p className="m-0 mt-0.5 text-sm text-[var(--nim-text-muted)]">Visual workspace for building with coding agents</p>

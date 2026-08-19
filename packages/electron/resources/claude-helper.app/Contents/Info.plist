@@ -7,7 +7,7 @@
     <key>CFBundleIdentifier</key>
     <string>com.nimbalyst.claude-helper</string>
     <key>CFBundleName</key>
-    <string>Nimbalyst Claude Helper</string>
+    <string>Glue Claude Helper</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleVersion</key>

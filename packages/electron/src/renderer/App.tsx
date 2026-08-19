@@ -1854,9 +1854,9 @@ export default function App() {
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    let title = 'Nimbalyst';
+    let title = 'Glue';
     if (workspaceMode && workspaceName) {
-      title = `${workspaceName} - Nimbalyst`;
+      title = `${workspaceName} - Glue`;
     }
 
     window.electronAPI.setTitle(title);
@@ -2576,7 +2576,7 @@ export default function App() {
     <div data-layout="root-container" className="h-screen flex flex-col">
       {workspaceMode && (
         <WindowTopBar
-          workspaceName={workspaceName || 'Nimbalyst'}
+          workspaceName={workspaceName || 'Glue'}
           activeModeLabel={activeModeLabel}
           gitStatus={gitStatus}
           gitActions={{

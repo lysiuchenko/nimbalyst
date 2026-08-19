@@ -160,7 +160,7 @@ export class TrayManager {
     if (this.tray) return;
     const icon = this.getIconForState('idle');
     this.tray = new Tray(icon);
-    this.tray.setToolTip('Nimbalyst');
+    this.tray.setToolTip('Glue');
     this.rebuildMenu();
   }
 

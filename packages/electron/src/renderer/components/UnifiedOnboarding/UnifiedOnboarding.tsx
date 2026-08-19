@@ -226,7 +226,7 @@ export const UnifiedOnboarding: React.FC<UnifiedOnboardingProps> = ({
     <div className="unified-onboarding-overlay">
       <div className="unified-onboarding-dialog unified-onboarding-single-screen">
         <div className="unified-onboarding-logo">
-          <img src="./icon.png" alt="Nimbalyst" className="unified-onboarding-logo-image" />
+          <img src="./icon.png" alt="Glue" className="unified-onboarding-logo-image" />
         </div>
         <div className="unified-onboarding-header">
           <h2>Welcome to Nimbalyst</h2>
