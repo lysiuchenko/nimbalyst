@@ -69,7 +69,7 @@ export function createUncaughtExceptionHandler(): (error: Error & { code?: strin
     dialogTimestamps.push(now);
 
     dialog.showErrorBox(
-      'Nimbalyst - Uncaught Exception',
+      'Glue - Uncaught Exception',
       `${error.name}: ${error.message}\n\n${error.stack || ''}`,
     );
   };

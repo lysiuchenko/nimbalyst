@@ -127,7 +127,7 @@ function applyTeamInviteOutcome(outcome: TeamInviteOutcome): void {
       // before the app was reached, so this is a confirmation, not a no-op.
       errorNotificationService.showInfo(
         `${outcome.teamName} is ready`,
-        'Shared documents, trackers, and projects for this team are available in Nimbalyst.',
+        'Shared documents, trackers, and projects for this team are available in Glue.',
         { duration: 6000 }
       );
       break;
@@ -138,8 +138,8 @@ function applyTeamInviteOutcome(outcome: TeamInviteOutcome): void {
       errorNotificationService.showWarning(
         'Sign in to accept this invitation',
         outcome.email
-          ? `Sign in to Nimbalyst as ${outcome.email} to join this team.`
-          : 'Sign in to Nimbalyst with the address the invitation was sent to.',
+          ? `Sign in to Glue as ${outcome.email} to join this team.`
+          : 'Sign in to Glue with the address the invitation was sent to.',
         { duration: 10000 }
       );
       store.set(openSettingsCommandAtom, {
@@ -221,7 +221,7 @@ export function initDeepLinkListeners(): () => void {
       if (data?.reason === 'not-authenticated') {
         errorNotificationService.showWarning(
           'Sign in required',
-          'Sign in to your Nimbalyst team account to open this shared folder.',
+          'Sign in to your Glue team account to open this shared folder.',
           { duration: 6000 }
         );
       } else {
@@ -252,7 +252,7 @@ export function initDeepLinkListeners(): () => void {
       if (data?.reason === 'not-authenticated') {
         errorNotificationService.showWarning(
           'Sign in required',
-          'Sign in to your Nimbalyst team account to open this shared document.',
+          'Sign in to your Glue team account to open this shared document.',
           { duration: 6000 }
         );
       } else {
@@ -275,7 +275,7 @@ export function initDeepLinkListeners(): () => void {
       if (data?.reason === 'not-authenticated') {
         errorNotificationService.showWarning(
           'Sign in required',
-          'Sign in to your Nimbalyst team account to open this tracker.',
+          'Sign in to your Glue team account to open this tracker.',
           { duration: 6000 }
         );
       } else {

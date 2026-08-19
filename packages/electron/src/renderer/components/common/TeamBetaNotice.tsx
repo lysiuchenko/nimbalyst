@@ -12,7 +12,7 @@ import { MaterialSymbol } from '@nimbalyst/runtime/ui/icons/MaterialSymbol';
 
 /** Tooltip copy for the beta `AlphaBadge` on organization surfaces. */
 export const TEAM_BETA_TOOLTIP =
-  'Nimbalyst Teams is in beta. Expect bugs.\n\nOrganizations are free during beta and will require a paid Nimbalyst Teams subscription after launch.';
+  'Glue Teams is in beta. Expect bugs.\n\nOrganizations are free during beta and will require a paid Glue Teams subscription after launch.';
 
 export function TeamBetaNotice({ className = '' }: { className?: string }) {
   return (
@@ -22,8 +22,8 @@ export function TeamBetaNotice({ className = '' }: { className?: string }) {
     >
       <MaterialSymbol icon="info" size={13} className="mt-[2px] shrink-0" />
       <span>
-        <span className="text-[var(--nim-text-muted)]">Nimbalyst Teams is in beta</span> — expect bugs.
-        Organizations are free during beta and will require a paid Nimbalyst Teams subscription after
+        <span className="text-[var(--nim-text-muted)]">Glue Teams is in beta</span> — expect bugs.
+        Organizations are free during beta and will require a paid Glue Teams subscription after
         launch; existing organizations get advance notice before any pricing change.
       </span>
     </div>

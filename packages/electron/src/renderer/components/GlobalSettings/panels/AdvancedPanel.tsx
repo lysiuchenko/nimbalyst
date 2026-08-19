@@ -356,7 +356,7 @@ export function AdvancedPanel() {
       <div className="provider-panel-section py-4 mb-4 border-b border-[var(--nim-border)] last:border-b-0 last:mb-0 last:pb-0">
         <h4 className="provider-panel-section-title text-base font-semibold mb-3 text-[var(--nim-text)]">Release Channel</h4>
         <p className="text-sm leading-relaxed text-[var(--nim-text-muted)] mb-4">
-          Choose which release stream Nimbalyst pulls auto-updates from. Alpha and beta features are configured separately on each feature&apos;s settings page.
+          Choose which release stream Glue pulls auto-updates from. Alpha and beta features are configured separately on each feature&apos;s settings page.
         </p>
 
         <div className="setting-item py-3">
@@ -405,7 +405,7 @@ export function AdvancedPanel() {
           checked={analyticsEnabled}
           onChange={(checked) => updateSettings({ analyticsEnabled: checked })}
           name="Send Anonymous Usage Data"
-          description="Help improve Nimbalyst by sending anonymous usage data. No prompts or personal info collected."
+          description="Help improve Glue by sending anonymous usage data. No prompts or personal info collected."
         />
 
         <SettingsToggle

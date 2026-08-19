@@ -27,6 +27,6 @@ export const sessionLaunchShortcutTip: TipDefinition = {
   content: {
     icon: SessionLaunchIcon,
     title: 'Start sessions without losing your place',
-    body: 'Press **Cmd+Shift+N** anywhere in Nimbalyst to open the session launcher. Submit your prompt and the session starts in the background, so you stay right where you are.',
+    body: 'Press **Cmd+Shift+N** anywhere in Glue to open the session launcher. Submit your prompt and the session starts in the background, so you stay right where you are.',
   },
 };

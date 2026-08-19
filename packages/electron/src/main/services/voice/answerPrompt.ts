@@ -72,7 +72,7 @@ function buildResponsePayload(
         // A single spoken answer can't be reliably split across multiple
         // distinct questions; ask the user to answer this one in the app.
         return {
-          error: 'This prompt has multiple questions; please answer it in the Nimbalyst app.',
+          error: 'This prompt has multiple questions; please answer it in the Glue app.',
         };
       }
       const q = questions[0];

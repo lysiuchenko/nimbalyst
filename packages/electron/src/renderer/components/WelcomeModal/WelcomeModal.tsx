@@ -146,7 +146,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
         {/* Header */}
         <div className="welcome-modal-header flex justify-between items-center px-8 pt-6 pb-4 border-b border-nim">
           <h2 className="m-0 text-2xl font-semibold text-nim">
-            {currentStep === 'welcome' && 'Welcome to Nimbalyst'}
+            {currentStep === 'welcome' && 'Welcome to Glue'}
             {currentStep === 'plans-location' && 'Configure Plans Location'}
             {currentStep === 'claude-code' && 'Configure Claude Agent Integration'}
             {currentStep === 'first-plan' && 'Create Your First Plan'}
@@ -174,7 +174,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
             <div className="welcome-step text-center">
               <h3 className="m-0 mb-3 text-xl text-nim">Welcome to {workspaceName}</h3>
               <p className="mb-8 leading-relaxed text-nim-muted">
-                Nimbalyst is a powerful editor with integrated planning, tracking, and AI features.
+                Glue is a powerful editor with integrated planning, tracking, and AI features.
                 This quick setup will help you get started.
               </p>
               <div className="welcome-features flex flex-col gap-5 text-left">
@@ -292,7 +292,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
           {currentStep === 'claude-code' && (
             <div className="claude-code-step max-w-[600px] mx-auto">
               <p className="step-description mb-6 leading-relaxed text-nim-muted">
-                Configure Claude Agent to understand Nimbalyst's extended markdown features for
+                Configure Claude Agent to understand Glue's extended markdown features for
                 plans and tracking.
               </p>
 
@@ -366,7 +366,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
                       className="mt-0.5 cursor-pointer w-[18px] h-[18px] shrink-0"
                     />
                     <span className="leading-normal text-nim">
-                      <strong className="block mb-1">CLAUDE.md</strong> - Add Nimbalyst-specific instructions
+                      <strong className="block mb-1">CLAUDE.md</strong> - Add Glue-specific instructions
                     </span>
                   </label>
 
@@ -473,7 +473,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
                 <p className="m-0 mb-2 font-semibold text-nim">
                   <strong>Need help?</strong>
                 </p>
-                <p className="m-0 mb-1.5 text-nim-muted">Access documentation from the Help menu or visit the Nimbalyst website.</p>
+                <p className="m-0 mb-1.5 text-nim-muted">Access documentation from the Help menu or visit the Glue website.</p>
               </div>
             </div>
           )}

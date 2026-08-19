@@ -237,7 +237,7 @@ export class PGLiteDatabaseWorker {
   private showErrorAndQuit(title: string, message: string, detail?: string): void {
     dialog.showMessageBox({
       type: 'error',
-      title: `Nimbalyst - ${title}`,
+      title: `Glue - ${title}`,
       message,
       detail,
       buttons: ['Quit']
@@ -253,7 +253,7 @@ export class PGLiteDatabaseWorker {
   private showInfoDialog(title: string, message: string, detail?: string): void {
     dialog.showMessageBox({
       type: 'info',
-      title: `Nimbalyst - ${title}`,
+      title: `Glue - ${title}`,
       message,
       detail,
       buttons: ['OK']
@@ -267,7 +267,7 @@ export class PGLiteDatabaseWorker {
   private async showStartFreshConfirmation(): Promise<boolean> {
     const response = await dialog.showMessageBox({
       type: 'warning',
-      title: 'Nimbalyst - Start Fresh?',
+      title: 'Glue - Start Fresh?',
       message: 'This will clear your AI chat sessions.',
       detail: 'Your files will not be affected, but all AI chat history will be permanently deleted.\n\nAre you sure you want to continue?',
       buttons: ['Cancel', 'Yes, Start Fresh'],
@@ -541,7 +541,7 @@ export class PGLiteDatabaseWorker {
 
           dialog.showMessageBox({
             type: 'warning',
-            title: 'Nimbalyst - Database Recovered',
+            title: 'Glue - Database Recovered',
             message: 'The application database was corrupted and has been automatically repaired.',
             detail: `A fresh database has been created. Your old data has been backed up to:\n\n${initResult.dataDir}.backup-[timestamp]\n\nYour document files have not been lost - they are still on disk. Only the internal application database (AI chat sessions and document history) needs to be rebuilt.`,
             buttons: ['OK']
@@ -652,7 +652,7 @@ export class PGLiteDatabaseWorker {
         }
         this.showErrorAndQuit(
           'Database Locked',
-          'Another instance of Nimbalyst is already running.',
+          'Another instance of Glue is already running.',
           'The database is locked by another process. Please close the other instance before starting a new one.\n\nRunning multiple instances simultaneously can cause data corruption.'
         );
         // Throw to prevent downstream code from continuing while quit dialog is pending.
@@ -1099,7 +1099,7 @@ export class PGLiteDatabaseWorker {
 
     return {
       type: 'info',
-      title: 'Nimbalyst - Restore Your Data',
+      title: 'Glue - Restore Your Data',
       message: 'No file data has been lost.',
       detail: backupDateStr
         ? `Your files are safe, but your chat history will need to be restored from a backup dated ${backupDateStr}.`

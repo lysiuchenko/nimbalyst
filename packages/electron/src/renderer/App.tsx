@@ -486,7 +486,7 @@ export default function App() {
     // Set window title for Workspace Manager
     React.useEffect(() => {
       if (window.electronAPI) {
-        window.electronAPI.setTitle('Project Manager - Nimbalyst');
+        window.electronAPI.setTitle('Project Manager - Glue');
       }
     }, []);
     return (
@@ -500,7 +500,7 @@ export default function App() {
     // Set window title for AI Usage Report
     React.useEffect(() => {
       if (window.electronAPI) {
-        window.electronAPI.setTitle('AI Usage Report - Nimbalyst');
+        window.electronAPI.setTitle('AI Usage Report - Glue');
       }
     }, []);
     return <AIUsageReport onClose={() => window.close()} />;
@@ -510,7 +510,7 @@ export default function App() {
     // Set window title for Database Browser
     React.useEffect(() => {
       if (window.electronAPI) {
-        window.electronAPI.setTitle('Database Browser - Nimbalyst');
+        window.electronAPI.setTitle('Database Browser - Glue');
       }
     }, []);
     return <DatabaseBrowser />;
@@ -519,7 +519,7 @@ export default function App() {
   if (windowMode === 'developer-dashboard') {
     React.useEffect(() => {
       if (window.electronAPI) {
-        window.electronAPI.setTitle('Developer Dashboard - Nimbalyst');
+        window.electronAPI.setTitle('Developer Dashboard - Glue');
       }
     }, []);
     return <DeveloperDashboard />;
@@ -1797,7 +1797,7 @@ export default function App() {
     const show = () => {
       errorNotificationService.showWarning(
         'Figma MCP Server Needs Reconfiguration',
-        'Your current Figma MCP configuration will not work in Nimbalyst. Figma does not allow OAuth based MCP in certain apps.\n\nTo fix it, open the MCP settings and do the following:\n\n1. Remove the existing OAuth Figma MCP configuration.\n2. Add a new Figma MCP config from the Nimbalyst MCP template.\n3. Add your Personal Access Token to the MCP config.',
+        'Your current Figma MCP configuration will not work in Glue. Figma does not allow OAuth based MCP in certain apps.\n\nTo fix it, open the MCP settings and do the following:\n\n1. Remove the existing OAuth Figma MCP configuration.\n2. Add a new Figma MCP config from the Glue MCP template.\n3. Add your Personal Access Token to the MCP config.',
         {
           duration: 0,
           action: {

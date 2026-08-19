@@ -129,7 +129,7 @@ export const ExtensionBackendModulesSection: React.FC<ExtensionBackendModulesSec
   if (!api) {
     return (
       <div className="ext-backend-modules-section mb-5 text-xs text-[var(--nim-text-faint)] italic">
-        Privileged capabilities API not loaded yet. Restart Nimbalyst to manage backend module permissions.
+        Privileged capabilities API not loaded yet. Restart Glue to manage backend module permissions.
       </div>
     );
   }

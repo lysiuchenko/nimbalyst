@@ -1040,7 +1040,7 @@ export class CLIManager {
 
           shell.openExternal('https://nodejs.org/en/download/');
 
-          reject(new Error('Please download and install Node.js from the opened webpage (NOT via Homebrew), then restart Nimbalyst.'));
+          reject(new Error('Please download and install Node.js from the opened webpage (NOT via Homebrew), then restart Glue.'));
         } else if (platform === 'win32') {
           // Windows - download the installer
           this.sendProgressToRenderer('nodejs' as CLITool, {
@@ -1051,7 +1051,7 @@ export class CLIManager {
 
           shell.openExternal('https://nodejs.org/en/download/');
 
-          reject(new Error('Please download and install Node.js from the opened webpage, then restart Nimbalyst.'));
+          reject(new Error('Please download and install Node.js from the opened webpage, then restart Glue.'));
         } else if (platform === 'linux') {
           // Linux - try package managers
           this.sendProgressToRenderer('nodejs' as CLITool, {

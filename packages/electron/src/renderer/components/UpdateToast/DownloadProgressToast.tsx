@@ -57,7 +57,7 @@ export function DownloadProgressToast({
     >
       {/* Header */}
       <div className="update-toast-title text-sm font-semibold text-[var(--nim-text)] mb-3 pr-7">
-        Downloading Nimbalyst {version}...
+        Downloading Glue {version}...
       </div>
 
       {/* Progress section */}

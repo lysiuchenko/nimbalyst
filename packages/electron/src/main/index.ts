@@ -1669,23 +1669,23 @@ app.whenReady().then(async () => {
             const dbPath = join(app.getPath('userData'), 'pglite-db');
 
             dialog.showErrorBox(
-                'Nimbalyst - Database Initialization Failed',
+                'Glue - Database Initialization Failed',
                 `The database system failed to start.\n\n` +
                 `This usually indicates:\n` +
                 `1. Another process has the database locked\n` +
                 `2. Database files are corrupted\n` +
                 `3. Insufficient file system permissions\n\n` +
                 `To fix this:\n` +
-                `1. Close any other Nimbalyst windows\n` +
+                `1. Close any other Glue windows\n` +
                 `2. Restart your computer (clears stale locks)\n` +
                 `3. If the problem persists, delete the database folder:\n` +
                 `   ${dbPath}\n\n` +
-                `Nimbalyst will now close.`
+                `Glue will now close.`
             );
         } else {
             dialog.showErrorBox(
-                'Nimbalyst - Database Initialization Failed',
-                `Failed to initialize the database system.\n\nError: ${errorMessage}\n\nNimbalyst cannot continue without the database.`
+                'Glue - Database Initialization Failed',
+                `Failed to initialize the database system.\n\nError: ${errorMessage}\n\nGlue cannot continue without the database.`
             );
         }
 

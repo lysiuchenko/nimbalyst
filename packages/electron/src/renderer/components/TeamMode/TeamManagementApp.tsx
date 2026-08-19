@@ -138,7 +138,7 @@ export function TeamManagementApp() {
   ]);
 
   useEffect(() => {
-    window.electronAPI?.setTitle?.('Organization Messages - Nimbalyst');
+    window.electronAPI?.setTitle?.('Organization Messages - Glue');
   }, []);
 
   // Accepting an invite or finishing the creation wizard queues "#general" for

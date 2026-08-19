@@ -145,7 +145,7 @@ export async function openFile(options: OpenFileOptions): Promise<OpenFileResult
   // Note: Extensions can register custom editors for file types
   if (shouldExcludeFile(filePath)) {
     const ext = extname(filePath).toLowerCase();
-    throw new Error(`Cannot open ${ext} files. Nimbalyst does not support that file type yet.`);
+    throw new Error(`Cannot open ${ext} files. Glue does not support that file type yet.`);
   }
 
   // Determine target window

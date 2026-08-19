@@ -362,7 +362,7 @@ export class GitOperationLogService {
           entry.updatedAt = recoveredAt;
           entry.durationMs = Math.max(0, recoveredAt - entry.timestamp);
           entry.error =
-            "Nimbalyst exited before this operation reported a final status.";
+            "Glue exited before this operation reported a final status.";
           recoveredRunningEntry = true;
         }
       }

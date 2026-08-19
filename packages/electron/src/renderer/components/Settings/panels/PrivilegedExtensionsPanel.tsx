@@ -103,7 +103,7 @@ export const PrivilegedExtensionsPanel: React.FC<PrivilegedExtensionsPanelProps>
     return (
       <div className="privileged-extensions-panel max-w-4xl">
         <div className="rounded border border-[var(--nim-border)] bg-[var(--nim-bg)] p-4 text-sm text-[var(--nim-text-muted)]">
-          Privileged capabilities API not loaded yet. Restart Nimbalyst to view privileged extensions.
+          Privileged capabilities API not loaded yet. Restart Glue to view privileged extensions.
         </div>
       </div>
     );

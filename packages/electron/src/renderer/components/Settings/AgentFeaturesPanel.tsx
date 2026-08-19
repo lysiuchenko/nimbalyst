@@ -317,7 +317,7 @@ export function AgentFeaturesPanel() {
               value={attachmentCustomPath}
               onChange={(event) => setAttachmentCustomPath(event.target.value)}
               onBlur={() => { if (attachmentCustomPath.trim()) void saveAttachmentStaging('custom', attachmentCustomPath); }}
-              placeholder="C:\\Nimbalyst\\attachments or /path/to/attachments"
+              placeholder="C:\\Glue\\attachments or /path/to/attachments"
               spellCheck={false}
               className="mt-3 w-full rounded-md border border-[var(--nim-border)] bg-[var(--nim-bg)] px-3 py-1.5 text-sm text-[var(--nim-text)] outline-none focus:border-[var(--nim-primary)]"
             />
@@ -497,7 +497,7 @@ export function AgentFeaturesPanel() {
             checked={showPromptAdditions}
             onChange={(checked) => updateAIDebugSettings({ showPromptAdditions: checked })}
             name="Show Prompt Additions"
-            description="Display system prompt additions and context that Nimbalyst appends to Claude Code requests."
+            description="Display system prompt additions and context that Glue appends to Claude Code requests."
           />
         </div>
       )}

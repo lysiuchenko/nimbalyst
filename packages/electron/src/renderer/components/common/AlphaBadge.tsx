@@ -25,7 +25,7 @@ interface AlphaBadgeProps {
 
 const DEFAULT_TOOLTIP = 'Alpha feature — may change or be removed.';
 export const SETTINGS_ALPHA_TOOLTIP =
-  'Alpha features may be incomplete, and shared data may be lost.\n\nTeam features are free during beta and will be part of a Nimbalyst Teams subscription in the future.';
+  'Alpha features may be incomplete, and shared data may be lost.\n\nTeam features are free during beta and will be part of a Glue Teams subscription in the future.';
 
 const STAGE_LABELS = {
   alpha: { word: 'alpha', dot: 'α', title: 'Alpha' },

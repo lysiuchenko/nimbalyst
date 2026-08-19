@@ -83,7 +83,7 @@ describe('captureActiveVoiceWindow', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'The Nimbalyst window must be visible to capture it.',
+      error: 'The Glue window must be visible to capture it.',
     });
     expect(capturePage).not.toHaveBeenCalled();
   });

@@ -3,8 +3,8 @@ import type { Socket } from 'node:net';
 
 import { AUTH_FLOW_TTL_MS } from './PendingAuthFlowLedger';
 
-const SUCCESS_HTML = '<!doctype html><html><head><meta charset="utf-8"><title>Nimbalyst sign-in</title></head><body><main><h1>You\'re signed in</h1><p>Return to Nimbalyst.</p></main></body></html>';
-const ERROR_HTML = '<!doctype html><html><head><meta charset="utf-8"><title>Nimbalyst sign-in error</title></head><body><main><h1>Sign-in could not be completed</h1><p>Return to Nimbalyst and try again.</p></main></body></html>';
+const SUCCESS_HTML = '<!doctype html><html><head><meta charset="utf-8"><title>Glue sign-in</title></head><body><main><h1>You\'re signed in</h1><p>Return to Glue.</p></main></body></html>';
+const ERROR_HTML = '<!doctype html><html><head><meta charset="utf-8"><title>Glue sign-in error</title></head><body><main><h1>Sign-in could not be completed</h1><p>Return to Glue and try again.</p></main></body></html>';
 
 /**
  * The listener only ever serves one local round trip from the browser, so every

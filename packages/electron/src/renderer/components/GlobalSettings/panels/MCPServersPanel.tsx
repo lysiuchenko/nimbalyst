@@ -2503,7 +2503,7 @@ function MCPServersPanelInner({ scope = 'user', workspacePath }: MCPServersPanel
             */}
             {servers.length > 0 && visibleMcpProviders.includes(MCP_PROVIDER_IDS.CLAUDE_AGENT) && (
               <div className="mcp-claude-scope-note px-4 py-2 border-b border-[var(--nim-border)] text-[0.6875rem] leading-snug text-[var(--nim-text-faint)] select-text">
-                Turning a server off for Claude also turns it off for the <code>claude</code> CLI in this project — Nimbalyst writes Claude Code&apos;s own disabled-server list instead of overriding its configuration.
+                Turning a server off for Claude also turns it off for the <code>claude</code> CLI in this project — Glue writes Claude Code&apos;s own disabled-server list instead of overriding its configuration.
               </div>
             )}
 

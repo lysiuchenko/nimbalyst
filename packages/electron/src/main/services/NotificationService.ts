@@ -300,7 +300,7 @@ class NotificationService {
 
     const notification = new Notification({
       title: 'Notifications Enabled',
-      body: 'Nimbalyst will notify you when AI responses are ready.',
+      body: 'Glue will notify you when AI responses are ready.',
       icon: this.getAppIcon(),
       silent: true,
       urgency: 'normal',
@@ -463,7 +463,7 @@ class NotificationService {
     if (!Notification.isSupported()) return;
     const failure = new Notification({
       title: `${navigation.sourceLabel} -- could not be opened`,
-      body: 'Nimbalyst could not open the project for this session. Open the project, then retry.',
+      body: 'Glue could not open the project for this session. Open the project, then retry.',
       icon: this.getAppIcon(),
       silent: true,
     });

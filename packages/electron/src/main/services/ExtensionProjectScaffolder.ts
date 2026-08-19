@@ -75,7 +75,7 @@ async function showExtensionProjectIntroFallbackDialog(
     type: 'info' as const,
     title: 'Build With Extensions',
     message: 'Extensions can add custom editors, AI tools, panels, commands, and other workspace features.',
-    detail: 'Nimbalyst can load your extension project while you build it, so you can test changes inside the app without leaving your development flow.\n\nDescribe what you want to the agent, and watch it build, install, and test the extension right before your eyes.',
+    detail: 'Glue can load your extension project while you build it, so you can test changes inside the app without leaving your development flow.\n\nDescribe what you want to the agent, and watch it build, install, and test the extension right before your eyes.',
     buttons: ['Cancel', "Don't Show Again", 'Continue'],
     defaultId: 2,
     cancelId: 0,

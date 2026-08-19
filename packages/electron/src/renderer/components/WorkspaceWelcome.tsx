@@ -49,7 +49,7 @@ export function WorkspaceWelcome({
           {iconUrl && (
             <img
               src={iconUrl}
-              alt="Nimbalyst"
+              alt="Glue"
               className="h-full w-full object-contain"
               onError={(event) => {
                 (event.target as HTMLImageElement).style.display = 'none';

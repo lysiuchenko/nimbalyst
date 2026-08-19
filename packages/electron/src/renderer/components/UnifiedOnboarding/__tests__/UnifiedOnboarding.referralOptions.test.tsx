@@ -34,7 +34,7 @@ describe('UnifiedOnboarding referral options', () => {
     );
 
     fireEvent.click(screen.getByText('Standard Mode'));
-    const referralSelect = screen.getByLabelText('How did you hear about Nimbalyst?');
+    const referralSelect = screen.getByLabelText('How did you hear about Glue?');
 
     for (const option of NEW_REFERRAL_OPTIONS) {
       const renderedOption = within(referralSelect).getByRole('option', { name: option.label });
@@ -64,7 +64,7 @@ describe('UnifiedOnboarding referral options', () => {
     );
 
     fireEvent.click(screen.getByText('Standard Mode'));
-    fireEvent.change(screen.getByLabelText('How did you hear about Nimbalyst?'), {
+    fireEvent.change(screen.getByLabelText('How did you hear about Glue?'), {
       target: { value: 'search' },
     });
     fireEvent.change(screen.getByLabelText('What did you search for?'), {

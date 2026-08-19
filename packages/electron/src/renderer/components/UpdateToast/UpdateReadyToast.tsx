@@ -88,7 +88,7 @@ export function UpdateReadyToast({
 
       {/* Header */}
       <div className="update-toast-title text-sm font-semibold text-[var(--nim-text)] mb-1 pr-7">
-        Nimbalyst update is ready
+        Glue update is ready
       </div>
       <div className="update-toast-subtitle text-xs text-[var(--nim-text-muted)] leading-normal mb-4">
         The app needs to be restarted to apply the update

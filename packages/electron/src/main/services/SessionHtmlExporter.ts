@@ -384,7 +384,7 @@ function buildHtmlDocument(session: SessionData, messagesHtml: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} \u2013 Nimbalyst Export</title>
+<title>${escapeHtml(title)} \u2013 Glue Export</title>
 ${getStylesheet()}
 </head>
 <body>
@@ -393,7 +393,7 @@ ${getStylesheet()}
   <div class="nimbalyst-brand-bar">
     <a href="https://nimbalyst.com" target="_blank" rel="noopener" class="nimbalyst-brand-link">
       ${getNimbalystIconSvg()}
-      <span class="nimbalyst-brand-text">Shared from <strong>Nimbalyst</strong></span>
+      <span class="nimbalyst-brand-text">Shared from <strong>Glue</strong></span>
     </a>
   </div>
 
@@ -429,7 +429,7 @@ ${getStylesheet()}
     <div class="nimbalyst-brand-bar footer-brand">
       <a href="https://nimbalyst.com" target="_blank" rel="noopener" class="nimbalyst-brand-link">
         ${getNimbalystIconSvg()}
-        <span class="nimbalyst-brand-text">Shared from <strong>Nimbalyst</strong></span>
+        <span class="nimbalyst-brand-text">Shared from <strong>Glue</strong></span>
       </a>
       <span class="footer-date">Exported ${exportDate}</span>
     </div>

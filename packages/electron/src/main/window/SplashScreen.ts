@@ -112,7 +112,7 @@ function buildSplashHTML(): string {
 </head>
 <body>
   ${iconHtml}
-  <div class="title">Nimbalyst</div>
+  <div class="title">Glue</div>
   <div class="status">Initializing<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>
 </body>
 </html>`;

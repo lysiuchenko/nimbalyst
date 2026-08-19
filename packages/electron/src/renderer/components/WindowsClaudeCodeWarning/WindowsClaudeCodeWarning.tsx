@@ -79,7 +79,7 @@ export const WindowsClaudeCodeWarning: React.FC<WindowsClaudeCodeWarningProps> =
           <p
             className="windows-warning-message mb-8 text-[15px] leading-relaxed max-w-[380px] mx-auto text-nim-muted"
           >
-            To use Nimbalyst's AI features on Windows, you need to install Claude Code separately.
+            To use Glue's AI features on Windows, you need to install Claude Code separately.
             Without it, many agentic editing features will not be available.
           </p>
 

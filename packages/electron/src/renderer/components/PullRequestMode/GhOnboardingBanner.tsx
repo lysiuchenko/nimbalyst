@@ -88,7 +88,7 @@ export function GhOnboardingBanner({
             <div className="font-medium text-nim text-sm">GitHub CLI is required</div>
             <div className="text-nim-muted text-xs mt-1">
               PR review uses your <code className="font-mono">gh</code> CLI for all GitHub access.
-              Nimbalyst stores no tokens.
+              Glue stores no tokens.
             </div>
           </>
         ) : (
@@ -107,7 +107,7 @@ export function GhOnboardingBanner({
               >
                 Copy
               </button>
-              in your terminal. Nimbalyst will pick up your session automatically.
+              in your terminal. Glue will pick up your session automatically.
             </div>
           </>
         )}

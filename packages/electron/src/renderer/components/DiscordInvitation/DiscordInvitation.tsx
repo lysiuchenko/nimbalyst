@@ -157,7 +157,7 @@ export const DiscordInvitation: React.FC<DiscordInvitationProps> = ({
 
           <div className="mb-6 px-4">
             <p className="m-0 mb-4 text-sm font-semibold uppercase tracking-[0.08em] text-[var(--nim-text-muted)]">
-              Follow Nimbalyst
+              Follow Glue
             </p>
             <div className="flex items-center justify-center gap-3">
               {socialLinks.map((link) => (

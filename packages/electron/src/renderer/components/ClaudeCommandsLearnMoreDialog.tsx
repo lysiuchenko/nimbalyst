@@ -80,7 +80,7 @@ export function ClaudeCommandsLearnMoreDialog({
       >
         <div className="claude-commands-learn-more-header flex items-center justify-between px-6 py-5 border-b border-[var(--nim-border)]">
           <h2 className="m-0 text-lg font-semibold text-[var(--nim-text)]">
-            Claude Commands for Nimbalyst
+            Claude Commands for Glue
           </h2>
           <button
             className="claude-commands-learn-more-close nim-btn-icon w-8 h-8 text-[28px] leading-none rounded transition-all duration-200"
@@ -96,7 +96,7 @@ export function ClaudeCommandsLearnMoreDialog({
           <section className="claude-commands-learn-more-section">
             <p className="claude-commands-learn-more-intro m-0 text-sm text-[var(--nim-text)]">
               Installing Claude Commands adds slash commands that help Claude
-              work better with Nimbalyst. These commands enable structured
+              work better with Glue. These commands enable structured
               planning, visual mockups, issue tracking, and more.
             </p>
           </section>

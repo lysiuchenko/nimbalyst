@@ -603,7 +603,7 @@ export const WorkspaceManager: React.FC = () => {
         <div className="sidebar-header p-3 bg-[var(--nim-bg)] border-b border-[var(--nim-border)] [-webkit-app-region:no-drag]">
           <div className="app-branding flex items-center gap-2.5 mb-4">
             <img src="./icon.png" alt="Glue" className="app-logo w-8 h-8 shrink-0 object-contain" />
-            <h2 className="m-0 text-lg font-bold text-[var(--nim-text)] tracking-tight">Nimbalyst</h2>
+            <h2 className="m-0 text-lg font-bold text-[var(--nim-text)] tracking-tight">Glue</h2>
           </div>
           <div className="action-buttons flex flex-wrap gap-2">
             <button className="btn nim-btn-primary" onClick={handleBrowse}>
@@ -775,13 +775,13 @@ export const WorkspaceManager: React.FC = () => {
               <div className="workspace-manager-welcome-header mb-4 flex items-center gap-3.5">
                 <img src="./icon.png" alt="Glue" className="workspace-manager-welcome-logo h-[46px] w-[46px] shrink-0 object-contain" />
                 <div className="workspace-manager-welcome-heading">
-                  <h1 className="m-0 text-[26px] font-bold tracking-[-0.3px] text-[var(--nim-text)]">Welcome to Nimbalyst</h1>
+                  <h1 className="m-0 text-[26px] font-bold tracking-[-0.3px] text-[var(--nim-text)]">Welcome to Glue</h1>
                   <p className="m-0 mt-0.5 text-sm text-[var(--nim-text-muted)]">Visual workspace for building with coding agents</p>
                 </div>
               </div>
 
               <p className="workspace-manager-welcome-lede m-0 mb-5 text-[14.5px] leading-[1.62] text-[var(--nim-text-muted)]">
-                Everything in Nimbalyst lives in a <strong className="font-semibold text-[var(--nim-text)]">project</strong>: a folder of related files on your computer. For code that is your git repository, for anything else any folder you choose. Open one to write docs, run AI coding agents, track work, and sketch ideas together.
+                Everything in Glue lives in a <strong className="font-semibold text-[var(--nim-text)]">project</strong>: a folder of related files on your computer. For code that is your git repository, for anything else any folder you choose. Open one to write docs, run AI coding agents, track work, and sketch ideas together.
               </p>
 
               <div

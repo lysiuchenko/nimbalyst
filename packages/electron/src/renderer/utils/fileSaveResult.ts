@@ -29,7 +29,7 @@ export function getSaveFailureMessage(
   const prefix = source === 'auto' ? 'Autosave is blocked' : 'Save failed';
   switch (errorType) {
     case 'permission':
-      return `${prefix} because Nimbalyst does not have permission to write this file. Your edits remain unsaved.`;
+      return `${prefix} because Glue does not have permission to write this file. Your edits remain unsaved.`;
     case 'disk_full':
       return `${prefix} because the disk is full. Your edits remain unsaved.`;
     case 'not_found':

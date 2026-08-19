@@ -409,7 +409,7 @@ export function ClaudeCodePanel({
       <div className="provider-panel-header mb-6 pb-4 border-b border-[var(--nim-border)]">
         <h3 className="provider-panel-title text-xl font-semibold leading-tight mb-2 text-[var(--nim-text)]">Claude Agent</h3>
         <p className="provider-panel-description text-sm leading-relaxed text-[var(--nim-text-muted)]">
-          Agent mode uses the Claude Code SDK with a few extensions for added functionality in Nimbalyst.
+          Agent mode uses the Claude Code SDK with a few extensions for added functionality in Glue.
           Has full MCP support with file system access, multi-file operations, and session persistence.
         </p>
       </div>
@@ -510,7 +510,7 @@ export function ClaudeCodePanel({
             <>
               <h4 className="provider-panel-section-title text-base font-semibold mb-3 text-[var(--nim-text)]">Claude Code for Windows Installation</h4>
               <p className="text-xs text-[var(--nim-text-muted)] mt-3 leading-relaxed">
-                Nimbalyst requires Claude Code for Windows to be installed to use the Claude Code provider.
+                Glue requires Claude Code for Windows to be installed to use the Claude Code provider.
               </p>
               { Boolean(claudeCodeWindowsStatus?.claudeCodeVersion) ? (
                 <div className="installation-status mt-3 p-4 rounded-lg bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)]">
@@ -546,7 +546,7 @@ export function ClaudeCodePanel({
                   <span className="installation-status-value text-sm text-[var(--nim-text)]">Built-in (bundled with app)</span>
                 </div>
                 <p className="text-xs leading-relaxed text-[var(--nim-text-muted)] mt-3">
-                  Nimbalyst includes the Claude Agent SDK. No additional installation required.
+                  Glue includes the Claude Agent SDK. No additional installation required.
                 </p>
               </div>
             </>

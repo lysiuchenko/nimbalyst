@@ -58,9 +58,9 @@ function failureMessage(
     case 'missing':
       return `Session ${shortId} could not be found in its originating project.`;
     case 'project-unavailable':
-      return `Nimbalyst could not switch to the project for session ${shortId}. Close a project from the rail, then retry.`;
+      return `Glue could not switch to the project for session ${shortId}. Close a project from the rail, then retry.`;
     default:
-      return `Nimbalyst could not verify session ${shortId} in its originating project.`;
+      return `Glue could not verify session ${shortId} in its originating project.`;
   }
 }
 

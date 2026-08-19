@@ -115,7 +115,7 @@ function requestVoiceUiContext(
 ): Promise<{ success: true; context: VoiceUiContext } | { success: false; error: string }> {
   return new Promise((resolve) => {
     if (!window || window.isDestroyed()) {
-      resolve({ success: false, error: 'The Nimbalyst window is not available.' });
+      resolve({ success: false, error: 'The Glue window is not available.' });
       return;
     }
     if (!workspacePath) {

@@ -154,15 +154,15 @@ export async function captureActiveVoiceWindow(
   context?: VoiceUiContext,
 ): Promise<VoiceUiScreenshotCapture> {
   if (!window || window.isDestroyed()) {
-    return { success: false, error: 'The Nimbalyst window is not available.' };
+    return { success: false, error: 'The Glue window is not available.' };
   }
   if (!window.isVisible() || window.isMinimized()) {
-    return { success: false, error: 'The Nimbalyst window must be visible to capture it.' };
+    return { success: false, error: 'The Glue window must be visible to capture it.' };
   }
 
   const captured = await window.webContents.capturePage();
   if (captured.isEmpty()) {
-    return { success: false, error: 'The Nimbalyst window did not produce a screenshot.' };
+    return { success: false, error: 'The Glue window did not produce a screenshot.' };
   }
 
   const originalSize = captured.getSize();

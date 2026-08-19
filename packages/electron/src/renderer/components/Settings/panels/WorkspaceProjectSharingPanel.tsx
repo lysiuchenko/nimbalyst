@@ -181,7 +181,7 @@ function EncryptionCard() {
       <p className="m-0 mb-2 text-[12px] text-[var(--nim-text-muted)] leading-relaxed">
         Organization data (trackers and documents) is encrypted in transit and at rest and
         isolated per organization. Depending on your organization&apos;s setup, encryption keys are
-        either held only by members&apos; devices, or managed by Nimbalyst so the
+        either held only by members&apos; devices, or managed by Glue so the
         organization is reachable from the web, CLI, and cloud agents.
       </p>
       <ul className="m-0 pl-5 text-[12px] text-[var(--nim-text)] leading-7">
@@ -1081,7 +1081,7 @@ export function WorkspaceProjectSharingPanel({ workspacePath }: WorkspaceProject
             <MaterialSymbol icon="account_circle" size={24} className="text-[var(--nim-primary)]" />
           </div>
           <p className="text-[13px] text-[var(--nim-text-muted)] mb-3 leading-relaxed">
-            Sharing this project needs a Nimbalyst account. Signing in or creating one is the
+            Sharing this project needs a Glue account. Signing in or creating one is the
             first step.
           </p>
           <button

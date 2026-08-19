@@ -691,7 +691,7 @@ export function SyncPanel({ section }: { section: PersonalSyncSection }) {
               </div>
               <div className="flex-1">
                 <div className="text-[13px] font-semibold text-nim mb-0.5">
-                  Nimbalyst for iOS
+                  Glue for iOS
                 </div>
                 <div className="text-[11px] text-nim-faint mb-2">
                   View and respond to AI sessions from your phone

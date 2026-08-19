@@ -354,9 +354,9 @@ export function OpenCodePanel({
           <div className="provider-panel-section py-4 mb-4 border-b border-[var(--nim-border)]">
             <h4 className="provider-panel-section-title text-base font-semibold mb-3 text-[var(--nim-text)]">LM Studio integration</h4>
             <p className="text-[13px] text-[var(--nim-text-muted)] mb-3 leading-relaxed">
-              Point at a running LM Studio server and Nimbalyst will query <code className="text-[var(--nim-code-text)] bg-[var(--nim-code-bg)] px-1 rounded">/v1/models</code>,
+              Point at a running LM Studio server and Glue will query <code className="text-[var(--nim-code-text)] bg-[var(--nim-code-bg)] px-1 rounded">/v1/models</code>,
               then write a <code className="text-[var(--nim-code-text)] bg-[var(--nim-code-bg)] px-1 rounded">provider.lmstudio</code> block into your <code className="text-[var(--nim-code-text)] bg-[var(--nim-code-bg)] px-1 rounded">opencode.json</code>.
-              You don't need to enable LM Studio as a separate Nimbalyst chat provider.
+              You don't need to enable LM Studio as a separate Glue chat provider.
             </p>
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <input
@@ -417,7 +417,7 @@ export function OpenCodePanel({
             <h4 className="provider-panel-section-title text-base font-semibold mb-3 text-[var(--nim-text)]">API Configuration <span className="text-xs font-normal text-[var(--nim-text-muted)]">(optional)</span></h4>
             <p className="text-[13px] text-[var(--nim-text-muted)] mb-3 leading-relaxed">
               OpenCode reads provider API keys from its own config and from environment variables.
-              Setting a key here is optional and is only used by Nimbalyst's connection test.
+              Setting a key here is optional and is only used by Glue's connection test.
             </p>
             <div className="api-key-section mt-4">
               <div className="api-key-row flex gap-2 items-center">

@@ -938,7 +938,7 @@ export const TrackerMainView: React.FC<TrackerMainViewProps> = ({
       await copyToClipboard(url);
       errorNotificationService.showInfo(
         'Link copied',
-        'Paste it anywhere to open this tracker in Nimbalyst.',
+        'Paste it anywhere to open this tracker in Glue.',
         { duration: 3000 }
       );
     } catch (err) {
@@ -958,7 +958,7 @@ export const TrackerMainView: React.FC<TrackerMainViewProps> = ({
       await copyToClipboard(url);
       errorNotificationService.showInfo(
         'Document link copied',
-        'Paste it anywhere to open this item as a document in Nimbalyst.',
+        'Paste it anywhere to open this item as a document in Glue.',
         { duration: 3000 }
       );
     } catch (err) {

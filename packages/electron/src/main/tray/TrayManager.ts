@@ -467,7 +467,7 @@ export class TrayManager {
       click: () => this.handleNewSession(),
     });
     menuItems.push({
-      label: 'Open Nimbalyst',
+      label: 'Open Glue',
       click: () => {
         const windows = BrowserWindow.getAllWindows();
         if (windows.length > 0) {

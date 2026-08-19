@@ -48,9 +48,9 @@ export function SecurityEncryptionSection({ orgId }: Props) {
           <MaterialSymbol icon="verified_user" size={22} fill />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="m-0 text-[15px] font-semibold text-[var(--nim-text)]">Encrypted by Nimbalyst</h3>
+          <h3 className="m-0 text-[15px] font-semibold text-[var(--nim-text)]">Encrypted by Glue</h3>
           <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-[var(--nim-text-muted)]">
-            Team data is encrypted in transit and at rest with keys managed by Nimbalyst. This is
+            Team data is encrypted in transit and at rest with keys managed by Glue. This is
             separate from Personal sync encryption, whose keys remain only on your devices.
           </p>
 
@@ -65,7 +65,7 @@ export function SecurityEncryptionSection({ orgId }: Props) {
                 This organization uses retired encryption
               </p>
               <p className="m-0 mt-1 select-text text-xs text-[var(--nim-text-muted)]">
-                It was never moved to Nimbalyst-managed encryption, which is now the only supported
+                It was never moved to Glue-managed encryption, which is now the only supported
                 mode. Team documents and trackers are unavailable for it. Create a new organization
                 and re-share this team&apos;s content.
               </p>

@@ -184,7 +184,7 @@ export function DatabasePanel(): React.ReactElement {
       : `about ${Math.round(ageHrs)} hour${ageHrs >= 1.5 ? 's' : ''}`;
     const ok = window.confirm(
       `Switch to the dry-run SQLite copy?\n\n`
-      + `Nimbalyst will:\n`
+      + `Glue will:\n`
       + `  1. Close the current PGLite database\n`
       + `  2. Copy anything new since the dry-run (${ageBlurb} ago)\n`
       + `  3. Make SQLite the active backend\n`
@@ -230,7 +230,7 @@ export function DatabasePanel(): React.ReactElement {
     if (!resp.success) {
       window.alert(`Rollback failed: ${resp.error}`);
     } else {
-      window.alert(`Restored from ${resp.restoredFrom}. Please relaunch Nimbalyst.`);
+      window.alert(`Restored from ${resp.restoredFrom}. Please relaunch Glue.`);
     }
     void loadStatus();
   }, [loadStatus]);
@@ -756,7 +756,7 @@ function AdoptDryRunSection({
       </div>
       <p className="text-xs text-[var(--nim-text-muted)] mb-3">
         A successful dry-run from {ageBlurb} is saved on disk
-        ({available.totalRows.toLocaleString()} rows). Nimbalyst can promote
+        ({available.totalRows.toLocaleString()} rows). Glue can promote
         it to be your active database — it&apos;ll copy anything new since the
         dry-run, then flip the backend flag. The current PGLite directory is
         preserved for rollback.
@@ -785,7 +785,7 @@ function AdoptDryRunSection({
         <div className="mt-3 p-3 rounded-md border border-[var(--nim-border)] bg-[var(--nim-bg-primary)] text-sm text-[var(--nim-text)]">
           Switched to SQLite. Caught up {result.rowsAdded.toLocaleString()} new
           row{result.rowsAdded === 1 ? '' : 's'} in {formatDuration(result.durationMs)}.
-          Please relaunch Nimbalyst for the change to take effect.
+          Please relaunch Glue for the change to take effect.
         </div>
       )}
     </div>

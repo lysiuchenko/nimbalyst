@@ -143,7 +143,7 @@ export function createWorkspaceManagerWindow(options: WorkspaceManagerWindowOpti
     height: 700,
     minWidth: 900,
     minHeight: 600,
-    title: 'Project Manager - Nimbalyst',
+    title: 'Project Manager - Glue',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

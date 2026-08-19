@@ -97,7 +97,7 @@ export function NotificationsPanel() {
 
     const result = await window.electronAPI.invoke('notifications:show-test');
     if (result?.success) {
-      setNotificationHelp('A test notification was sent. If you do not see it, open your OS notification settings and allow Nimbalyst notifications.');
+      setNotificationHelp('A test notification was sent. If you do not see it, open your OS notification settings and allow Glue notifications.');
     } else {
       setNotificationHelp(result?.error || 'Failed to show a test notification.');
     }

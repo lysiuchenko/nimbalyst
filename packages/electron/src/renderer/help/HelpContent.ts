@@ -70,8 +70,8 @@ export const HelpContent: Record<string, HelpEntry> = {
     body: 'Invite members and open room settings — rename, edit the topic, manage membership and room admins, allow or block agent posting, or archive the room. Available to room admins and organization admins.',
   },
   'org-window-status-bar': {
-    title: 'Nimbalyst Teams is in beta',
-    body: 'Expect bugs.\n\nOrganizations are free during beta and will require a paid Nimbalyst Teams subscription after launch; existing organizations get advance notice before any pricing change.',
+    title: 'Glue Teams is in beta',
+    body: 'Expect bugs.\n\nOrganizations are free during beta and will require a paid Glue Teams subscription after launch; existing organizations get advance notice before any pricing change.',
   },
 
   // ============================================================================
@@ -115,7 +115,7 @@ export const HelpContent: Record<string, HelpEntry> = {
   },
   'file-tree-refresh-button': {
     title: 'Refresh File Tree',
-    body: 'Reload the file list from disk to pick up files added or removed outside Nimbalyst.',
+    body: 'Reload the file list from disk to pick up files added or removed outside Glue.',
   },
 
   // ============================================================================
@@ -244,7 +244,7 @@ export const HelpContent: Record<string, HelpEntry> = {
 
   'tracker-automation-section': {
     title: 'Tracker Automation',
-    body: `Automatically connect git commits to your tracker items. When enabled, Nimbalyst links commits via the session's tracker items and by parsing issue keys (e.g. **NIM-123**) from commit messages — including commits made in your terminal.\n\nFor project-specific behavior, add instructions to your project's **CLAUDE.md** (e.g. "always reference tracker issue keys in commits" or "don't auto-close critical bugs without review").`,
+    body: `Automatically connect git commits to your tracker items. When enabled, Glue links commits via the session's tracker items and by parsing issue keys (e.g. **NIM-123**) from commit messages — including commits made in your terminal.\n\nFor project-specific behavior, add instructions to your project's **CLAUDE.md** (e.g. "always reference tracker issue keys in commits" or "don't auto-close critical bugs without review").`,
   },
 
   // ============================================================================
@@ -300,11 +300,11 @@ export const HelpContent: Record<string, HelpEntry> = {
   },
   'model-picker-provider-claude-code': {
     title: 'Claude Agent (Claude Code Based)',
-    body: 'The in-app agent built on Claude Code with full Nimbalyst integration: it sees your active document and selection, renders the rich inline transcript, and tracks every file it edits. Uses your configured Anthropic API key.',
+    body: 'The in-app agent built on Claude Code with full Glue integration: it sees your active document and selection, renders the rich inline transcript, and tracks every file it edits. Uses your configured Anthropic API key.',
   },
   'model-picker-provider-claude-code-cli': {
     title: 'Claude Code CLI (Terminal Mode)',
-    body: 'Runs the genuine claude terminal binary in an embedded terminal, billed to your Claude subscription. You get native CLI behavior — its slash commands and TUI — in the Raw terminal drawer, while Nimbalyst mirrors the conversation into the rich transcript.',
+    body: 'Runs the genuine claude terminal binary in an embedded terminal, billed to your Claude subscription. You get native CLI behavior — its slash commands and TUI — in the Raw terminal drawer, while Glue mirrors the conversation into the rich transcript.',
   },
   'action-prompts-dropdown': {
     title: 'Action Prompts',

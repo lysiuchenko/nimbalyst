@@ -29,7 +29,7 @@ const COPY: Record<AccountLoginMode, { title: string; description: string }> = {
   // first-time user must not be told to sign in to one they do not have.
   'org-onboarding': {
     title: 'Sign in, or create your account',
-    description: 'An organization belongs to a Nimbalyst account — either method works, new or existing.',
+    description: 'An organization belongs to a Glue account — either method works, new or existing.',
   },
   'add-account': {
     title: 'Add another account',
@@ -173,7 +173,7 @@ export function AccountLoginForm({ mode, account }: AccountLoginFormProps) {
       {!embedded && (
         <div className="account-login-brand mb-5 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--nim-primary)] text-sm font-bold text-white">N</span>
-          <span className="text-sm font-semibold">Nimbalyst</span>
+          <span className="text-sm font-semibold">Glue</span>
         </div>
       )}
 

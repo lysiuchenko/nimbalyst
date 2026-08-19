@@ -1172,7 +1172,7 @@ export async function createApplicationMenu() {
             label: 'Developer',
             submenu: [
                 {
-                    label: 'For assisting the development of Nimbalyst',
+                    label: 'For assisting the development of Glue',
                     enabled: false
                 },
                 { type: 'separator' },
@@ -1564,7 +1564,7 @@ export async function createApplicationMenu() {
             label: app.getName(),
             submenu: [
                 {
-                    label: 'About Nimbalyst',
+                    label: 'About Glue',
                     click: async () => {
                         createAboutWindow();
                     }
@@ -1679,7 +1679,7 @@ export async function createApplicationMenu() {
                         } else {
                             dialog.showErrorBox(
                                 'SDK Documentation Not Found',
-                                'The Extension SDK documentation could not be found. Please reinstall Nimbalyst.'
+                                'The Extension SDK documentation could not be found. Please reinstall Glue.'
                             );
                         }
                     }
@@ -1848,7 +1848,7 @@ export async function createApplicationMenu() {
                         } else {
                             dialog.showErrorBox(
                                 'SDK Documentation Not Found',
-                                'The Extension SDK documentation could not be found. Please reinstall Nimbalyst.'
+                                'The Extension SDK documentation could not be found. Please reinstall Glue.'
                             );
                         }
                     }
@@ -1953,7 +1953,7 @@ export async function createApplicationMenu() {
                 },
                 { type: 'separator' },
                 {
-                    label: 'About Nimbalyst',
+                    label: 'About Glue',
                     click: async () => {
                         createAboutWindow();
                     }
@@ -1998,7 +1998,7 @@ function isAboutWindow(window: BrowserWindow): boolean {
         return false;
     }
     // Check if this is the about window by checking the title
-    return window.getTitle() === 'About Nimbalyst';
+    return window.getTitle() === 'About Glue';
 }
 
 // Helper to check if window is workspace manager window
@@ -2008,5 +2008,5 @@ function isWorkspaceManagerWindow(window: BrowserWindow): boolean {
         return false;
     }
     // Check if this is the workspace manager window by checking the title
-    return window.getTitle() === 'Project Manager - Nimbalyst';
+    return window.getTitle() === 'Project Manager - Glue';
 }

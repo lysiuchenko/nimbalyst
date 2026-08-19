@@ -15,7 +15,7 @@ interface ProjectSummary {
  * created an org project no workspace could ever resolve to.
  */
 const ADD_PROJECT_HINT =
-  'To add a project, open it in Nimbalyst and go to Project Settings → Sharing → Add to an existing organization.';
+  'To add a project, open it in Glue and go to Project Settings → Sharing → Add to an existing organization.';
 
 export function OrganizationProjectsPanel({
   orgId,

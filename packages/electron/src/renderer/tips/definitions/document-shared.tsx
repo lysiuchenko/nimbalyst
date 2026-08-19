@@ -28,7 +28,7 @@ export const documentSharedTip: TipDefinition = {
   content: {
     icon: LinkIcon,
     title: 'Share documents with one link',
-    body: 'Right-click a file and pick **Share** to publish an end-to-end-encrypted link. Recipients open it in a browser -- no Nimbalyst account needed.',
+    body: 'Right-click a file and pick **Share** to publish an end-to-end-encrypted link. Recipients open it in a browser -- no Glue account needed.',
     action: {
       label: 'Manage Shared Links',
       onClick: () => {

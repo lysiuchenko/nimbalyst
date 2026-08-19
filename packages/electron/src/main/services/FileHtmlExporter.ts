@@ -127,7 +127,7 @@ ${getStylesheet()}
   <div class="brand-bar">
     <a href="https://nimbalyst.com" target="_blank" rel="noopener" class="brand-link">
       ${getNimbalystIconSvg()}
-      <span class="brand-text">Shared from <strong>Nimbalyst</strong></span>
+      <span class="brand-text">Shared from <strong>Glue</strong></span>
     </a>
     <div class="brand-actions">
       <button onclick="downloadMarkdown()" class="download-btn" title="Download as Markdown">
@@ -148,7 +148,7 @@ ${getStylesheet()}
   <footer class="footer">
     <a href="https://nimbalyst.com" target="_blank" rel="noopener" class="brand-link">
       ${getNimbalystIconSvg()}
-      <span class="brand-text">Shared from <strong>Nimbalyst</strong></span>
+      <span class="brand-text">Shared from <strong>Glue</strong></span>
     </a>
   </footer>
 

@@ -87,7 +87,7 @@ export function ReleaseNotesDialog({
 
         {/* Header */}
         <div className="update-dialog-header mb-4 pr-8">
-          <h2 className="update-dialog-title text-lg font-semibold text-[var(--nim-text)] m-0">A new version of Nimbalyst is available!</h2>
+          <h2 className="update-dialog-title text-lg font-semibold text-[var(--nim-text)] m-0">A new version of Glue is available!</h2>
         </div>
 
         {/* Version comparison */}
@@ -130,7 +130,7 @@ export function ReleaseNotesDialog({
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
             </svg>
-            Update to Nimbalyst {newVersion}
+            Update to Glue {newVersion}
           </button>
         </div>
       </div>

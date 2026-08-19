@@ -21,7 +21,7 @@ export function createAboutWindow() {
         minimizable: false,
         maximizable: false,
         fullscreenable: false,
-        title: 'About Nimbalyst',
+        title: 'About Glue',
         show: false,
         backgroundColor: isDarkTheme ? '#2d2d2d' : '#ffffff',
         titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',

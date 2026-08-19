@@ -14,7 +14,7 @@ import { MaterialSymbol } from '@nimbalyst/runtime/ui/icons/MaterialSymbol';
 import { HelpTooltip } from '../../help';
 
 export const ORG_WINDOW_BETA_STATUS =
-  'Nimbalyst Teams beta — expect bugs; organizations are free during beta.';
+  'Glue Teams beta — expect bugs; organizations are free during beta.';
 
 /** Fixed content, so it is memoized and never repaints with a navigation. */
 export const OrgWindowStatusBar = React.memo(function OrgWindowStatusBar() {

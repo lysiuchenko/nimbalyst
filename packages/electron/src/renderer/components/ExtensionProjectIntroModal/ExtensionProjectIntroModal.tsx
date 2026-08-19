@@ -11,7 +11,7 @@ const capabilities = [
   { icon: 'edit_note', text: 'Custom editors for any file type, with native look and feel' },
   { icon: 'view_sidebar', text: 'Side panels and workspace views for dashboards and live status' },
   { icon: 'psychology', text: 'AI tools that Claude can use while working in your project' },
-  { icon: 'deployed_code', text: 'In-app dev loop — build, install, and reload without leaving Nimbalyst' },
+  { icon: 'deployed_code', text: 'In-app dev loop — build, install, and reload without leaving Glue' },
 ];
 
 export const ExtensionProjectIntroModal: React.FC<ExtensionProjectIntroModalProps> = ({
@@ -40,7 +40,7 @@ export const ExtensionProjectIntroModal: React.FC<ExtensionProjectIntroModalProp
           </h2>
           <p className="mt-2 text-[14px] leading-6 text-nim-muted">
             Extensions add custom editors, AI tools, commands, panels, and more.
-            Nimbalyst loads your extension live while you develop.
+            Glue loads your extension live while you develop.
           </p>
         </div>
 

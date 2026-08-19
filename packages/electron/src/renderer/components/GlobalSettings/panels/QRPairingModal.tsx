@@ -223,7 +223,7 @@ export function QRPairingModal({ isOpen, onClose, serverUrl, preventSleepMode, o
               </div>
 
               <div className="qr-instructions text-sm text-nim-muted space-y-1 mb-4">
-                <p className="qr-step">1. Open Nimbalyst on your mobile device</p>
+                <p className="qr-step">1. Open Glue on your mobile device</p>
                 <p className="qr-step">2. Go to Settings and tap "Scan QR Code"</p>
                 <p className="qr-step">3. Point your camera at this QR code</p>
                 <p className="qr-step">4. Sign in with the same account as desktop</p>

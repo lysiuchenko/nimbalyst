@@ -38,7 +38,7 @@ export function UpdateAvailableToast({
         className="update-toast-title text-sm font-semibold text-[var(--nim-text)] mb-1 pr-7"
         data-testid="update-toast-version"
       >
-        New Version: Nimbalyst {version}
+        New Version: Glue {version}
       </div>
       <div className="update-toast-subtitle text-xs text-[var(--nim-text-muted)] leading-normal mb-4">
         There's a new app update available to download

@@ -96,7 +96,7 @@ export function BetaFeaturesPanel() {
           ))}
         </div>
         <p className="mt-3 p-2 text-[13px] text-[var(--nim-text-muted)] bg-nim-secondary rounded border border-nim">
-          Some beta features may require restarting Nimbalyst to take effect.
+          Some beta features may require restarting Glue to take effect.
         </p>
       </div>
     </div>

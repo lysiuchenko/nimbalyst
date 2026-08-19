@@ -59,7 +59,7 @@ export function McpLockdownBanner({ provider }: McpLockdownBannerProps) {
       <div className="mcp-lockdown-banner__info flex items-start gap-2 select-text">
         <MaterialSymbol icon="policy" size={16} className="mcp-lockdown-banner__icon text-nim-warning mt-0.5" />
         <span className="mcp-lockdown-banner__text text-xs text-nim-warning leading-snug">
-          This machine has an enterprise Claude Code MCP policy, so Nimbalyst&apos;s own tools are unavailable in
+          This machine has an enterprise Claude Code MCP policy, so Glue&apos;s own tools are unavailable in
           this session — no interactive question widgets, session naming, tracker tools, or extension tools. Claude
           Code itself runs normally on your organization&apos;s servers.
         </span>

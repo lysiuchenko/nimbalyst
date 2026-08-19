@@ -192,7 +192,7 @@ export class TeamInboxNotificationService {
       cleanLabel(delivery.actor?.sessionName) ??
       cleanLabel(resolvedMemberLabel) ??
       "A teammate";
-    const orgName = cleanLabel(delivery.orgName) ?? "Nimbalyst Teams";
+    const orgName = cleanLabel(delivery.orgName) ?? "Glue Teams";
     const body = `${sender}: ${boundedSnippet(delivery.preview?.snippet)}`;
 
     if (

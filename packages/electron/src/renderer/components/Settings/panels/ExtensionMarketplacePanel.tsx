@@ -465,7 +465,7 @@ export function ExtensionMarketplacePanel({
         <div className="mb-6 pb-4 border-b border-[var(--nim-border)]">
           <h3 className="text-xl font-semibold leading-tight mb-2 text-[var(--nim-text)]">Extension Marketplace</h3>
           <p className="text-sm leading-relaxed text-[var(--nim-text-muted)]">
-            Discover and install extensions to enhance your Nimbalyst workspace.
+            Discover and install extensions to enhance your Glue workspace.
           </p>
         </div>
 
@@ -486,9 +486,9 @@ export function ExtensionMarketplacePanel({
                   <li>Interacting with other installed extensions</li>
                 </ul>
                 <p className="m-0">
-                  Only install extensions from sources you trust. Nimbalyst does not review or verify
+                  Only install extensions from sources you trust. Glue does not review or verify
                   third-party extensions installed from GitHub URLs. Marketplace extensions published
-                  by Nimbalyst are reviewed for safety.
+                  by Glue are reviewed for safety.
                 </p>
               </div>
             </div>
@@ -756,7 +756,7 @@ export function ExtensionMarketplacePanel({
           </button>
         </div>
         <p className="text-xs text-[var(--nim-text-faint)] mt-2 m-0">
-          Paste a GitHub repository URL containing a Nimbalyst extension (must have manifest.json).
+          Paste a GitHub repository URL containing a Glue extension (must have manifest.json).
         </p>
       </div>
     </div>
@@ -989,7 +989,7 @@ export function ExtensionMarketplacePanel({
         <div>
           <h3 className="text-xl font-semibold leading-tight mb-2 text-[var(--nim-text)]">Extension Marketplace</h3>
           <p className="text-sm leading-relaxed text-[var(--nim-text-muted)]">
-            Discover and install extensions to enhance your Nimbalyst workspace.
+            Discover and install extensions to enhance your Glue workspace.
           </p>
         </div>
         {onViewInstalled && (

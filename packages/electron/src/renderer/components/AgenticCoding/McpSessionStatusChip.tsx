@@ -237,7 +237,7 @@ export function McpSessionStatusChip({ sessionId, provider }: McpSessionStatusCh
                 from its own settings can be healthy and still not listed. Say
                 so rather than implying the list is exhaustive. */}
             <div className="mcp-session-status-popover-foot mt-1 px-3 py-2 border-t border-[var(--nim-border)] text-[0.625rem] leading-snug text-[var(--nim-text-faint)]">
-              Reflects the servers Nimbalyst passed to this session. Servers the CLI reads from its own settings may not appear here.
+              Reflects the servers Glue passed to this session. Servers the CLI reads from its own settings may not appear here.
             </div>
           </div>
         </FloatingPortal>
