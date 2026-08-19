@@ -2,7 +2,7 @@
  * Settings Control tool surface (`settings_*` / `workspace_*` / `appearance_*` / …)
  *
  * Exposes a curated, action-shaped surface for an AI agent to inspect and
- * change Nimbalyst settings on the user's behalf. All mutations route through
+ * change Glue settings on the user's behalf. All mutations route through
  * SettingsControlService which enforces the allow-list, deny-list, rate-limit,
  * and audit logging.
  *
@@ -24,7 +24,7 @@ const TOOLS = [
   {
     name: "settings_get_overview",
     description:
-      "Return a curated, redacted snapshot of Nimbalyst settings (app-level + current workspace). NEVER includes API keys, auth tokens, or secrets. Includes Stytch auth state booleans so you can tell whether sync prerequisites are met. Use this before changing anything so you can show the user what's currently set.",
+      "Return a curated, redacted snapshot of Glue settings (app-level + current workspace). NEVER includes API keys, auth tokens, or secrets. Includes Stytch auth state booleans so you can tell whether sync prerequisites are met. Use this before changing anything so you can show the user what's currently set.",
     inputSchema: {
       type: "object",
       properties: {},

@@ -1,15 +1,15 @@
 /**
  * MCP Server for Extension Development Kit (EDK)
  *
- * Provides tools for building, installing, and hot-reloading Nimbalyst extensions.
+ * Provides tools for building, installing, and hot-reloading Glue extensions.
  * These tools enable Claude to iterate on extension development within the running app.
  *
  * Tools:
  * - extension:build - Run vite build on an extension project
- * - extension:install - Install a built extension into the running Nimbalyst
+ * - extension:install - Install a built extension into the running Glue
  * - extension:reload - Hot reload an extension (rebuild + reinstall)
  * - extension:uninstall - Remove an extension from the running instance
- * - restart_nimbalyst - Restart the Nimbalyst application (only when user explicitly requests)
+ * - restart_nimbalyst - Restart the Glue application (only when user explicitly requests)
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -529,7 +529,7 @@ function validateBuiltExtension(
             .join(", ");
           warnings.push({
             field: "src/index.ts",
-            message: `Extension has customEditors but no "components" export found in the built output.\n\nYour entry point (src/index.ts) must export a "components" object that maps component names to React components:\n\nexport const components = {\n  ${componentNames}: YourComponentFunction,\n};\n\nThe keys must match the "component" field in manifest.json contributions.customEditors[].component.\n\nYou are currently only exporting the component directly (e.g., "export { ${componentNames} }") but Nimbalyst requires a "components" object wrapper.`,
+            message: `Extension has customEditors but no "components" export found in the built output.\n\nYour entry point (src/index.ts) must export a "components" object that maps component names to React components:\n\nexport const components = {\n  ${componentNames}: YourComponentFunction,\n};\n\nThe keys must match the "component" field in manifest.json contributions.customEditors[].component.\n\nYou are currently only exporting the component directly (e.g., "export { ${componentNames} }") but Glue requires a "components" object wrapper.`,
             severity: "error",
           });
         } else {
@@ -828,7 +828,7 @@ function createExtensionDevMcpServer(
         {
           name: "extension_build",
           description:
-            "Build a Nimbalyst extension project. Runs `npm run build` in the extension directory and returns the build output.",
+            "Build a Glue extension project. Runs `npm run build` in the extension directory and returns the build output.",
           inputSchema: {
             type: "object",
             properties: {
@@ -844,7 +844,7 @@ function createExtensionDevMcpServer(
         {
           name: "extension_install",
           description:
-            "Install a built extension into the running Nimbalyst instance. The extension must be built first using extension_build.",
+            "Install a built extension into the running Glue instance. The extension must be built first using extension_build.",
           inputSchema: {
             type: "object",
             properties: {
@@ -860,7 +860,7 @@ function createExtensionDevMcpServer(
         {
           name: "extension_reload",
           description:
-            "Hot reload an installed extension. Rebuilds the extension and reinstalls it without restarting Nimbalyst.",
+            "Hot reload an installed extension. Rebuilds the extension and reinstalls it without restarting Glue.",
           inputSchema: {
             type: "object",
             properties: {
@@ -880,7 +880,7 @@ function createExtensionDevMcpServer(
         {
           name: "extension_uninstall",
           description:
-            "Remove an installed extension from the running Nimbalyst instance.",
+            "Remove an installed extension from the running Glue instance.",
           inputSchema: {
             type: "object",
             properties: {
@@ -896,7 +896,7 @@ function createExtensionDevMcpServer(
         {
           name: "restart_nimbalyst",
           description:
-            "Restart the Nimbalyst application. Only use this tool when the user explicitly asks you to restart Nimbalyst. This will close all windows and relaunch the app. All active AI sessions will automatically continue after restart with a continuation message.",
+            "Restart the Glue application. Only use this tool when the user explicitly asks you to restart Glue. This will close all windows and relaunch the app. All active AI sessions will automatically continue after restart with a continuation message.",
           inputSchema: {
             type: "object",
             properties: {},
@@ -921,7 +921,7 @@ function createExtensionDevMcpServer(
         {
           name: "database_query",
           description:
-            "Execute a SELECT query against the Nimbalyst PGLite database. Only SELECT queries are allowed for safety. Useful for debugging and inspecting application state. Available tables include: ai_sessions, ai_agent_messages, document_history, session_files, queued_prompts, tracker_items.",
+            "Execute a SELECT query against the Glue PGLite database. Only SELECT queries are allowed for safety. Useful for debugging and inspecting application state. Available tables include: ai_sessions, ai_agent_messages, document_history, session_files, queued_prompts, tracker_items.",
           inputSchema: {
             type: "object",
             properties: {
@@ -937,7 +937,7 @@ function createExtensionDevMcpServer(
         {
           name: "get_environment_info",
           description:
-            "Get information about the Nimbalyst environment including whether the app is running in development mode or as a packaged build. Use this to verify code changes will take effect.",
+            "Get information about the Glue environment including whether the app is running in development mode or as a packaged build. Use this to verify code changes will take effect.",
           inputSchema: {
             type: "object",
             properties: {},
@@ -1015,7 +1015,7 @@ function createExtensionDevMcpServer(
               {
                 name: "renderer_eval",
                 description:
-                  "Execute JavaScript in the Nimbalyst renderer context. Only available in development mode. Useful for debugging, inspecting DOM state, and checking computed styles. Supports async/await expressions.",
+                  "Execute JavaScript in the Glue renderer context. Only available in development mode. Useful for debugging, inspecting DOM state, and checking computed styles. Supports async/await expressions.",
                 inputSchema: {
                   type: "object",
                   properties: {
@@ -1036,7 +1036,7 @@ function createExtensionDevMcpServer(
               {
                 name: "capture_heap_snapshot",
                 description:
-                  "Capture a V8 heap snapshot of the Nimbalyst renderer for this workspace without opening DevTools. Returns the .heapsnapshot path and file size. Development builds only; capture can pause the renderer for a substantial period.",
+                  "Capture a V8 heap snapshot of the Glue renderer for this workspace without opening DevTools. Returns the .heapsnapshot path and file size. Development builds only; capture can pause the renderer for a substantial period.",
                 inputSchema: {
                   type: "object",
                   properties: {},
@@ -1061,14 +1061,14 @@ function createExtensionDevMcpServer(
               {
                 name: "extension_test_run",
                 description:
-                  "Run a Playwright test script against the running Nimbalyst instance via CDP. The agent writes real Playwright code (locators, assertions, interactions) and this tool executes it. Supports inline scripts or test file paths. Tests run against the live app -- full Playwright API available. The `page` fixture automatically connects to the correct Nimbalyst window for this workspace, even when multiple windows are open.",
+                  "Run a Playwright test script against the running Glue instance via CDP. The agent writes real Playwright code (locators, assertions, interactions) and this tool executes it. Supports inline scripts or test file paths. Tests run against the live app -- full Playwright API available. The `page` fixture automatically connects to the correct Glue window for this workspace, even when multiple windows are open.",
                 inputSchema: {
                   type: "object",
                   properties: {
                     script: {
                       type: "string",
                       description:
-                        "Inline Playwright script to execute. Write code as if inside an async test function with `page` already connected to the correct Nimbalyst window for this workspace. Example: `await page.locator('.my-btn').click(); await expect(page.locator('.result')).toHaveText('Done');`",
+                        "Inline Playwright script to execute. Write code as if inside an async test function with `page` already connected to the correct Glue window for this workspace. Example: `await page.locator('.my-btn').click(); await expect(page.locator('.result')).toHaveText('Done');`",
                     },
                     testFile: {
                       type: "string",
@@ -1086,7 +1086,7 @@ function createExtensionDevMcpServer(
               {
                 name: "extension_test_open_file",
                 description:
-                  "Visibly open and focus a file tab in Nimbalyst for Playwright testing, then wait for the editor to mount. This interrupts the user's active tab. Use only when a test must interact with a mounted UI; never use it as a prerequisite for extension AI tools, which mount hidden editors automatically.",
+                  "Visibly open and focus a file tab in Glue for Playwright testing, then wait for the editor to mount. This interrupts the user's active tab. Use only when a test must interact with a mounted UI; never use it as a prerequisite for extension AI tools, which mount hidden editors automatically.",
                 inputSchema: {
                   type: "object",
                   properties: {
@@ -1524,7 +1524,7 @@ function createExtensionDevMcpServer(
       }
 
       case "restart_nimbalyst": {
-        console.log("[Extension Dev MCP] Restarting Nimbalyst...");
+        console.log("[Extension Dev MCP] Restarting Glue...");
 
         const { app } = await import("electron");
 
@@ -1618,7 +1618,7 @@ function createExtensionDevMcpServer(
           app.quit();
 
           return {
-            content: [{ type: "text", text: "Restarting Nimbalyst..." }],
+            content: [{ type: "text", text: "Restarting Glue..." }],
             isError: false,
           };
         }
@@ -1829,18 +1829,18 @@ function createExtensionDevMcpServer(
         const isPackaged = app.isPackaged;
         const appVersion = app.getVersion();
 
-        let responseText = `Nimbalyst Environment Info:\n\n`;
+        let responseText = `Glue Environment Info:\n\n`;
         responseText += `- App Version: ${appVersion}\n`;
         responseText += `- Development Mode: ${isDev ? "YES" : "NO"}\n`;
         responseText += `- Packaged Build: ${isPackaged ? "YES" : "NO"}\n`;
         responseText += `- NODE_ENV: ${process.env.NODE_ENV || "not set"}\n`;
 
         if (!isDev || isPackaged) {
-          responseText += `\nWARNING: Nimbalyst is running as a PACKAGED BUILD, not in development mode.\n`;
+          responseText += `\nWARNING: Glue is running as a PACKAGED BUILD, not in development mode.\n`;
           responseText += `Code changes you make will NOT be reflected in this running instance.\n`;
           responseText += `Ask the user to run the dev server (npm run dev) if they want to test code changes.`;
         } else {
-          responseText += `\nNimbalyst is running in development mode. Code changes will be reflected after hot reload or restart.`;
+          responseText += `\nGlue is running in development mode. Code changes will be reflected after hot reload or restart.`;
         }
 
         return {
@@ -2330,7 +2330,7 @@ const test = base.extend<{ page: import('playwright').Page }>({
       }
       if (mainPage) break;
     }
-    if (!mainPage) throw new Error('No Nimbalyst window found for workspace: ' + WORKSPACE_PATH);
+    if (!mainPage) throw new Error('No Glue window found for workspace: ' + WORKSPACE_PATH);
     await use(mainPage);
     browser.close();
   },
@@ -2374,7 +2374,7 @@ ${script}
                       "../../e2e_test_output/extension-tests-tmp"
                     ),
                 // Allow external test files to resolve @playwright/test
-                // from Nimbalyst's node_modules
+                // from Glue's node_modules
                 NODE_PATH: path.resolve(packageRoot, "../../node_modules"),
               },
             }

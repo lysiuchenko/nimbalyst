@@ -711,7 +711,7 @@ export const SESSION_CONTEXT_TOOL_SCHEMAS = [
     name: "schedule_wakeup",
     description:
       "Schedule the current session to be re-invoked with a prompt after a delay. " +
-      "Persists across Nimbalyst restarts but only fires while Nimbalyst is running. " +
+      "Persists across Glue restarts but only fires while Glue is running. " +
       "If the workspace window is closed when the wakeup fires, it waits until the workspace opens. " +
       "Replaces any existing pending wakeup for this session (one wakeup per session at a time).",
     inputSchema: {
