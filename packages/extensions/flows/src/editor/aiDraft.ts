@@ -8,9 +8,10 @@ import { LIBRARY_FLOWS } from '../library/catalog';
  *
  * The model never touches the canvas: its JSON passes `validateFlow` — the
  * same gate every hand-written flow passes — and an invalid draft goes back to
- * it once, as the validator's own precise error list. Still invalid after the
- * repair → the caller gets the errors and the canvas stays untouched. The
- * failure mode is a message, never a broken document.
+ * it, as the validator's own precise error list, for up to MAX_REPAIR_TURNS
+ * corrections. Still invalid after the budget is spent → the caller gets the
+ * errors and the canvas stays untouched. The failure mode is a message, never
+ * a broken document.
  */
 
 /** The one host capability the loop needs, injected for testability. */
@@ -121,21 +122,24 @@ export async function editFlow(
   return generate(model, prompt, `Flow editing`);
 }
 
+const MAX_REPAIR_TURNS = 3;
+
 async function generate(
   model: DraftModel,
   prompt: string,
   sessionName: string
 ): Promise<DraftResult> {
+  // Turn 0 drafts; turns 1..MAX_REPAIR_TURNS feed the validator's own error
+  // list back — the best repair prompt there is — until valid or budget spent.
   let attempt = await askAndValidate(model, prompt, sessionName);
-  if ('flow' in attempt) return attempt;
-
-  // One repair turn: the validator's own error list is the best prompt there is.
-  const repair =
-    `${prompt}\n\nYour previous attempt was rejected by the validator:\n` +
-    attempt.errors.map((error) => `- ${error.path}: ${error.message}`).join('\n') +
-    `\n\nFix every listed problem and reply with ONLY the corrected flow JSON.`;
-  attempt = await askAndValidate(model, repair, sessionName);
-  return attempt;
+  for (let turn = 1; turn <= MAX_REPAIR_TURNS && !('flow' in attempt); turn += 1) {
+    const repair =
+      `${prompt}\n\nYour previous attempt was rejected by the validator:\n` +
+      attempt.errors.map((error) => `- ${error.path}: ${error.message}`).join('\n') +
+      `\n\nFix every listed problem and reply with ONLY the corrected flow JSON.`;
+    attempt = await askAndValidate(model, repair, sessionName);
+  }
+  return attempt; // on exhaustion this is the last validator errors — unchanged contract
 }
 
 async function askAndValidate(

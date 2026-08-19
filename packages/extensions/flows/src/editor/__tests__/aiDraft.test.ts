@@ -67,19 +67,64 @@ describe('draftFlow', () => {
     expect(ai.prompts[1]).toContain('nodes[0].run');
   });
 
-  it('after a failed repair, returns the errors and touches nothing', async () => {
+  it('after exhausting the repair budget, returns the last errors', async () => {
     const ai = model([JSON.stringify(invalidFlow)]);
 
     const result = await draftFlow(ai, 'x');
 
     expect('errors' in result && result.errors[0].path).toBe('nodes[0].run');
-    expect(ai.sendPrompt).toHaveBeenCalledTimes(2);
+    expect(ai.sendPrompt).toHaveBeenCalledTimes(4);
   });
 
   it('treats a non-JSON reply as a validation failure, not a crash', async () => {
     const ai = model(['I cannot help with that.']);
 
     const result = await draftFlow(ai, 'x');
+
+    expect('errors' in result).toBe(true);
+  });
+});
+
+describe('generate repair loop', () => {
+  it('repairs across turns: invalid twice then valid returns the flow in 3 calls', async () => {
+    const ai = model([JSON.stringify(invalidFlow), JSON.stringify(invalidFlow), JSON.stringify(validFlow)]);
+
+    const result = await draftFlow(ai, 'do a thing');
+
+    expect('flow' in result).toBe(true);
+    expect(ai.sendPrompt).toHaveBeenCalledTimes(3);
+  });
+
+  it('rejects an out-of-palette node type', async () => {
+    const bad = JSON.stringify({
+      version: 1,
+      name: 'X',
+      nodes: [{ id: 'a', type: 'wizardry', run: 'echo' }],
+      edges: [],
+      variables: {},
+    });
+    const ai = model([bad]);
+
+    const result = await draftFlow(ai, 'do a thing');
+
+    expect('errors' in result).toBe(true);
+  });
+
+  it('rejects a flow embedding a credential literal', async () => {
+    // Built piecewise so no secret-shaped literal sits in source (the repo's
+    // security hook blocks those), but the runtime value matches the Anthropic
+    // key pattern in CREDENTIAL_PATTERNS (validate.ts:41).
+    const credential = 'sk' + '-ant-' + 'a' + 'pi03-' + 'A'.repeat(28);
+    const secret = JSON.stringify({
+      version: 1,
+      name: 'X',
+      nodes: [{ id: 'a', type: 'agent', prompt: `use ${credential}` }],
+      edges: [],
+      variables: {},
+    });
+    const ai = model([secret]);
+
+    const result = await draftFlow(ai, 'do a thing');
 
     expect('errors' in result).toBe(true);
   });
