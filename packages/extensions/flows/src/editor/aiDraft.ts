@@ -1,5 +1,7 @@
 import type { Flow, ValidationError } from '../schema/types';
+import { NODE_TYPES, type NodeType } from '../schema/types';
 import { serializeFlow, validateFlow } from '../schema/validate';
+import { LIBRARY_FLOWS } from '../library/catalog';
 
 /**
  * Draft and edit flows from intent, guarded by the validator.
@@ -24,27 +26,70 @@ export interface DraftModel {
 
 export type DraftResult = { flow: Flow } | { errors: ValidationError[] };
 
+/** The field each palette type cannot do without. Record<NodeType> makes a
+ *  new node type a compile error until its required fields are declared —
+ *  the guide cannot silently omit a type. */
+const REQUIRED_FIELDS: Record<NodeType, readonly string[]> = {
+  agent: ['prompt'],
+  'fan-out': ['prompt', 'over'],
+  'slash-command': ['command'],
+  skill: ['skill'],
+  shell: ['run'],
+  'human-gate': ['message'],
+  'write-file': ['path', 'content'],
+};
+
+/** The commonly useful optional fields per type, shown so the model knows the
+ *  levers exist. Not an invariant — informational only. */
+const OPTIONAL_FIELDS: Record<NodeType, readonly string[]> = {
+  agent: ['model', 'provider', 'effortLevel', 'tools', 'worktree', 'retries', 'output'],
+  'fan-out': ['concurrency', 'model', 'provider', 'effortLevel', 'tools', 'worktree', 'output'],
+  'slash-command': ['args'],
+  skill: ['input', 'output'],
+  shell: ['cwd', 'output'],
+  'human-gate': [],
+  'write-file': [],
+};
+
+/** Semantic rules that are not derivable from the palette (edge routing,
+ *  interpolation, the no-secrets rule). Hand-written on purpose — these are
+ *  behavior, not the shape that drifts. */
+const SEMANTIC_RULES = `Edges: {"from":id,"to":id,"port":"the from-node's output name"?,"on":"failure"? — routes a failed step to a handler,"when":"{{from.port}} contains|==|!= \\"literal\\""? — data-driven routing}. Every edge "from"/"to" must reference a declared node "id". A node with several incoming edges waits for all of them; give it "join":"any" to run on the first live branch. In text fields {{node.port}} reads an upstream output, {{variable}} reads a variable, {{a.x ?? b.y ?? "fallback"}} takes the first that exists; a failed node publishes {{node.error}}.
+
+Rules: emit ONLY node types from the palette above. Never put secrets in the flow — name them \${env:NAME}. Prefer small flows with a human-gate before publishing or destructive steps. Omit "position"; the editor lays nodes out. A shell "run" must be a single allowlisted command (npm, npx, node, git, echo, ls, pwd, cat) — no pipes or && chaining.`;
+
+/** One real, validated flow from the library, serialized as few-shot. Real
+ *  flows are stronger anchors than a toy inline example. */
+function fewShot(id: string): string {
+  const entry = LIBRARY_FLOWS.find((f) => f.id === id);
+  if (!entry) throw new Error(`fewShot: no LIBRARY_FLOWS entry "${id}"`);
+  return serializeFlow(entry.flow);
+}
+
 /**
- * The schema, taught compactly. Kept in one place so the draft and edit
- * prompts cannot drift apart.
+ * The schema, taught from the real registry so draft and edit prompts cannot
+ * drift from `NODE_TYPES`/`FlowNode`. A new node type appears here automatically.
  */
-const SCHEMA_GUIDE = `A flow is JSON: {"version":1,"name":string,"nodes":[...],"edges":[...],"variables":{name:defaultValue}}.
+export function buildSchemaGuide(): string {
+  const palette = NODE_TYPES.map((type) => {
+    const req = REQUIRED_FIELDS[type].map((f) => `"${f}"`).join(', ');
+    const opt = OPTIONAL_FIELDS[type].map((f) => `"${f}"`).join(', ');
+    const optClause = opt ? ` — optional: ${opt}` : '';
+    return `- "${type}": requires "id"${req ? `, ${req}` : ''}${optClause}`;
+  }).join('\n');
 
-Node types (each needs "id", unique):
-- {"type":"shell","run":"one allowlisted command (npm,npx,node,git,echo,ls,pwd,cat) — no pipes or && chaining","output":"portName"?}
-- {"type":"agent","prompt":"what the agent should do","output":"portName"?,"model":null?,"provider":"claude-code"|"openai-codex"|"copilot-cli"?,"tools":["Read","Grep","Glob","Bash"]?,"worktree":true?,"retries":1-5?}  — never combine "tools" with a provider other than claude-code
-- {"type":"fan-out","prompt":"per-item prompt using {{item}}","over":"{{ref}} or literal list, one item per line","concurrency":number?,"worktree":true? — one sub-agent per item, in parallel}
-- {"type":"skill","skill":"name from .claude/skills","input":"text"?,"output":"portName"?}
-- {"type":"slash-command","command":"/name","args":"text"?}
-- {"type":"human-gate","message":"the question a person must answer"} — use before anything irreversible
-- {"type":"write-file","path":"workspace-relative, never absolute, never .git","content":"usually a {{ref}}"} — how a flow produces an artifact
+  return `A flow is JSON: {"version":1,"name":string,"nodes":[...],"edges":[...],"variables":{name:defaultValue}}.
 
-Edges: {"from":id,"to":id,"port":"the from-node's output name"?,"on":"failure"? — routes a failed step (a rejected gate included) to a handler,"when":"{{from.port}} contains|==|!= \\"literal\\""? — data-driven routing}.
-A node with several incoming edges waits for all of them; give it "join":"any" to run on the first live branch (how a conditional fork rejoins). In text fields, {{node.port}} reads an upstream output, {{variable}} reads a variable, {{a.x ?? b.y ?? "fallback"}} takes the first that exists; a failed node publishes {{node.error}}.
+Node types (the entire palette — emit only these; each node needs a unique "id"):
+${palette}
 
-Rules: never put secrets in the flow — name them \${env:NAME}. Prefer small flows with a human-gate before publishing or destructive steps. Omit "position"; the editor lays nodes out.`;
+${SEMANTIC_RULES}
 
-const EXAMPLE = `{"version":1,"name":"Release notes","nodes":[{"id":"log","type":"shell","run":"git log --oneline -30","output":"log"},{"id":"draft","type":"agent","prompt":"Write release notes from:\\n{{log.log}}","output":"notes"},{"id":"approve","type":"human-gate","message":"Publish these notes?"},{"id":"save","type":"write-file","path":"RELEASE_NOTES.md","content":"{{draft.notes}}"}],"edges":[{"from":"log","to":"draft","port":"log"},{"from":"draft","to":"approve"},{"from":"approve","to":"save"}],"variables":{}}`;
+Examples of real, valid flows in the exact output format:
+${fewShot('pr-review')}
+
+${fewShot('release-notes')}`;
+}
 
 /** Pull the JSON out of a reply that may wrap it in fences or prose. */
 export function extractJson(response: string): string {
@@ -59,8 +104,7 @@ export function extractJson(response: string): string {
 
 export async function draftFlow(model: DraftModel, description: string): Promise<DraftResult> {
   const prompt =
-    `Design a Nimbalyst flow for this request:\n\n${description}\n\n${SCHEMA_GUIDE}\n\n` +
-    `Example of the exact output format:\n${EXAMPLE}\n\n` +
+    `Design a Nimbalyst flow for this request:\n\n${description}\n\n${buildSchemaGuide()}\n\n` +
     `Reply with ONLY the flow JSON. No explanation, no markdown.`;
   return generate(model, prompt, `Flow drafting`);
 }
@@ -72,7 +116,7 @@ export async function editFlow(
 ): Promise<DraftResult> {
   const prompt =
     `Here is an existing Nimbalyst flow:\n\n${serializeFlow(current)}\n\n` +
-    `Apply this change:\n\n${instruction}\n\n${SCHEMA_GUIDE}\n\n` +
+    `Apply this change:\n\n${instruction}\n\n${buildSchemaGuide()}\n\n` +
     `Reply with ONLY the complete updated flow JSON. Keep everything the change does not touch, including node positions. No explanation, no markdown.`;
   return generate(model, prompt, `Flow editing`);
 }

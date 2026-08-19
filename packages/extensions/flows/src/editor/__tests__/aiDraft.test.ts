@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { draftFlow, editFlow, extractJson } from '../aiDraft';
+import { buildSchemaGuide, draftFlow, editFlow, extractJson } from '../aiDraft';
 import type { Flow } from '../../schema/types';
 
 const validFlow = {
@@ -95,5 +95,52 @@ describe('editFlow', () => {
     expect('flow' in result && result.flow.name).toBe('revised');
     expect(ai.prompts[0]).toContain('"name": "drafted"');
     expect(ai.prompts[0]).toContain('rename it to revised');
+  });
+});
+
+describe('buildSchemaGuide', () => {
+  it('names every palette type and each type\'s required fields', () => {
+    const guide = buildSchemaGuide();
+    const NODE_TYPES = [
+      'agent',
+      'fan-out',
+      'slash-command',
+      'skill',
+      'shell',
+      'human-gate',
+      'write-file',
+    ];
+    for (const type of NODE_TYPES) {
+      expect(guide).toContain(type);
+    }
+    // Check required fields for each type
+    expect(guide).toContain('prompt'); // agent, fan-out
+    expect(guide).toContain('over'); // fan-out
+    expect(guide).toContain('command'); // slash-command
+    expect(guide).toContain('skill'); // skill
+    expect(guide).toContain('run'); // shell
+    expect(guide).toContain('message'); // human-gate
+    expect(guide).toContain('path'); // write-file
+    expect(guide).toContain('content'); // write-file
+  });
+
+  it('states the no-secrets and declared-id rules', () => {
+    const guide = buildSchemaGuide();
+    expect(guide).toContain('${env:');
+    expect(guide.toLowerCase()).toContain('edge');
+  });
+
+  it('includes the shell run allowlist restriction', () => {
+    const guide = buildSchemaGuide();
+    expect(guide).toContain('npm');
+    expect(guide).toContain('npx');
+    expect(guide).toContain('no pipes');
+  });
+
+  it('populates few-shot examples from the library', () => {
+    const guide = buildSchemaGuide();
+    // pr-review's first node is 'scope'; if the few-shot example was populated,
+    // the serialized flow will contain this id.
+    expect(guide).toContain('"scope"');
   });
 });
