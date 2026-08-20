@@ -36,10 +36,10 @@ const RELEASE_DIR =
 
 describe("shouldSign", () => {
   it.each([
-    `${RELEASE_DIR}\\win-unpacked\\Nimbalyst.exe`,
-    `${RELEASE_DIR}\\Nimbalyst-Windows-x64.exe`,
-    `${RELEASE_DIR}\\Nimbalyst-Windows-arm64.exe`,
-    `${RELEASE_DIR}\\Nimbalyst-Windows-x64.__uninstaller.exe`,
+    `${RELEASE_DIR}\\win-unpacked\\Glue.exe`,
+    `${RELEASE_DIR}\\Glue-Windows-x64.exe`,
+    `${RELEASE_DIR}\\Glue-Windows-arm64.exe`,
+    `${RELEASE_DIR}\\Glue-Windows-x64.__uninstaller.exe`,
   ])("signs our own binary %s", (filePath) => {
     expect(shouldSign(filePath)).toBe(true);
   });
@@ -56,7 +56,7 @@ describe("shouldSign", () => {
   });
 
   it("skips a vendor binary that merely sits beside ours", () => {
-    expect(shouldSign(`${RELEASE_DIR}\\win-unpacked\\NimbalystHelper.exe`)).toBe(
+    expect(shouldSign(`${RELEASE_DIR}\\win-unpacked\\GlueHelper.exe`)).toBe(
       false
     );
   });
